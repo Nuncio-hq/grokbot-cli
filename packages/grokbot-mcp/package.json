@@ -1,0 +1,37 @@
+{
+  "name": "grokbot-mcp",
+  "version": "0.2.0",
+  "description": "MCP server over grokbot-core for driving a GrokBot workforce from any MCP-compatible agent.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20.3"
+  },
+  "bin": {
+    "grokbot-mcp": "dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "!dist/**/*.test.*",
+    "!dist/fixtures"
+  ],
+  "dependencies": {
+    "grokbot-core": "^0.2.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Nuncio-hq/grokbot-cli.git",
+    "directory": "packages/grokbot-mcp"
+  },
+  "keywords": [
+    "grokbot",
+    "grokbot-mcp",
+    "mcp",
+    "agents"
+  ],
+  "scripts": {
+    "build": "tsc -b && chmod +x dist/index.js"
+  }
+}
