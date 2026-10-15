@@ -1,0 +1,121 @@
+import { describe, expect, it } from "vitest";
+import { cards, PRIMARY } from "./fixtures/cli-fixtures.js";
+import { runCli } from "./fixtures/run-cli.js";
+
+const lines = (...text: string[]) => `${text.join("\n")}\n`;
+const sent = {
+  send: { jobId: "job-9", agent: PRIMARY, sentMessageId: "m-9" },
+} as const;
+
+describe("job commands in human mode", () => {
+  it("prints only the final reply for a done ask", async () => {
+    const outcome = {
+      status: "done",
+      finalReply: "RESULT: PONG\n",
+      replies: [],
+    } as const;
+    const run = await runCli(["ask", "ping", "--agent", "Primary Test"], {
+      outputs: { ask: { jobId: "job-1", agent: PRIMARY, outcome } },
+    });
+    expect(run).toMatchObject({
+      stdout: "RESULT: PONG\n",
+      stderr: "",
+      code: 0,
+    });
+  });
+
+  it("prints the job id on stdout and the resume hint on stderr when pending", async () => {
+    const reason =
+      "no Done verdict within 30000 ms (last: running, target-active)";
+    const outcome = { status: "pending", reason } as const;
+    const run = await runCli(["ask", "ping"], {
+      outputs: { ask: { jobId: "job-4", agent: PRIMARY, outcome } },
+    });
+    expect(run).toMatchObject({
+      stdout: "job-4\n",
+      stderr: lines(
+        `Not done yet: ${reason}`,
+        "Resume with: grokbot wait job-4",
+      ),
+      code: 4,
+    });
+  });
+
+  it("prints the approval reason and card types when awaiting", async () => {
+    const outcome = {
+      status: "awaiting-approval",
+      reason: "auto-review-approval",
+      cards: cards(["auto-review-approval", "secret-request"]),
+    } as const;
+    const run = await runCli(["wait", "job-3"], {
+      outputs: { wait: { jobId: "job-3", agentId: PRIMARY.agentId, outcome } },
+    });
+    expect(run).toMatchObject({
+      stdout: lines(
+        "Awaiting approval: auto-review-approval",
+        "Open cards: auto-review-approval, secret-request",
+      ),
+      stderr:
+        "To continue, run grokbot approve --yes or grokbot deny --yes; resolve it in the Grok Bot app. Then resume with: grokbot wait job-3\n",
+      code: 3,
+    });
+  });
+
+  it("points a widget at grokbot answer", async () => {
+    const outcome = {
+      status: "awaiting-approval",
+      reason: "Which color do you pick?",
+      cards: cards(["widget"]),
+    } as const;
+    const run = await runCli(["wait", "job-4"], {
+      outputs: { wait: { jobId: "job-4", agentId: PRIMARY.agentId, outcome } },
+    });
+    expect(run.stderr).toBe(
+      "To continue, answer it with: grokbot answer <value> (see grokbot approvals). Then resume with: grokbot wait job-4\n",
+    );
+    expect(run.code).toBe(3);
+  });
+
+  it("prints the job id for send", async () => {
+    const run = await runCli(["send", "build it"], { outputs: sent });
+    expect(run).toMatchObject({
+      stdout: "job-9\n",
+      stderr: "Sent to Primary Test. Get the reply with: grokbot wait job-9\n",
+      code: 0,
+    });
+  });
+});
+
+describe("--json output", () => {
+  it("prints exactly one JSON document and nothing on stderr", async () => {
+    const run = await runCli(["send", "build it", "--json"], { outputs: sent });
+    expect(JSON.parse(run.stdout)).toEqual({
+      jobId: "job-9",
+      agent: {
+        kind: "agent",
+        agentId: "f882ec52-17b1-4639-b0fc-07fed7526b09",
+        rowId: "11",
+        name: "Primary Test",
+        title: "",
+        description: "",
+        harness: "temporal",
+      },
+      sentMessageId: "m-9",
+    });
+    expect(run).toMatchObject({ stderr: "", code: 0 });
+  });
+
+  it.each([
+    [{ status: "pending", reason: "timed out" }, 4],
+    [{ status: "awaiting-approval", reason: "connector", cards: [] }, 3],
+  ] as const)(
+    "keeps exit codes without human hints for %j",
+    async (outcome, code) => {
+      const run = await runCli(["ask", "ping", "--json"], {
+        outputs: { ask: { jobId: "job-4", agent: PRIMARY, outcome } },
+      });
+      expect(JSON.parse(run.stdout).outcome).toEqual(outcome);
+      expect(run).toMatchObject({ stderr: "", code });
+    },
+  );
+});
