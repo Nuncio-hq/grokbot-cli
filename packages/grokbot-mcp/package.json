@@ -1,6 +1,6 @@
 {
   "name": "grokbot-mcp",
-  "version": "0.0.1",
+  "version": "0.1.1",
   "description": "MCP server over grokbot-core for driving a GrokBot workforce from any MCP-compatible agent.",
   "license": "MIT",
   "type": "module",
@@ -18,7 +18,7 @@
     "!dist/fixtures"
   ],
   "dependencies": {
-    "grokbot-core": "^0.0.1"
+    "grokbot-core": "^0.1.1"
   },
   "repository": {
     "type": "git",
