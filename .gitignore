@@ -1,0 +1,13 @@
+node_modules/
+dist/
+*.tsbuildinfo
+tsconfig.*.tsbuildinfo
+.env
+.env.*
+.DS_Store
+sand-secrets.json
+*.pem
+*.key
+coverage/
+*.pyc
+/tmp/

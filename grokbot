@@ -1,0 +1,223 @@
+#!/usr/bin/env python3
+"""grokbot — CLI for the Grok Bot desktop app's backend (aiserver.v1.GrokBotService).
+
+Reads the locally-running Grok Bot app's OAuth token from sand-secrets.json
+(macOS Keychain "Grok Bot Safe Storage", Electron safeStorage v10) and talks to
+https://api2.cursor.sh directly. No app round-trip needed.
+
+Commands:
+  grokbot agents                       list agents
+  grokbot ask "text" [--agent ID] [--timeout N]   send a message, wait for reply, print it
+  grokbot send "text" [--agent ID]     fire-and-forget
+  grokbot tail [-n N]                  recent transcript entries (decoded)
+  grokbot interrupt [--agent ID]       cancel the agent's active run
+
+Designed to be driven from other agents (e.g. Claude Code Bash tool).
+Add --json for machine-readable output.
+"""
+import argparse
+import base64
+import hashlib
+import json
+import os
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+import uuid
+
+BACKEND = "https://api2.cursor.sh"
+SECRETS = os.path.expanduser("~/Library/Application Support/Grok Bot/sand-secrets.json")
+UA = "GrokBot-CLI/0.1"
+
+
+# ---------- auth -----------------------------------------------------------
+
+def _safe_storage_password():
+    return subprocess.run(
+        ["security", "find-generic-password",
+         "-s", "Grok Bot Safe Storage", "-a", "Grok Bot Key", "-w"],
+        capture_output=True, text=True).stdout.strip()
+
+
+def _decrypt(b64: str, pw: str) -> bytes:
+    data = base64.b64decode(b64)
+    if data[:3] != b"v10":
+        raise RuntimeError("unexpected safeStorage version (expected v10)")
+    key = hashlib.pbkdf2_hmac("sha1", pw.encode(), b"saltysalt", 1003, 16)
+    p = subprocess.run(
+        ["openssl", "enc", "-d", "-aes-128-cbc",
+         "-K", key.hex(), "-iv", "20" * 16, "-nopad"],
+        input=data[3:], capture_output=True)
+    pt = p.stdout
+    pad = pt[-1] if pt else 0
+    return pt[:-pad] if 1 <= pad <= 16 else pt
+
+
+def access_token() -> str:
+    try:
+        d = json.load(open(SECRETS))
+        accounts = json.loads(d["cursor-accounts"])
+        blob = accounts["accounts"][accounts["active"]]["cursor-access-token"]
+        return _decrypt(blob, _safe_storage_password()).decode()
+    except Exception as e:  # noqa: BLE001
+        sys.exit(f"grokbot: cannot read Grok Bot token ({e}). "
+                 "Is the Grok Bot app installed and logged in?")
+
+
+# ---------- RPC ------------------------------------------------------------
+
+def call(method: str, body: dict, timeout: int = 30):
+    req = urllib.request.Request(
+        f"{BACKEND}/aiserver.v1.GrokBotService/{method}",
+        data=json.dumps(body).encode(),
+        headers={"content-type": "application/json",
+                 "authorization": f"Bearer {access_token()}",
+                 "origin": "https://cursor.com", "user-agent": UA})
+    try:
+        r = urllib.request.urlopen(req, timeout=timeout)
+        raw = r.read()
+        return r.status, (json.loads(raw) if raw else {})
+    except urllib.error.HTTPError as e:
+        body_txt = e.read()[:400].decode(errors="replace")
+        if e.code in (401, 403):
+            sys.exit(f"grokbot: auth rejected ({body_txt}) — token may be stale; "
+                     "open the Grok Bot app once to refresh it.")
+        return e.code, body_txt
+
+
+def _entries(agent_id: str, limit: int = 30):
+    st, tr = call("ListGrokBotTranscriptEntries",
+                  {"agentId": agent_id, "sessionId": "", "limit": limit})
+    out = []
+    if st == 200:
+        for e in tr.get("entries", []):
+            try:
+                out.append((int(e["seq"]), json.loads(base64.b64decode(e["body"]))))
+            except Exception:  # noqa: BLE001
+                pass
+    return sorted(out, key=lambda x: x[0])
+
+
+def default_agent() -> str:
+    st, r = call("ListGrokBotAgents", {})
+    if st != 200:
+        sys.exit(f"grokbot: ListGrokBotAgents failed: {r}")
+    agents = r.get("agents", [])
+    if not agents:
+        sys.exit("grokbot: no agents on this account")
+    return agents[0]["agentId"]
+
+
+# ---------- commands -------------------------------------------------------
+
+def cmd_agents(args):
+    st, r = call("ListGrokBotAgents", {})
+    if st != 200:
+        sys.exit(f"grokbot: {r}")
+    if args.json:
+        print(json.dumps(r, indent=1))
+        return
+    for a in r.get("agents", []):
+        print(f"{a['agentId']}  {a.get('name')}  harness={a.get('harness')}  "
+              f"kind={a.get('kind','')}")
+
+
+def cmd_send(agent_id: str, text: str):
+    mid = str(uuid.uuid4())
+    st, r = call("SendGrokBotUserMessage", {
+        "agentId": agent_id, "messageId": mid, "text": text,
+        "sentAtMs": str(int(time.time() * 1000))})
+    if st != 200 or not r.get("dispatched"):
+        sys.exit(f"grokbot: send failed: HTTP {st} {r}")
+    return mid
+
+
+def _text_of(entry: dict):
+    if entry.get("kind") == "send-message":
+        return (entry.get("message") or {}).get("content")
+    if entry.get("kind") == "message" and entry.get("role") == "assistant":
+        return entry.get("content")
+    return None
+
+
+def cmd_ask(args):
+    agent_id = args.agent or default_agent()
+    my_req = None
+    # find our requestId by clientNonce once the echo lands
+    mid = cmd_send(agent_id, args.text)
+    deadline = time.time() + args.timeout
+    while time.time() < deadline and my_req is None:
+        time.sleep(2)
+        for _, e in _entries(agent_id, 10):
+            if e.get("clientNonce") == mid:
+                my_req = e.get("requestId")
+                break
+    if my_req is None:
+        sys.exit("grokbot: message echo never appeared (timeout)")
+    # wait for the bot's reply sharing that requestId, or any newer send-message
+    while time.time() < deadline:
+        for _, e in _entries(agent_id, 10):
+            if e.get("requestId") == my_req and _text_of(e):
+                reply = _text_of(e)
+                if reply:
+                    print(reply)
+                    return
+        time.sleep(3)
+    sys.exit(f"grokbot: no reply within {args.timeout}s (agent may still be working)")
+
+
+def cmd_tail(args):
+    agent_id = args.agent or default_agent()
+    for seq, e in _entries(agent_id, args.n)[::-1]:
+        if args.json:
+            print(json.dumps({"seq": seq, **e}, ensure_ascii=False))
+            continue
+        kind = e.get("kind")
+        who = e.get("role", "")
+        text = (e.get("message") or {}).get("content") if kind == "send-message" else e.get("content")
+        if text:
+            print(f"[{seq}] {kind}{('/' + who) if who else ''}: {str(text)[:300]}")
+
+
+def cmd_interrupt(args):
+    agent_id = args.agent or default_agent()
+    st, r = call("InterruptGrokBotAgentRun", {"agentId": agent_id})
+    print(json.dumps(r))
+    if st != 200:
+        sys.exit(f"grokbot: interrupt failed: {r}")
+
+
+def main():
+    ap = argparse.ArgumentParser(prog="grokbot")
+    ap.add_argument("--agent", help="agent UUID (default: first agent)")
+    ap.add_argument("--json", action="store_true")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    sub.add_parser("agents")
+    p = sub.add_parser("ask")
+    p.add_argument("text")
+    p.add_argument("--timeout", type=int, default=180)
+    p = sub.add_parser("send")
+    p.add_argument("text")
+    p = sub.add_parser("tail")
+    p.add_argument("-n", type=int, default=15)
+    sub.add_parser("interrupt")
+
+    args = ap.parse_args()
+    if args.cmd == "agents":
+        cmd_agents(args)
+    elif args.cmd == "ask":
+        cmd_ask(args)
+    elif args.cmd == "send":
+        agent_id = args.agent or default_agent()
+        print(cmd_send(agent_id, args.text))
+    elif args.cmd == "tail":
+        cmd_tail(args)
+    elif args.cmd == "interrupt":
+        cmd_interrupt(args)
+
+
+if __name__ == "__main__":
+    main()
