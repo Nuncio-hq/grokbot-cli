@@ -22,6 +22,8 @@
 
 ## Hard Rules (Full list in `docs/index.html#rules`)
 
+- **Public open-source repo.** `Nuncio-hq/grokbot-cli` is public (MIT): every commit, message and line of history is visible to anyone. Never commit tokens, keys, signed/VNC/gateway URLs, personal emails or phone numbers, private host or machine names, tailnet names or IPs, or raw transcript text with private data. Use placeholders (`example-mac`, "a private model server"). Scan the staged diff before every commit.
+
 - **No Markdown files.** Record facts, decisions, plan status, questions, and log entries in `docs/index.html`. The one exception is the shipped product skill `packages/grokbot-cli/skills/grokbot/SKILL.md`. This file (`AGENTS.md`) stays a short pointer + rules. `CLAUDE.md` is a symlink here; edit `AGENTS.md`, never `CLAUDE.md`.
 - **Zero secret leaks.** Never print, commit, store, or log the GrokBot token, Keychain output, window tokens, or `sand-secrets.json` contents. One owner-approved exception (15 Oct 2026): `grokbot login` keeps its own sign-in in the macOS Keychain item `grokbot-cli`, never in a file.
 - **Safety tags.** Check `docs/grokbot-tools-and-api.json` before calling a new RPC method. Never call methods tagged `destructive`, `sensitive`, or `staff-only` without the owner's OK.
