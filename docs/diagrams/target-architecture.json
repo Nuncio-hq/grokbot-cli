@@ -1,0 +1,35 @@
+{
+ "schema_version": 1,
+ "diagram_type": "architecture",
+ "meta": {"title": "Target: Standalone Grokbot-cli Workforce Engine", "visual_preset": "classic", "theme": "dark"},
+ "boundaries": [
+  {"id": "consumers", "label": "Any consumer (outside this repo)", "role": "trust-boundary", "components": ["owner", "runtime", "hostapp"]},
+  {"id": "repo", "label": "This repo (npm packages)", "role": "trust-boundary", "components": ["cli", "mcp", "core"]},
+  {"id": "grok", "label": "GrokBot cloud (owner's subscription)", "role": "cloud", "components": ["api", "box", "employees", "cloudagents"]}
+ ],
+ "components": [
+  {"id": "owner", "label": "Owner terminal", "description": "Human at a shell", "role": "frontend", "layer": 0},
+  {"id": "runtime", "label": "Agent runtime", "description": "Claude Code / Hermes / Codex", "role": "worker", "layer": 0},
+  {"id": "hostapp", "label": "Host apps", "description": "e.g. LilOS, scripts", "role": "frontend", "layer": 0},
+  {"id": "cli", "label": "grokbot CLI", "description": "grokbotagent-cli + SKILL.md", "role": "gateway", "layer": 1},
+  {"id": "mcp", "label": "grokbot-mcp", "description": "stdio MCP server", "role": "gateway", "layer": 1},
+  {"id": "core", "label": "grokbot-core", "description": "auth, RPC, Done Rule, jobs", "role": "auth", "layer": 2},
+  {"id": "api", "label": "GrokBotService", "description": "api2.cursor.sh", "role": "external", "layer": 3},
+  {"id": "box", "label": "Box Gateway", "description": "<gatewayUrl>/api/*", "role": "external", "layer": 3},
+  {"id": "employees", "label": "Employee bots", "description": "Grok, own :DISPLAY", "role": "worker", "layer": 4},
+  {"id": "cloudagents", "label": "Cloud agents bc-*", "description": "Coding, PRs", "role": "worker", "layer": 4}
+ ],
+ "connections": [
+  {"from": "owner", "to": "cli", "label": "Bash", "kind": "sync"},
+  {"from": "runtime", "to": "cli", "label": "Bash + skill", "kind": "sync"},
+  {"from": "runtime", "to": "mcp", "label": "MCP", "kind": "sync"},
+  {"from": "hostapp", "to": "core", "label": "SDK import", "kind": "sync"},
+  {"from": "cli", "to": "core", "label": "calls", "kind": "sync"},
+  {"from": "mcp", "to": "core", "label": "calls", "kind": "sync"},
+  {"from": "core", "to": "api", "label": "HTTPS + stream", "kind": "stream"},
+  {"from": "core", "to": "box", "label": "EnsureSandBox", "kind": "sync"},
+  {"from": "api", "to": "employees", "label": "message", "kind": "async"},
+  {"from": "box", "to": "employees", "label": "profile, skills", "kind": "async"},
+  {"from": "employees", "to": "cloudagents", "label": "brief", "kind": "async"}
+ ]
+}
