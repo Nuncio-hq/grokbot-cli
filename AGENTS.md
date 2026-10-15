@@ -1,0 +1,30 @@
+# Grokbot-cli — Agent Guide
+
+**Read `docs/index.html` first. It is the single source of truth** (visual architecture, decisions, 4-phase roadmap, verified capabilities, rules, open questions, log). `docs/reference.html` has the CLI quick start, request lifecycle, and every GrokBot tool and API method; `docs/grokbot-tools-and-api.json` is the machine-searchable catalog.
+
+## Workspace Layout (Bun Monorepo · MIT License · `Nuncio-hq/grokbot-cli`)
+
+| Path | Purpose |
+|---|---|
+| `packages/grokbot-core` | npm `grokbot-core`: TypeScript SDK, Keychain auth, RPC client, `WatchGrokBotTranscripts` stream, Done Rule, and single tool catalog |
+| `packages/grokbot-cli` | npm `grokbotagent-cli`: `grokbot` CLI binary (renders from `grokbot-core`) |
+| `packages/grokbot-mcp` | npm `grokbot-mcp`: thin stdio MCP server (renders from `grokbot-core`) |
+| `packages/grokbot-cli/skills/grokbot/SKILL.md` | CEO agent skill shipped in the CLI package; its command table is generated (`bun run gen:skill`) and a test fails on drift |
+| `grokbot` | Legacy Python stdlib CLI prototype (kept for the owner; agents use the TS CLI) |
+| `docs/index.html` | Visual source of truth (decisions, roadmap, verified facts, rules, log) |
+| `docs/grokbot-tools-and-api.json` | Canonical data for 126 bot tools & 309 RPC methods (`python3 docs/build-reference.py` generates `docs/reference.html`) |
+
+## One-way Dependencies & Verification Gate
+
+- **Dependency rule**: `packages/grokbot-cli` and `packages/grokbot-mcp` depend on `packages/grokbot-core`, never the reverse. Tool definitions live once in `packages/grokbot-core`.
+- **Single verify gate**: Run `bun run verify` (Biome lint/format check, TypeScript `tsc -b`, Vitest unit tests, `docs/reference.html` sync check, and package build).
+- **Live smoke check**: Run `bun packages/grokbot-cli/src/cli.ts agents` (read-only, runs from source with no build) to verify auth. Only run `bun packages/grokbot-cli/src/cli.ts ask "ping" --agent f882ec52-17b1-4639-b0fc-07fed7526b09 --timeout 120` when changing live message-send or stream-wait code, to avoid spamming `Primary Test`.
+
+## Hard Rules (Full list in `docs/index.html#rules`)
+
+- **No Markdown files.** Record facts, decisions, plan status, questions, and log entries in `docs/index.html`. The one exception is the shipped product skill `packages/grokbot-cli/skills/grokbot/SKILL.md`. This file (`AGENTS.md`) stays a short pointer + rules. `CLAUDE.md` is a symlink here; edit `AGENTS.md`, never `CLAUDE.md`.
+- **Zero secret leaks.** Never print, commit, store, or log the GrokBot token, Keychain output, window tokens, or `sand-secrets.json` contents. One owner-approved exception (15 Oct 2026): `grokbot login` keeps its own sign-in in the macOS Keychain item `grokbot-cli`, never in a file.
+- **Safety tags.** Check `docs/grokbot-tools-and-api.json` before calling a new RPC method. Never call methods tagged `destructive`, `sensitive`, or `staff-only` without the owner's OK.
+- **Test only on test bots** (`Primary Test` `f882ec52-17b1-4639-b0fc-07fed7526b09` or `Staff Test` `201a8cb2-e34a-4dd6-858c-c8601d5c2aa5`), never on the main "Grok Bot".
+- **Language & git.** Reply to the owner in the language they write in; code, comments, and docs in English. Conventional commits, no AI references, commit only when asked.
+- **Docs sync.** After editing `docs/grokbot-tools-and-api.json`, always run `python3 docs/build-reference.py`.
