@@ -1,0 +1,154 @@
+{
+ "schema_version": 1,
+ "diagram_type": "architecture",
+ "meta": {
+  "title": "Grokbot-cli team model",
+  "visual_preset": "classic",
+  "theme": "dark"
+ },
+ "boundaries": [
+  {
+   "id": "local",
+   "label": "Owner's Mac",
+   "role": "trust-boundary",
+   "components": [
+    "cto",
+    "cli",
+    "token"
+   ]
+  },
+  {
+   "id": "grokcloud",
+   "label": "GrokBot cloud (owner's subscription)",
+   "role": "cloud",
+   "components": [
+    "api",
+    "manager",
+    "employee",
+    "cloudagent"
+   ]
+  }
+ ],
+ "components": [
+  {
+   "id": "cto",
+   "label": "Claude Code / Cursor",
+   "description": "CTO: sets goals, reviews results",
+   "role": "frontend",
+   "layer": 0
+  },
+  {
+   "id": "token",
+   "label": "App token store",
+   "description": "sand-secrets.json + Keychain key, decrypted per call",
+   "role": "auth",
+   "layer": 1
+  },
+  {
+   "id": "cli",
+   "label": "grokbot CLI",
+   "description": "Python stdlib, one file",
+   "role": "gateway",
+   "layer": 1
+  },
+  {
+   "id": "api",
+   "label": "GrokBotService API",
+   "description": "api2.cursor.sh, Connect JSON",
+   "role": "backend",
+   "layer": 2
+  },
+  {
+   "id": "manager",
+   "label": "Grok Bot (primary)",
+   "description": "Manager: plans, delegates, reports",
+   "role": "backend",
+   "layer": 3
+  },
+  {
+   "id": "employee",
+   "label": "Employee bots",
+   "description": "e.g. Test-Dev-1, own cloud computer each",
+   "role": "worker",
+   "layer": 4
+  },
+  {
+   "id": "cloudagent",
+   "label": "Cursor cloud agents",
+   "description": "Coding workers, ids start with bc-",
+   "role": "worker",
+   "layer": 4
+  },
+  {
+   "id": "github",
+   "label": "GitHub",
+   "description": "Repos and PRs",
+   "role": "external",
+   "layer": 5
+  },
+  {
+   "id": "mac",
+   "label": "Registered computer",
+   "description": "Commands need owner approval",
+   "role": "external",
+   "layer": 5
+  }
+ ],
+ "connections": [
+  {
+   "from": "cto",
+   "to": "cli",
+   "label": "commands",
+   "kind": "sync"
+  },
+  {
+   "from": "cli",
+   "to": "token",
+   "label": "token",
+   "kind": "sync"
+  },
+  {
+   "from": "cli",
+   "to": "api",
+   "label": "HTTPS",
+   "protocol": "HTTPS",
+   "kind": "sync"
+  },
+  {
+   "from": "api",
+   "to": "manager",
+   "label": "message",
+   "kind": "async"
+  },
+  {
+   "from": "manager",
+   "to": "employee",
+   "label": "SendToAgent",
+   "kind": "async"
+  },
+  {
+   "from": "manager",
+   "to": "cloudagent",
+   "label": "brief",
+   "kind": "async"
+  },
+  {
+   "from": "employee",
+   "to": "github",
+   "label": "PRs",
+   "kind": "sync"
+  },
+  {
+   "from": "cloudagent",
+   "to": "github",
+   "label": "PRs",
+   "kind": "sync"
+  },
+  {
+   "from": "manager",
+   "to": "mac",
+   "label": "commands",
+   "kind": "sync"
+  }
+ ]
+}

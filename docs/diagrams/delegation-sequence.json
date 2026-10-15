@@ -1,0 +1,81 @@
+{
+ "schema_version": 1,
+ "diagram_type": "sequence",
+ "meta": {
+  "title": "Delegation test, 2026-10-13 (16.8 s end to end)",
+  "visual_preset": "classic",
+  "theme": "dark"
+ },
+ "participants": [
+  {
+   "id": "cto",
+   "label": "Claude (CLI)",
+   "role": "client"
+  },
+  {
+   "id": "api",
+   "label": "GrokBotService",
+   "role": "gateway"
+  },
+  {
+   "id": "manager",
+   "label": "Grok Bot (manager)",
+   "role": "service"
+  },
+  {
+   "id": "employee",
+   "label": "Test-Dev-1",
+   "role": "service"
+  }
+ ],
+ "messages": [
+  {
+   "from": "cto",
+   "to": "api",
+   "label": "SendGrokBotUserMessage (0 s)",
+   "kind": "sync-call"
+  },
+  {
+   "from": "api",
+   "to": "cto",
+   "label": "dispatched: true",
+   "kind": "return"
+  },
+  {
+   "from": "api",
+   "to": "manager",
+   "label": "user message, requestId A",
+   "kind": "async-signal"
+  },
+  {
+   "from": "manager",
+   "to": "cto",
+   "label": "2.9 s: 'Messaging Test-Dev-1 now.' (req A)",
+   "kind": "async-signal"
+  },
+  {
+   "from": "manager",
+   "to": "employee",
+   "label": "7.6 s: SendToAgent 'reply PONG'",
+   "kind": "async-signal"
+  },
+  {
+   "from": "manager",
+   "to": "cto",
+   "label": "7.6 s: 'reply doesn't come back right away' (req A)",
+   "kind": "async-signal"
+  },
+  {
+   "from": "employee",
+   "to": "manager",
+   "label": "12.1 s: 'PONG' (starts run B)",
+   "kind": "async-signal"
+  },
+  {
+   "from": "manager",
+   "to": "cto",
+   "label": "16.8 s: 'RESULT: PONG' (req B), then idle",
+   "kind": "async-signal"
+  }
+ ]
+}
