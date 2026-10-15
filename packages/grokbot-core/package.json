@@ -1,0 +1,38 @@
+{
+  "name": "grokbot-core",
+  "version": "0.2.0",
+  "description": "TypeScript SDK, RPC client, live stream, and Done Rule for GrokBot workforce orchestration.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20.3"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.test.*",
+    "!dist/fixtures",
+    "!dist/command-runner-test-bot.*"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Nuncio-hq/grokbot-cli.git",
+    "directory": "packages/grokbot-core"
+  },
+  "keywords": [
+    "grokbot",
+    "agents",
+    "sdk",
+    "workforce"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  }
+}
