@@ -24,6 +24,7 @@ describe("loginWithBrowser", () => {
     const opened: string[] = [];
     let polledWith: { uuid: string; verifier: string } | undefined;
     const result = await loginWithBrowser({
+      platform: "darwin",
       store,
       websiteUrl: "https://cursor.com",
       pkce: () => ({ uuid: "U", verifier: "V", challenge: "C" }),
@@ -50,6 +51,7 @@ describe("loginWithBrowser", () => {
   it("shows the URL before opening, and keeps going when the browser cannot open", async () => {
     const events: string[] = [];
     await loginWithBrowser({
+      platform: "darwin",
       store: memoryStore(),
       pkce: () => ({ uuid: "U", verifier: "V", challenge: "C" }),
       showUrl: () => {
@@ -70,6 +72,7 @@ describe("loginWithBrowser", () => {
   it("skips opening a browser when asked (remote/headless machine)", async () => {
     let opened = false;
     await loginWithBrowser({
+      platform: "darwin",
       store: memoryStore(),
       openBrowser: false,
       showUrl: () => {},
@@ -85,6 +88,7 @@ describe("loginWithBrowser", () => {
     const store = memoryStore();
     await expect(
       loginWithBrowser({
+        platform: "darwin",
         store,
         showUrl: () => {},
         openUrl: async () => {},
@@ -141,6 +145,7 @@ describe("loginWithApiKey", () => {
     const store = memoryStore();
     const seen: string[] = [];
     const result = await loginWithApiKey("key_1", {
+      platform: "darwin",
       store,
       exchange: async (key) => {
         seen.push(key);
@@ -155,6 +160,7 @@ describe("loginWithApiKey", () => {
   it("refuses a blank key before any network call", async () => {
     await expect(
       loginWithApiKey("  ", {
+        platform: "darwin",
         store: memoryStore(),
         exchange: async () => {
           throw new Error("must not be called");
