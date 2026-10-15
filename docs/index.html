@@ -576,12 +576,12 @@
           <span>PHASE 04 · MCP, SKILL &amp; RELEASE</span>
           <span>Built · publish owner-gated</span>
         </div>
-        <h3><code>grokbot-mcp</code>, Universal <code>SKILL.md</code> &amp; npm v0.2.0</h3>
+        <h3><code>grokbot-mcp</code>, Universal <code>SKILL.md</code> &amp; first npm release (0.0.1)</h3>
         <p>Package the whole engine so any agent runtime or host app can plug it in without help.</p>
         <ol class="roadmap-steps">
           <li><div><b>Auto-Rendered MCP:</b> Expose every catalog tool in <code>packages/grokbot-mcp</code> over stdio. Add the stateless MCP <code>2026-07-28</code> era (<code>server/discover</code>, per-request <code>_meta</code>) next to today's <code>initialize</code> handshake.</div></li>
           <li><div><b>Universal Agent Skill:</b> Ship a portable <code>SKILL.md</code> so Claude Code, Hermes, Codex, or Cursor can act as CEO and drive <code>grokbot</code> through Bash.</div></li>
-          <li><div><b>Clean Release:</b> Full unit + live suite (<code>bun run verify</code>), then publish v0.2.0 of <code>grokbot-core</code>, <code>grokbotagent-cli</code>, and <code>grokbot-mcp</code>.</div></li>
+          <li><div><b>Clean Release:</b> Full unit + live suite (<code>bun run verify</code>), then publish 0.0.1 of <code>grokbot-core</code>, <code>grokbotagent-cli</code>, and <code>grokbot-mcp</code>.</div></li>
         </ol>
         <div class="roadmap-done">
           <b>Done when:</b> Anyone can install <code>grokbotagent-cli</code> or <code>grokbot-core</code> from npm and run the workforce standalone.
@@ -659,13 +659,13 @@ Orchestrator live check over MCP: <code>grokbot_worker_start</code> returned -32
             <tr><td><b>Phase 04</b> · MCP, SKILL, Release prep</td><td>Two parallel units. A <b>(done)</b>: grokbot-mcp is now dual-era on one stdio process, and each request is routed by its own <code>_meta</code>. Modern 2026-07-28 requests get <code>server/discover</code>, plus <code>tools/list</code> and <code>tools/call</code> results with <code>resultType: "complete"</code>, serverInfo in <code>_meta</code>, and cache hints (<code>ttlMs</code> 1 h, public). Errors are -32602 for missing <code>_meta</code> fields and -32022 with the supported list for an unknown version. The legacy <code>initialize</code> era is unchanged. Proven live on stdio for both eras; 9 tests went red then green, and 614 pass in total. B+C <b>(done)</b>:
 <ul>
 <li>The CLI package ships <code>skills/grokbot/SKILL.md</code>, a CEO agent skill. Its command table is generated from the catalog, and a test fails if they drift.</li>
-<li>All three packages and <code>GROKBOT_VERSION</code> are at 0.2.0.</li>
+<li>All three packages and <code>GROKBOT_VERSION</code> are at 0.0.1, the first real release. The 0.1.0 already on npm is the empty name-claim placeholder from 14 Oct; it is deprecated, and <code>latest</code> is moved to 0.0.1.</li>
 <li>A LICENSE was added to each package; it was missing from the tarballs.</li>
 <li><code>build</code> now clears stale <code>dist</code>, which had held 6 deleted modules.</li>
 <li><code>bun.lock</code> was refreshed.</li>
 <li>AGENTS.md and the reference quick start now use the TS CLI.</li>
 </ul>
-Checked with <code>npm pack</code>: no test or fixture files in the tarballs. A scratch install from the three tarballs ran <code>grokbot --version</code> (0.2.0), <code>--help</code> and <code>agents</code> live. <code>grokbot-mcp</code> answered 30 tools in both eras. <code>bun run verify</code> is green with 614 tests. Owner-gated: <code>npm publish</code>.</td><td><span class="tag tag--warn">Done · publish pending</span></td></tr>
+Checked with <code>npm pack</code>: no test or fixture files in the tarballs. A scratch install from the three tarballs ran <code>grokbot --version</code> (0.2.0 then; re-packed as 0.0.1 on 15 Oct with 0 leaked test files), <code>--help</code> and <code>agents</code> live. <code>grokbot-mcp</code> answered 30 tools in both eras. <code>bun run verify</code> is green with 614 tests. Owner-gated: <code>npm publish</code>.</td><td><span class="tag tag--warn">Done · publish pending</span></td></tr>
           </tbody>
         </table>
       </div>
