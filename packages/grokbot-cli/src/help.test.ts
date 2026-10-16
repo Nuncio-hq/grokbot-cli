@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { runCli } from "./fixtures/run-cli.js";
 
 const HELP_HEAD = [
-  "grokbot 0.1.1. Orchestrate your GrokBot workforce from any terminal.",
+  "grokbot 0.1.2. Orchestrate your GrokBot workforce from any terminal.",
   "",
   "Usage: grokbot <command> [arguments] [flags]",
   "",
@@ -113,7 +113,7 @@ describe("help and version never build the runner", () => {
     "%j prints the version",
     async (argv) => {
       const run = await runCli(argv);
-      expect(run).toMatchObject({ stdout: "0.1.1\n", stderr: "", code: 0 });
+      expect(run).toMatchObject({ stdout: "0.1.2\n", stderr: "", code: 0 });
     },
   );
 });
