@@ -51,9 +51,38 @@ describe("summarize", () => {
       summarize("wait", {
         jobId: "job-5",
         agentId: PRIMARY_TEST.agentId,
+        agentName: "Primary Test",
         outcome: { status: "done", finalReply: "RESULT: PONG", replies: [] },
       }),
-    ).toBe("Agent f882ec52-17b1-4639-b0fc-07fed7526b09 replied:\nRESULT: PONG");
+    ).toBe("Primary Test replied:\nRESULT: PONG");
+  });
+
+  it("names a job saved before names were recorded by its agentId", () => {
+    expect(
+      summarize("wait", {
+        jobId: "job-5",
+        agentId: PRIMARY_TEST.agentId,
+        outcome: { status: "done", finalReply: "PONG", replies: [] },
+      }),
+    ).toBe("Agent f882ec52-17b1-4639-b0fc-07fed7526b09 replied:\nPONG");
+  });
+
+  it("flags an ambiguous reply and gives every reply of the shared run", () => {
+    expect(
+      summarize("wait", {
+        jobId: "job-6",
+        agentId: PRIMARY_TEST.agentId,
+        agentName: "Primary Test",
+        outcome: {
+          status: "ambiguous",
+          reason: "the bot answered it together with message #171 in one run",
+          replyText: "Starting A.\n\nRESULT B\n\nRESULT A",
+          replies: [],
+        },
+      }),
+    ).toBe(
+      "Primary Test finished, but the reply is ambiguous: the bot answered it together with message #171 in one run. Every reply of that run, in order:\nStarting A.\n\nRESULT B\n\nRESULT A",
+    );
   });
 
   it("renders tail entries by kind with their seq", () => {
