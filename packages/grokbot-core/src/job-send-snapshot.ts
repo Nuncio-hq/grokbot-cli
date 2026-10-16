@@ -34,11 +34,22 @@ function hasOpenDelegation(entries: readonly TranscriptEntry[]): boolean {
 /**
  * A message sent now may share a run with earlier work (see turn-sharing.ts): a run or
  * its subagents are still working or awaiting the owner, a delegate's reply is still due
- * (it starts a new run), or the newest row is a message (ours, the owner's, or another
- * bot's) that no run has answered yet, an open card, or a reply still being written.
+ * (it starts a new run), a message we just sent has no echo in view yet, or the newest
+ * row is a message (ours, the owner's, or another bot's) that no run has answered yet,
+ * an open card, or a reply still being written.
  */
-function isBotBusy(status: LiveStatus, recent: EntriesPage): boolean {
+function isBotBusy(
+  status: LiveStatus,
+  recent: EntriesPage,
+  inFlight: readonly string[],
+): boolean {
   if (isActive(status) || status.awaiting) return true;
+  const echoed = new Set(
+    recent.entries.flatMap((e) =>
+      e.kind === "user-message" && e.clientNonce ? [e.clientNonce] : [],
+    ),
+  );
+  if (inFlight.some((id) => !echoed.has(id))) return true;
   if (hasOpenDelegation(recent.entries)) return true;
   const newest = recent.entries.at(-1);
   if (newest === undefined) return false;
@@ -53,10 +64,14 @@ export interface SendSnapshot {
   readonly botBusy: boolean;
 }
 
-/** Reads the recent rows, then the live status, just before a send. */
+/**
+ * Reads the recent rows, then the live status, just before a send. `inFlight` holds the
+ * message ids we sent moments ago, whose echo may not have landed yet.
+ */
 export async function snapshotBeforeSend(
   server: ServerTransport,
   agentId: string,
+  inFlight: readonly string[],
   signal?: AbortSignal,
 ): Promise<SendSnapshot> {
   const recent = parseEntriesResponse(
@@ -75,6 +90,6 @@ export async function snapshotBeforeSend(
   );
   return {
     baseline: transcriptCursor(agentId, recent),
-    botBusy: isBotBusy(statuses.get(agentId) ?? IDLE_STATUS, recent),
+    botBusy: isBotBusy(statuses.get(agentId) ?? IDLE_STATUS, recent, inFlight),
   };
 }

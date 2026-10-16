@@ -30,14 +30,22 @@ export interface CommandOutputs
 
 export type CommandOutput<N extends CommandName> = CommandOutputs[N];
 
-/** Runner progress outside the wait: the job is saved and its message was accepted. */
+/** Runner progress outside the wait: the job is saved, and its message was accepted or queued. */
 export interface DispatchedEvent {
   readonly type: "dispatched";
   readonly jobId: string;
   readonly agentId: string;
 }
 
-export type RunEvent = WaitEvent | DispatchedEvent;
+/** The job's message waits its turn: the bot is busy, `ahead` messages go out first. */
+export interface QueuedEvent {
+  readonly type: "queued";
+  readonly jobId: string;
+  readonly agentId: string;
+  readonly ahead: number;
+}
+
+export type RunEvent = WaitEvent | DispatchedEvent | QueuedEvent;
 
 export interface RunOptions {
   readonly signal?: AbortSignal;

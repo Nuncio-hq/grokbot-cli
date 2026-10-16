@@ -38,7 +38,9 @@ export function dispatchHandlers(
     send: async (input, { signal }) => {
       const agent = await target(input.agent, signal);
       const job = await dispatchMessage(ctx, agent, input.text, signal);
-      return { jobId: job.jobId, agent, sentMessageId: job.sentMessageId };
+      const { jobId, sentMessageId } = job;
+      const queued = job.state.status === "queued";
+      return { jobId, agent, sentMessageId, queued };
     },
 
     ask: async (input, run) => {

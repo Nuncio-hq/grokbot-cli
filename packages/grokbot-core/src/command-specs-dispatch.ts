@@ -44,7 +44,8 @@ export const DISPATCH_COMMANDS = {
     },
   },
   send: {
-    summary: "Dispatch a message and return a resumable job id",
+    summary:
+      "Dispatch a message, or queue it while the bot is busy, and return a resumable job id",
     safety: "writes",
     methods: [RESOLVE, ENTRIES, SEND],
     params: { text: TEXT, agent: AGENT_PARAM, json: JSON_PARAM },

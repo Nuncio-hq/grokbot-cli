@@ -46,6 +46,25 @@ describe("jobStore", () => {
     expect(onDisk).toEqual(job);
   });
 
+  it("keeps a queued job's message and queue time until it is sent", async () => {
+    const store = jobStore(dir);
+    const queued: JobRecord = {
+      ...job,
+      text: "task B",
+      queuedAtMs: 1_791_948_600_000,
+      baselineUpdatedSeq: "0",
+      state: { status: "queued" },
+    };
+    await store.save(queued);
+    const { text: _, ...sent } = queued;
+    const loaded = await store.load("job-1");
+    await store.save({ ...sent, state: { status: "pending" } });
+    expect([loaded, await store.load("job-1")]).toEqual([
+      queued,
+      { ...sent, state: { status: "pending" } },
+    ]);
+  });
+
   it("round-trips through load and creates the directory on first save", async () => {
     const store = jobStore(join(dir, "nested", "jobs"));
     await store.save(job);
@@ -163,7 +182,7 @@ describe("jobStore", () => {
   });
 
   it("rejects a job file whose state is not one it knows", async () => {
-    const unknown = { ...job, jobId: "odd", state: { status: "queued" } };
+    const unknown = { ...job, jobId: "odd", state: { status: "parked" } };
     await writeFile(join(dir, "odd.json"), JSON.stringify(unknown));
     await expect(jobStore(dir).load("odd")).rejects.toMatchObject({
       code: "protocol",

@@ -1,95 +1,54 @@
-import { randomUUID } from "node:crypto";
 import type { Agent } from "./agents.js";
 import type { JobOutcome, RunOptions } from "./command-runner-contract.js";
+import { GrokBotError } from "./contracts.js";
 import {
-  GrokBotError,
-  type JsonObject,
-  type ServerTransport,
-} from "./contracts.js";
-import { snapshotBeforeSend } from "./job-send-snapshot.js";
+  advanceQueue,
+  type JobContext,
+  newQueuedJob,
+  untilSent,
+} from "./job-queue.js";
 import {
   isFinalState,
   type JobRecord,
   type JobState,
   type JobStore,
 } from "./job-store.js";
-import { asJsonObject, readString } from "./transcript.js";
 import type { BusyAtSend } from "./turn-sharing.js";
 import { waitForDone } from "./wait-for-done.js";
 
-export interface JobContext {
-  readonly server: ServerTransport;
-  readonly jobs: JobStore;
-}
-
-/** Throws GrokBotError("protocol") unless SendGrokBotUserMessage dispatched the message. */
-export function assertDispatched(raw: unknown): void {
-  const response: JsonObject = asJsonObject(raw) ?? {};
-  const delivery = readString(response, "delivery");
-  const refused = delivery?.endsWith("REFUSED") === true;
-  if (response.dispatched === true && !refused) return;
-  const refusal = asJsonObject(response.refusal) ?? {};
-  const message = readString(refusal, "message");
-  const code = readString(refusal, "failureCode");
-  const detail =
-    message !== undefined
-      ? `refused the message: ${message}${code ? ` (${code})` : ""}`
-      : refused
-        ? `refused the message: delivery ${delivery}`
-        : `did not dispatch the message (delivery ${delivery ?? "unset"})`;
-  throw new GrokBotError("protocol", `SendGrokBotUserMessage ${detail}`);
-}
+export { assertDispatched, type JobContext } from "./job-queue.js";
 
 /**
- * Records the transcript baseline and whether the bot is busy, saves the job as sending,
- * sends `text`, and saves it as pending once accepted. A refused message leaves no job.
- * Any other send error keeps the sending record: the message may have landed, and
- * `wait` finds its echo.
+ * Saves `text` as a queued job, then sends the bot's queue if the bot is free, so a bot
+ * only ever has one of our messages in hand (job-queue.ts). The job comes back pending
+ * when it went out now, queued when it waits behind earlier work. A refused message
+ * leaves no job, and so does an error before the send. Any other send error keeps the sending record: the message may have
+ * landed, and `wait` finds its echo.
  */
 export async function dispatchMessage(
-  { server, jobs }: JobContext,
+  ctx: JobContext,
   agent: Agent,
   text: string,
   signal?: AbortSignal,
 ): Promise<JobRecord> {
-  const { agentId } = agent;
-  const { baseline, botBusy } = await snapshotBeforeSend(
-    server,
-    agentId,
-    signal,
-  );
-  const job: JobRecord = {
-    jobId: randomUUID(),
-    agentId,
-    agentName: agent.name,
-    sentMessageId: randomUUID(),
-    sentAtMs: Date.now(),
-    baselineUpdatedSeq: baseline.afterUpdatedSeq,
-    generation: baseline.generation,
-    botBusyAtSend: botBusy,
-    state: { status: "sending" },
-  };
-  await jobs.save(job);
-  const response = await server.call(
-    "SendGrokBotUserMessage",
-    {
-      agentId,
-      messageId: job.sentMessageId,
-      text,
-      sentAtMs: String(job.sentAtMs),
-      sessionId: "",
-    },
-    { signal },
-  );
+  const queued = newQueuedJob(agent, text);
+  await ctx.jobs.save(queued);
   try {
-    assertDispatched(response);
-  } catch (refused) {
-    await jobs.remove(job.jobId);
-    throw refused;
+    await advanceQueue(ctx, agent.agentId, queued.jobId, signal);
+  } catch (error) {
+    // Never sent (refused, or still queued): drop it rather than send it later unseen.
+    const state = (await ctx.jobs.load(queued.jobId))?.state;
+    if (
+      state?.status === "queued" ||
+      (state?.status === "failed" && state.notSent)
+    )
+      await ctx.jobs.remove(queued.jobId);
+    throw error;
   }
-  const pending: JobRecord = { ...job, state: { status: "pending" } };
-  await jobs.save(pending);
-  return pending;
+  const saved = await ctx.jobs.load(queued.jobId);
+  if (!saved)
+    throw new GrokBotError("not-found", `job ${queued.jobId} left the store`);
+  return saved;
 }
 
 function stateOf(outcome: JobOutcome): JobState {
@@ -133,24 +92,58 @@ async function busyRecords(jobs: JobStore, job: JobRecord) {
 }
 
 /**
- * Waits for the job's turn and saves where it stands. A job saved as done or ambiguous
- * returns its saved result without touching the network. A timeout becomes a pending
- * outcome; a caller abort leaves the saved state alone so `wait` can resume.
+ * Hands the bot to the next queued message once a turn has ended. Best effort: a failure
+ * here belongs to that message, and its own `wait` (or the next send) advances the queue.
+ * Only the caller's abort is rethrown.
+ */
+async function handOff(ctx: JobContext, agentId: string, signal?: AbortSignal) {
+  await advanceQueue(ctx, agentId, undefined, signal).catch(
+    (error: unknown) => {
+      if (signal?.aborted) throw error;
+    },
+  );
+}
+
+/**
+ * Sends a queued job when the bot is free, then waits for its turn and saves where it
+ * stands, all within one timeout. A job saved as done or ambiguous returns its saved
+ * result without touching the network. A refused queued message throws its refusal. A
+ * timeout becomes a pending outcome (a queued job stays queued); a caller abort leaves
+ * the saved state alone so `wait` can resume. A turn that ends sends the next message.
  */
 export async function followJob(
-  { server, jobs }: JobContext,
+  ctx: JobContext,
   job: JobRecord,
   timeoutSeconds: number,
   { signal, onEvent }: RunOptions,
 ): Promise<JobOutcome> {
+  const { server, jobs } = ctx;
   const saved = isFinalState(job.state) ? savedOutcome(job.state) : undefined;
   if (saved) return saved;
+  if (job.state.status === "failed" && job.state.notSent)
+    throw new GrokBotError("protocol", job.state.error);
+  const deadline = Date.now() + timeoutSeconds * 1000;
+  const sent =
+    job.state.status === "queued"
+      ? await untilSent(ctx, job, deadline, signal, onEvent)
+      : job;
+  if (sent.state.status === "queued") {
+    const name = sent.agentName ?? "The bot";
+    return {
+      status: "pending",
+      reason: `${name} is busy with earlier work, so the message is queued and not sent yet`,
+      queued: true,
+    };
+  }
   let outcome: JobOutcome;
   try {
     outcome = await waitForDone({
       server,
-      job: { ...job, busyAtSend: await busyRecords(jobs, job) },
-      timeoutMs: timeoutSeconds * 1000,
+      job: { ...sent, busyAtSend: await busyRecords(jobs, sent) },
+      timeoutMs:
+        sent === job
+          ? timeoutSeconds * 1000
+          : Math.max(0, deadline - Date.now()),
       signal,
       onEvent,
     });
@@ -158,11 +151,13 @@ export async function followJob(
     if (signal?.aborted) throw error;
     if (!(error instanceof GrokBotError && error.code === "timeout")) {
       const message = error instanceof Error ? error.message : String(error);
-      await jobs.save({ ...job, state: { status: "failed", error: message } });
+      await jobs.save({ ...sent, state: { status: "failed", error: message } });
       throw error;
     }
     outcome = { status: "pending", reason: error.message };
   }
-  await jobs.save({ ...job, state: stateOf(outcome) });
+  await jobs.save({ ...sent, state: stateOf(outcome) });
+  if (outcome.status === "done" || outcome.status === "ambiguous")
+    await handOff(ctx, sent.agentId, signal);
   return outcome;
 }

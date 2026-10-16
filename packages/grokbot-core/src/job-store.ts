@@ -13,6 +13,8 @@ import { GrokBotError, type JsonObject } from "./contracts.js";
 import { asJsonObject, readString } from "./transcript.js";
 
 export type JobState =
+  /** Not sent yet: the bot was busy, so the message waits its turn (job-queue.ts). */
+  | { readonly status: "queued" }
   /** Saved before SendGrokBotUserMessage; the message may or may not have landed. */
   | { readonly status: "sending" }
   | { readonly status: "pending" }
@@ -24,7 +26,12 @@ export type JobState =
       readonly reason: string;
       readonly replyText: string;
     }
-  | { readonly status: "failed"; readonly error: string };
+  /** `notSent`: the message never went out (refused, or unsendable), so there is nothing to wait for. */
+  | {
+      readonly status: "failed";
+      readonly error: string;
+      readonly notSent?: boolean;
+    };
 
 /** A dispatched message we can resume waiting on. Holds no credentials. */
 export interface JobRecord {
@@ -32,9 +39,14 @@ export interface JobRecord {
   readonly agentId: string;
   /** The agent's name at send time, for messages; absent on jobs saved before 16 Oct 2026. */
   readonly agentName?: string;
+  /** The message, kept until it is sent so another process can send it (and on a refusal). */
+  readonly text?: string;
+  /** When the message joined the bot's queue; queued jobs go out oldest first. */
+  readonly queuedAtMs?: number;
   readonly sentMessageId: string;
+  /** When the message was sent; while queued, when it was queued. */
   readonly sentAtMs: number;
-  /** Highest transcript updatedSeq seen before the send; the wait reads after it. */
+  /** Highest transcript updatedSeq seen before the send ("0" while queued); the wait reads after it. */
   readonly baselineUpdatedSeq: string;
   readonly generation: string;
   /**
@@ -62,6 +74,7 @@ function checkId(jobId: string): string {
 
 function pickState(state: JobState): JobState {
   switch (state.status) {
+    case "queued":
     case "sending":
     case "pending":
       return { status: state.status };
@@ -76,7 +89,11 @@ function pickState(state: JobState): JobState {
         replyText: state.replyText,
       };
     case "failed":
-      return { status: state.status, error: state.error };
+      return {
+        status: state.status,
+        error: state.error,
+        ...(state.notSent === true && { notSent: true }),
+      };
   }
 }
 
@@ -86,6 +103,8 @@ function pickRecord(job: JobRecord): JobRecord {
     jobId: job.jobId,
     agentId: job.agentId,
     ...(job.agentName !== undefined && { agentName: job.agentName }),
+    ...(job.text !== undefined && { text: job.text }),
+    ...(job.queuedAtMs !== undefined && { queuedAtMs: job.queuedAtMs }),
     sentMessageId: job.sentMessageId,
     sentAtMs: job.sentAtMs,
     baselineUpdatedSeq: job.baselineUpdatedSeq,
@@ -102,7 +121,8 @@ function parseState(raw: unknown): JobState | undefined {
   const status = o ? readString(o, "status") : undefined;
   if (!o || status === undefined) return undefined;
   const field = (key: string) => readString(o, key);
-  if (status === "sending" || status === "pending") return { status };
+  if (status === "queued" || status === "sending" || status === "pending")
+    return { status };
   if (status === "awaiting-approval")
     return { status, reason: field("reason") ?? "" };
   const finalReply = field("finalReply");
@@ -112,7 +132,8 @@ function parseState(raw: unknown): JobState | undefined {
   if (status === "ambiguous" && reason !== undefined && replyText !== undefined)
     return { status, reason, replyText };
   const error = field("error");
-  if (status === "failed" && error !== undefined) return { status, error };
+  if (status === "failed" && error !== undefined)
+    return { status, error, ...(o.notSent === true && { notSent: true }) };
   return undefined;
 }
 
@@ -146,12 +167,14 @@ export function parseJobRecord(raw: unknown): JobRecord {
       `corrupt job record ${jobId ?? "(no id)"}`,
     );
   }
-  const agentName = str("agentName");
-  const busy = o.botBusyAtSend;
+  const [agentName, text] = [str("agentName"), str("text")];
+  const { botBusyAtSend: busy, queuedAtMs } = o;
   return {
     jobId,
     agentId,
     ...(agentName !== undefined && { agentName }),
+    ...(text !== undefined && { text }),
+    ...(typeof queuedAtMs === "number" && { queuedAtMs }),
     sentMessageId,
     sentAtMs,
     baselineUpdatedSeq,

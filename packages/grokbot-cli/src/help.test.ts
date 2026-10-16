@@ -13,7 +13,10 @@ const PHASE_01_SUMMARIES = [
   ["agents", "List GrokBot agents on the account"],
   ["team", "List agents with live running/idle/awaiting status"],
   ["ask", "Send a prompt and wait until the Done Rule settles"],
-  ["send", "Dispatch a message and return a resumable job id"],
+  [
+    "send",
+    "Dispatch a message, or queue it while the bot is busy, and return a resumable job id",
+  ],
   ["wait", "Wait for a dispatched job id to finish"],
   ["tail", "Read recent decoded transcript entries"],
   ["interrupt", "Interrupt the active run on an agent"],

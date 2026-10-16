@@ -10,6 +10,8 @@ export type JobOutcome =
       /** The wait timed out; the job is saved and `grokbot wait <jobId>` resumes it. */
       readonly status: "pending";
       readonly reason: string;
+      /** The message is still queued: it has not gone out yet. */
+      readonly queued?: boolean;
     };
 
 export interface TeamMember {
@@ -30,6 +32,8 @@ export interface DispatchOutputs {
     readonly jobId: string;
     readonly agent: Agent;
     readonly sentMessageId: string;
+    /** The bot was busy: the message waits its turn and goes out on a later send or wait. */
+    readonly queued: boolean;
   };
   readonly wait: {
     readonly jobId: string;
