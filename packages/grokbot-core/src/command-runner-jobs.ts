@@ -6,22 +6,21 @@ import {
   type JsonObject,
   type ServerTransport,
 } from "./contracts.js";
-import type { JobRecord, JobState, JobStore } from "./job-store.js";
+import { snapshotBeforeSend } from "./job-send-snapshot.js";
 import {
-  asJsonObject,
-  parseEntriesResponse,
-  readString,
-} from "./transcript.js";
-import { transcriptCursor } from "./transcript-stream.js";
+  isFinalState,
+  type JobRecord,
+  type JobState,
+  type JobStore,
+} from "./job-store.js";
+import { asJsonObject, readString } from "./transcript.js";
+import type { BusyAtSend } from "./turn-sharing.js";
 import { waitForDone } from "./wait-for-done.js";
 
 export interface JobContext {
   readonly server: ServerTransport;
   readonly jobs: JobStore;
 }
-
-/** Enough recent rows to find the highest updatedSeq before our message lands. */
-const BASELINE_ROWS = 5;
 
 /** Throws GrokBotError("protocol") unless SendGrokBotUserMessage dispatched the message. */
 export function assertDispatched(raw: unknown): void {
@@ -42,9 +41,10 @@ export function assertDispatched(raw: unknown): void {
 }
 
 /**
- * Records the transcript baseline, saves the job as sending, sends `text`, and saves
- * it as pending once accepted. A refused message leaves no job. Any other send error
- * keeps the sending record: the message may have landed, and `wait` finds its echo.
+ * Records the transcript baseline and whether the bot is busy, saves the job as sending,
+ * sends `text`, and saves it as pending once accepted. A refused message leaves no job.
+ * Any other send error keeps the sending record: the message may have landed, and
+ * `wait` finds its echo.
  */
 export async function dispatchMessage(
   { server, jobs }: JobContext,
@@ -53,21 +53,20 @@ export async function dispatchMessage(
   signal?: AbortSignal,
 ): Promise<JobRecord> {
   const { agentId } = agent;
-  const recent = parseEntriesResponse(
-    await server.call(
-      "ListGrokBotTranscriptEntries",
-      { agentId, sessionId: "", limit: BASELINE_ROWS },
-      { signal },
-    ),
+  const { baseline, botBusy } = await snapshotBeforeSend(
+    server,
+    agentId,
+    signal,
   );
-  const baseline = transcriptCursor(agentId, recent);
   const job: JobRecord = {
     jobId: randomUUID(),
     agentId,
+    agentName: agent.name,
     sentMessageId: randomUUID(),
     sentAtMs: Date.now(),
     baselineUpdatedSeq: baseline.afterUpdatedSeq,
     generation: baseline.generation,
+    botBusyAtSend: botBusy,
     state: { status: "sending" },
   };
   await jobs.save(job);
@@ -97,6 +96,10 @@ function stateOf(outcome: JobOutcome): JobState {
   switch (outcome.status) {
     case "done":
       return { status: "done", finalReply: outcome.finalReply };
+    case "ambiguous": {
+      const { reason, replyText } = outcome;
+      return { status: "ambiguous", reason, replyText };
+    }
     case "awaiting-approval":
       return { status: "awaiting-approval", reason: outcome.reason };
     case "pending":
@@ -104,9 +107,34 @@ function stateOf(outcome: JobOutcome): JobState {
   }
 }
 
+/** The saved outcome of a final job, answered without the network. */
+function savedOutcome(state: JobState): JobOutcome | undefined {
+  if (state.status === "done")
+    return { status: "done", finalReply: state.finalReply, replies: [] };
+  if (state.status === "ambiguous") {
+    const { reason, replyText } = state;
+    return { status: "ambiguous", reason, replyText, replies: [] };
+  }
+  return undefined;
+}
+
 /**
- * Waits for the job's turn and saves where it stands. A job saved as done returns
- * its saved reply without touching the network. A timeout becomes a pending
+ * What the saved jobs on this agent recorded about the bot at send, ours included.
+ * An unreadable store gives no records, which only makes attribution stricter.
+ */
+async function busyRecords(jobs: JobStore, job: JobRecord) {
+  const saved = await jobs.list().catch(() => []);
+  const busy = new Map<string, boolean>();
+  for (const j of [...saved, job]) {
+    if (j.agentId === job.agentId && j.botBusyAtSend !== undefined)
+      busy.set(j.sentMessageId, j.botBusyAtSend);
+  }
+  return busy satisfies BusyAtSend;
+}
+
+/**
+ * Waits for the job's turn and saves where it stands. A job saved as done or ambiguous
+ * returns its saved result without touching the network. A timeout becomes a pending
  * outcome; a caller abort leaves the saved state alone so `wait` can resume.
  */
 export async function followJob(
@@ -115,14 +143,13 @@ export async function followJob(
   timeoutSeconds: number,
   { signal, onEvent }: RunOptions,
 ): Promise<JobOutcome> {
-  if (job.state.status === "done") {
-    return { status: "done", finalReply: job.state.finalReply, replies: [] };
-  }
+  const saved = isFinalState(job.state) ? savedOutcome(job.state) : undefined;
+  if (saved) return saved;
   let outcome: JobOutcome;
   try {
     outcome = await waitForDone({
       server,
-      job,
+      job: { ...job, busyAtSend: await busyRecords(jobs, job) },
       timeoutMs: timeoutSeconds * 1000,
       signal,
       onEvent,

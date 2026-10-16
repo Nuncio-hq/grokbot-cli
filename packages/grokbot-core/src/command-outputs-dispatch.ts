@@ -34,6 +34,8 @@ export interface DispatchOutputs {
   readonly wait: {
     readonly jobId: string;
     readonly agentId: string;
+    /** The agent's name, recorded at send; absent on jobs saved before 16 Oct 2026. */
+    readonly agentName?: string;
     readonly outcome: JobOutcome;
   };
   readonly tail: {

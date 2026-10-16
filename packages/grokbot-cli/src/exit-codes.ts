@@ -7,6 +7,8 @@ export const EXIT_CODE = {
   awaitingApproval: 3,
   /** The wait timed out; `grokbot wait <jobId>` resumes it. */
   pending: 4,
+  /** The turn ended, but one run may have answered this message with another; stdout has every reply. */
+  ambiguous: 5,
   interrupted: 130,
 } as const;
 export type ExitCode = (typeof EXIT_CODE)[keyof typeof EXIT_CODE];
@@ -15,6 +17,7 @@ const OUTCOME_EXIT: { readonly [S in JobOutcome["status"]]: ExitCode } = {
   done: EXIT_CODE.ok,
   "awaiting-approval": EXIT_CODE.awaitingApproval,
   pending: EXIT_CODE.pending,
+  ambiguous: EXIT_CODE.ambiguous,
 };
 
 /** Commands that follow a job (ask, wait) exit by its outcome; the rest exit 0. */

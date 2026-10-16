@@ -25,8 +25,8 @@ export interface StreamFollowOptions {
 
 /**
  * A streamed status can run ahead of the rows it covers, so a verdict seen on the
- * stream is only a candidate. A done must go the quiet window without new rows, an
- * approval needs no wait, and both are then confirmed by reading the rows again.
+ * stream is only a candidate. A done (or ambiguous) must go the quiet window without
+ * new rows, an approval needs no wait, and both are then confirmed by reading the rows again.
  */
 class Candidate {
   #deadline: number | undefined;
@@ -45,8 +45,8 @@ class Candidate {
     }
     if (this.#status === verdict.status) return;
     this.#status = verdict.status;
-    this.#deadline =
-      Date.now() + (verdict.status === "done" ? this.quietMs : 0);
+    const ended = verdict.status === "done" || verdict.status === "ambiguous";
+    this.#deadline = Date.now() + (ended ? this.quietMs : 0);
   }
 
   drop(): void {

@@ -50,6 +50,7 @@ const TIMED_OUT = Symbol("timed-out");
 function verdictKey(v: DoneVerdict): string {
   if (v.status === "running") return `running, ${v.reason}`;
   if (v.status === "done") return `done: ${v.finalReply}`;
+  if (v.status === "ambiguous") return `ambiguous: ${v.replyText}`;
   return `awaiting-approval: ${v.reason} (${v.cards.length})`;
 }
 

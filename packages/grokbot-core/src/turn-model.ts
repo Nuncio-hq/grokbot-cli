@@ -6,6 +6,13 @@ import {
   sortBySeq,
   type TranscriptEntry,
 } from "./transcript.js";
+import {
+  type BusyAtSend,
+  isOwnerMessage,
+  requestIdOf,
+  sharedMessages,
+  sharedReason,
+} from "./turn-sharing.js";
 
 /** The rows that answer one message we sent, found by run (requestId), not by position. */
 export interface Turn {
@@ -17,6 +24,8 @@ export interface Turn {
   readonly openCards: readonly CardEntry[];
   /** Rows of the latest run after its last delegate reply or card: where the final reply lives. */
   readonly tail: readonly TranscriptEntry[];
+  /** Set when one run may have answered our message together with another (see turn-sharing). */
+  readonly sharedReason?: string;
 }
 
 /** Keeps the newest version of each row (highest updatedSeq), in seq order. */
@@ -32,12 +41,6 @@ export function newestVersions(
   return sortBySeq([...bySeq.values()]);
 }
 
-const requestIdOf = (e: TranscriptEntry): string | undefined =>
-  "requestId" in e ? e.requestId : undefined;
-
-const isOwnerMessage = (e: TranscriptEntry): boolean =>
-  e.kind === "user-message" && e.fromAgent === undefined;
-
 /**
  * The server's turn number in a row id (`t51u`, `t51s0` → `t51`). When the owner resolves
  * a card, the bot resumes in a new run whose rows keep the card's number (live 15 Oct:
@@ -47,24 +50,32 @@ function serverTurnOf(e: TranscriptEntry): string | undefined {
   return /^(t\d+)(?:u|s\d+)$/.exec(e.entryId)?.[1];
 }
 
+const NO_RECORDS: BusyAtSend = new Map();
+
 /**
- * The turn's runs start with the echo's requestId. Each delegate reply that closes one of
- * our open delegations starts another, and so does the run the bot resumes in after the
- * owner resolves one of the turn's cards. A row without a requestId (legacy rows, blobs)
- * counts only before the owner's next message, and so does every row when the echo has none.
+ * The turn's runs start with the runs of the owner messages one run may have answered
+ * together with ours (just ours, unless sharedMessages links others). Each delegate reply
+ * that closes one of our open delegations starts another, and so does the run the bot
+ * resumes in after the owner resolves one of the turn's cards. The latest linked message's
+ * run is where the bot answers, so the tail restarts there. A row without a requestId
+ * (legacy rows, blobs) counts only before the owner's next unlinked message, and so does
+ * every row when the echo has none.
  */
 export function findTurn(
   entries: readonly TranscriptEntry[],
   sentMessageId: string,
+  busyAtSend: BusyAtSend = NO_RECORDS,
 ): Turn | undefined {
   const rows = newestVersions(entries);
   const echoAt = rows.findIndex(
     (e) => e.kind === "user-message" && e.clientNonce === sentMessageId,
   );
   const echo = rows[echoAt];
-  if (!echo) return undefined;
-  const after = rows.slice(echoAt + 1);
-  const cut = after.findIndex(isOwnerMessage);
+  if (echo?.kind !== "user-message") return undefined;
+  const shared = sharedMessages(rows, echoAt, echo, busyAtSend);
+  const linked = new Set<TranscriptEntry>(shared.echoes);
+  const after = rows.slice(shared.startAt + 1);
+  const cut = after.findIndex((e) => isOwnerMessage(e) && !linked.has(e));
   const ownerCut = cut < 0 ? after.length : cut;
   const echoRun = requestIdOf(echo);
   /** The row's run when the turn is keyed by run; undefined means place it by position. */
@@ -81,12 +92,13 @@ export function findTurn(
     );
   }
 
-  const runs = new Set<string | undefined>([echoRun]);
+  const runs = new Set<string | undefined>(shared.echoes.map(runOf));
   const open: AgentRef[] = [];
   const cards: CardEntry[] = [];
   const resumed = new Set<CardEntry>();
   const turn: TranscriptEntry[] = [];
-  let latestRun = echoRun;
+  /** The runs the final reply may come from: the latest run, or every linked message's run. */
+  let latestRuns = new Set([runOf(rows[shared.startAt] ?? echo)]);
   let tailStart = 0;
   /** Admits `run` when it resumes the bot after cards of the turn; false when it does not. */
   const resumesCards = (run: string): boolean => {
@@ -98,20 +110,26 @@ export function findTurn(
     if (resolved.length === 0) return false;
     for (const c of resolved) resumed.add(c);
     runs.add(run);
-    latestRun = run;
+    latestRuns = new Set([run]);
     tailStart = turn.length;
     return true;
   };
   after.forEach((e, i) => {
     const run = runOf(e);
     const beforeOwner = i < ownerCut;
+    if (linked.has(e)) {
+      // A later linked message: either linked run may post the answer from here on.
+      latestRuns = new Set(shared.echoes.map(runOf));
+      tailStart = turn.length;
+      return;
+    }
     if (e.kind === "user-message" && e.fromAgent) {
       const from = e.fromAgent;
       const closes = open.findIndex((to) => isSameAgent(to, from));
       if (closes < 0 || (run === undefined && !beforeOwner)) return;
       open.splice(closes, 1);
       runs.add(run);
-      latestRun = run;
+      latestRuns = new Set([run]);
       turn.push(e);
       tailStart = turn.length;
       return;
@@ -123,17 +141,19 @@ export function findTurn(
     if (e.kind !== "card") return;
     cards.push(e);
     // Only what the bot says after a card can answer the turn.
-    if (run === latestRun) tailStart = turn.length;
+    if (latestRuns.has(run)) tailStart = turn.length;
   });
 
   const tail = turn.slice(tailStart).filter((e) => {
     const run = runOf(e);
-    return run === undefined || run === latestRun;
+    return run === undefined || latestRuns.has(run);
   });
+  const reason = sharedReason(shared, echo);
   return {
     rows: turn,
     hasOpenDelegation: open.length > 0,
     openCards: cards.filter((c) => c.open && !resumed.has(c)),
     tail,
+    ...(reason !== undefined && { sharedReason: reason }),
   };
 }

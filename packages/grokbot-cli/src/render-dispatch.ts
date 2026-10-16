@@ -14,6 +14,11 @@ function outcomeText(jobId: string, outcome: JobOutcome): Text {
   switch (outcome.status) {
     case "done":
       return plain(line(outcome.finalReply));
+    case "ambiguous":
+      return {
+        stdout: line(outcome.replyText),
+        note: `Ambiguous: ${outcome.reason}. stdout has every reply of that run, in order; check which one answers job ${jobId}.\n`,
+      };
     case "pending":
       return {
         stdout: `${jobId}\n`,

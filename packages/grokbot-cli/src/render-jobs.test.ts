@@ -76,6 +76,32 @@ describe("job commands in human mode", () => {
     expect(run.code).toBe(3);
   });
 
+  it("prints every reply of a shared run and flags it on stderr with exit 5", async () => {
+    const outcome = {
+      status: "ambiguous",
+      reason:
+        "the bot may have answered this message in one run together with message #171",
+      replyText: "Starting A.\n\nRESULT B\n\nRESULT A",
+      replies: [],
+    } as const;
+    const run = await runCli(["wait", "job-2"], {
+      outputs: {
+        wait: {
+          jobId: "job-2",
+          agentId: PRIMARY.agentId,
+          agentName: "Primary Test",
+          outcome,
+        },
+      },
+    });
+    expect(run).toMatchObject({
+      stdout: lines("Starting A.", "", "RESULT B", "", "RESULT A"),
+      stderr:
+        "Ambiguous: the bot may have answered this message in one run together with message #171. stdout has every reply of that run, in order; check which one answers job job-2.\n",
+      code: 5,
+    });
+  });
+
   it("prints the job id for send", async () => {
     const run = await runCli(["send", "build it"], { outputs: sent });
     expect(run).toMatchObject({
@@ -108,6 +134,7 @@ describe("--json output", () => {
   it.each([
     [{ status: "pending", reason: "timed out" }, 4],
     [{ status: "awaiting-approval", reason: "connector", cards: [] }, 3],
+    [{ status: "ambiguous", reason: "shared", replyText: "A", replies: [] }, 5],
   ] as const)(
     "keeps exit codes without human hints for %j",
     async (outcome, code) => {
