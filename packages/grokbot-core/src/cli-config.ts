@@ -14,12 +14,22 @@ export const KEYCHAIN_ACCESS_MODES: readonly KeychainAccess[] = [
   "prompt",
 ];
 
+/** Whether grokbot keeps its local usage log (usage-log.ts). Nothing leaves the machine either way. */
+export type UsageSetting = "on" | "off";
+
 /** grokbot's own settings. Never holds a token: secrets live only in the Keychain. */
 export interface CliConfig {
   readonly keychainAccess: KeychainAccess;
+  readonly usage: UsageSetting;
 }
 
-export const DEFAULT_CLI_CONFIG: CliConfig = { keychainAccess: "silent" };
+export const DEFAULT_CLI_CONFIG: CliConfig = {
+  keychainAccess: "silent",
+  usage: "on",
+};
+
+export const isUsageSetting = (value: unknown): value is UsageSetting =>
+  value === "on" || value === "off";
 
 export interface CliConfigStore {
   readonly path: string;
@@ -33,10 +43,11 @@ export const isKeychainAccess = (value: unknown): value is KeychainAccess =>
 /** `~/.grokbot/grokbot-cli.json`, beside the jobs folder the CLI already keeps. */
 export function cliConfigStore(home: string = homedir()): CliConfigStore {
   const path = join(home, ".grokbot", "grokbot-cli.json");
-  const invalid = () =>
-    new GrokBotError(
-      "auth",
-      `${path}: keychainAccess must be "silent" or "prompt". Fix it with grokbot config keychain-access <silent|prompt>.`,
+  const invalid = (detail: string) =>
+    new GrokBotError("auth", `${path}: ${detail}`);
+  const badAccess = () =>
+    invalid(
+      'keychainAccess must be "silent" or "prompt". Fix it with grokbot config keychain-access <silent|prompt>.',
     );
   return {
     path,
@@ -54,15 +65,20 @@ export function cliConfigStore(home: string = homedir()): CliConfigStore {
       try {
         parsed = JSON.parse(text);
       } catch {
-        throw invalid();
+        throw badAccess();
       }
-      const access =
+      const o =
         typeof parsed === "object" && parsed !== null
-          ? (parsed as { keychainAccess?: unknown }).keychainAccess
-          : undefined;
-      if (access === undefined) return DEFAULT_CLI_CONFIG;
-      if (!isKeychainAccess(access)) throw invalid();
-      return { keychainAccess: access };
+          ? (parsed as { keychainAccess?: unknown; usage?: unknown })
+          : {};
+      const { keychainAccess = DEFAULT_CLI_CONFIG.keychainAccess } = o;
+      const { usage = DEFAULT_CLI_CONFIG.usage } = o;
+      if (!isKeychainAccess(keychainAccess)) throw badAccess();
+      if (!isUsageSetting(usage))
+        throw invalid(
+          'usage must be "on" or "off". Fix it with grokbot config usage <on|off>.',
+        );
+      return { keychainAccess, usage };
     },
     async write(config) {
       await mkdir(dirname(path), { recursive: true, mode: 0o700 });

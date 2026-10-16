@@ -40,8 +40,10 @@ export {
   cliConfigStore,
   DEFAULT_CLI_CONFIG,
   isKeychainAccess,
+  isUsageSetting,
   KEYCHAIN_ACCESS_MODES,
   type KeychainAccess,
+  type UsageSetting,
 } from "./cli-config.js";
 export {
   type Command,
@@ -131,6 +133,30 @@ export {
   transcriptCursor,
   watchTranscripts,
 } from "./transcript-stream.js";
+export {
+  CLIENT_LABELS,
+  type ClientLabel,
+  type ClientSignals,
+  detectClient,
+} from "./usage-client.js";
+export {
+  DEFAULT_USAGE_DIR,
+  localHour,
+  type UsageEvent,
+  type UsageLog,
+  usageLog,
+} from "./usage-log.js";
+export {
+  type UsageRunnerOptions,
+  usageEnabled,
+  withUsageLog,
+} from "./usage-runner.js";
+export {
+  type BotMessageCount,
+  ownerMessageCounts,
+  summarizeUsage,
+  type UsageSummary,
+} from "./usage-stats.js";
 export {
   type WaitEvent,
   type WaitForDoneOptions,

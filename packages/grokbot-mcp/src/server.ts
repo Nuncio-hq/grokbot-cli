@@ -9,6 +9,7 @@ import {
   parseIncoming,
   type RequestId,
 } from "./json-rpc.js";
+import { noteMcpClient } from "./mcp-client-name.js";
 import { eraHandlers } from "./mcp-era-handlers.js";
 import { requestEra } from "./mcp-era-request.js";
 
@@ -41,6 +42,7 @@ export async function serve(options: ServeOptions): Promise<void> {
     method: string,
     params: JsonObject,
   ): Promise<void> {
+    noteMcpClient(params);
     const route = requestEra(params);
     if ("error" in route) return send(id, { error: route.error });
     const handler = handlers[route.era].get(method);

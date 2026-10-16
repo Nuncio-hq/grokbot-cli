@@ -171,7 +171,12 @@ grokbot worker-plan                        # prints the worker command; starts n
 | `grokbot login [--no-browser] [--api-key]` | account, local only | Sign grokbot in through the browser (own Keychain sign-in) |
 | `grokbot logout` | account, local only | Remove grokbot's own sign-in (the app's login is untouched) |
 | `grokbot whoami` | account, local only | Show which sign-in grokbot uses, never the token |
+| `grokbot stats [--since <7d\|30d\|90d\|all>] [--bots]` | local; --bots reads GrokBot | Show how grokbot was used, from its local usage log (--bots adds message counts) |
 <!-- END generated command table -->
+
+## Usage log
+
+`grokbot` keeps a usage log on this computer only (`~/.grokbot/usage`, about 90 days). Each run records the command, who ran it (a person, Claude Code, Codex, Cursor, Hermes, a script), how it ended and how long it took. It never records messages, replies, bot names or ids. `grokbot stats` reads it. Claude Code is recognised by itself; if your runtime is not, set `GROKBOT_CLIENT` (for example `codex` or `hermes`) so your runs are counted as yours. The owner can turn the log off with `grokbot config usage off` or `GROKBOT_USAGE=off`.
 
 ## When to use MCP instead
 

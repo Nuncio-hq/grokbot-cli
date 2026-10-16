@@ -1,4 +1,4 @@
-import type { KeychainAccess } from "grokbot-core";
+import type { KeychainAccess, UsageSetting } from "grokbot-core";
 import { describe, expect, it } from "vitest";
 import type { ConfigDeps } from "./config-command.js";
 import { runCli } from "./fixtures/run-cli.js";
@@ -9,17 +9,27 @@ function fakeConfig(
 ): ConfigDeps & {
   state: {
     access: KeychainAccess;
+    usage: UsageSetting;
     item?: KeychainAccess;
     switched: KeychainAccess[];
+    writes: number;
   };
 } {
-  const state = { access: initial, item, switched: [] as KeychainAccess[] };
+  const state = {
+    access: initial,
+    usage: "on" as UsageSetting,
+    item,
+    switched: [] as KeychainAccess[],
+    writes: 0,
+  };
   return {
     state,
     path: "/home/me/.grokbot/grokbot-cli.json",
-    read: async () => ({ keychainAccess: state.access }),
+    read: async () => ({ keychainAccess: state.access, usage: state.usage }),
     write: async (config) => {
       state.access = config.keychainAccess;
+      state.usage = config.usage;
+      state.writes++;
     },
     itemAccess: async () => state.item,
     setItemAccess: async (next) => {
@@ -40,6 +50,7 @@ describe("grokbot config", () => {
     expect(run.stdout).toBe(
       [
         "keychain-access  silent  (saved sign-in: silent)",
+        "usage            on  (local only; see grokbot stats)",
         "",
         "Settings file: /home/me/.grokbot/grokbot-cli.json",
         "",
@@ -115,7 +126,11 @@ describe("grokbot config", () => {
     ],
     [
       ["config", "colour", "red"],
-      'grokbot: config: unknown setting "colour" (known: keychain-access)',
+      'grokbot: config: unknown setting "colour" (known: keychain-access, usage)',
+    ],
+    [
+      ["config", "usage", "maybe"],
+      'grokbot: config: usage must be "on" or "off"',
     ],
     [
       ["config", "keychain-access", "silent", "extra"],
@@ -127,12 +142,27 @@ describe("grokbot config", () => {
     expect(run.stderr).toContain(message);
   });
 
+  it("turns the usage log off and on, keeping the Keychain setting", async () => {
+    const config = fakeConfig("prompt", "prompt");
+    const off = await runCli(["config", "usage", "off"], { config });
+    const again = await runCli(["config", "usage", "off"], { config });
+    const read = await runCli(["config", "usage"], { config });
+    expect([off.stdout, again.stdout, read.stdout]).toEqual([
+      "usage is now off. Nothing new is recorded; the saved log stays until you delete ~/.grokbot/usage.\n",
+      "usage is already off.\n",
+      "off\n",
+    ]);
+    expect([config.state.access, config.state.writes]).toEqual(["prompt", 1]);
+    expect(config.state.switched).toEqual([]);
+  });
+
   it("--json prints one document", async () => {
     const run = await runCli(["config", "--json"], {
       config: fakeConfig("prompt", "prompt"),
     });
     expect(JSON.parse(run.stdout)).toStrictEqual({
       keychainAccess: "prompt",
+      usage: "on",
       savedSignIn: "prompt",
       path: "/home/me/.grokbot/grokbot-cli.json",
     });
@@ -141,7 +171,7 @@ describe("grokbot config", () => {
   it("has help, and is listed under Settings in general help", async () => {
     const help = await runCli(["config", "--help"]);
     expect(help.stdout).toContain(
-      "Usage: grokbot config [keychain-access [silent|prompt]] [--json]",
+      "Usage: grokbot config [keychain-access [silent|prompt] | usage [on|off]] [--json]",
     );
     const general = await runCli(["--help"]);
     expect(general.stdout).toMatch(/Settings:\n {2}config\s+/);

@@ -15,12 +15,18 @@ import {
 import { errorMessage } from "./error-message.js";
 import { EXIT_CODE } from "./exit-codes.js";
 import type { TextSink } from "./main.js";
+import {
+  defaultStatsDeps,
+  runStatsCommand,
+  STATS_HELP,
+  type StatsDeps,
+} from "./stats-command.js";
 
 /**
- * Local commands outside the RPC catalog: login / logout / whoami and config. They call
- * no GrokBotService method, so they never build the runner and MCP never offers them.
+ * Local commands outside the RPC catalog: login / logout / whoami, config and stats. They
+ * never build the runner (stats --bots makes its own read-only calls) and MCP never offers them.
  */
-type LocalName = AuthCommandName | "config";
+type LocalName = AuthCommandName | "config" | "stats";
 
 export interface LocalContext {
   readonly stdout: TextSink;
@@ -30,12 +36,13 @@ export interface LocalContext {
   readonly signal?: AbortSignal;
   readonly auth?: AuthDeps;
   readonly config?: ConfigDeps;
+  readonly stats?: StatsDeps;
 }
 
 /** Words and flags that may come before the command name, as elsewhere in the CLI. */
 const LEADING = new Set(["help", "--help", "-h", "--json"]);
 const isLocal = (name: string | undefined): name is LocalName =>
-  name === "config" || isAuthCommand(name);
+  name === "config" || name === "stats" || isAuthCommand(name);
 
 /**
  * Finds a local command after leading flags: `whoami`, `--json whoami`, `help login`,
@@ -63,7 +70,13 @@ export async function runLocal(
 ): Promise<number> {
   const { stdout, stderr } = ctx;
   if (args.includes("--help") || args.includes("-h")) {
-    stdout.write(name === "config" ? CONFIG_HELP : AUTH_HELP[name]);
+    stdout.write(
+      name === "config"
+        ? CONFIG_HELP
+        : name === "stats"
+          ? STATS_HELP
+          : AUTH_HELP[name],
+    );
     return EXIT_CODE.ok;
   }
   const controller = new AbortController();
@@ -83,14 +96,21 @@ export async function runLocal(
             stderr,
             deps: ctx.config ?? defaultConfigDeps(),
           })
-        : runAuthCommand(name, args, {
-            stdout,
-            stderr,
-            env: ctx.env,
-            isTTY: ctx.isTTY,
-            signal: controller.signal,
-            deps: ctx.auth ?? defaultAuthDeps(),
-          });
+        : name === "stats"
+          ? runStatsCommand(args, {
+              stdout,
+              stderr,
+              signal: controller.signal,
+              deps: ctx.stats ?? defaultStatsDeps(ctx.env),
+            })
+          : runAuthCommand(name, args, {
+              stdout,
+              stderr,
+              env: ctx.env,
+              isTTY: ctx.isTTY,
+              signal: controller.signal,
+              deps: ctx.auth ?? defaultAuthDeps(),
+            });
     return await Promise.race([run, aborted]);
   } catch (error) {
     if (error === INTERRUPTED || controller.signal.aborted) {

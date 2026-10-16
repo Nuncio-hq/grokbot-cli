@@ -12,6 +12,7 @@ import {
   takesValue,
 } from "./command-params.js";
 import { CONFIG_SUMMARY } from "./config-command.js";
+import { STATS_SUMMARY } from "./stats-command.js";
 
 function valueLabel(spec: ParamSpec): string {
   if (!takesValue(spec)) return "";
@@ -72,7 +73,10 @@ export function generalHelp(): string {
     ...columns(account),
     "",
     "Settings:",
-    ...columns([["config", CONFIG_SUMMARY]]),
+    ...columns([
+      ["config", CONFIG_SUMMARY],
+      ["stats", STATS_SUMMARY],
+    ]),
     "",
     "Flags go before or after the command. Commands with an --agent flag fall",
     "back to GROKBOT_AGENT. Workforce commands (update, fire, room-members,",
