@@ -14,7 +14,7 @@
     },
     "packages/grokbot-cli": {
       "name": "grokbotagent-cli",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "bin": {
         "grokbot": "dist/cli.js",
       },
@@ -25,11 +25,11 @@
     },
     "packages/grokbot-core": {
       "name": "grokbot-core",
-      "version": "0.1.1",
+      "version": "0.1.2",
     },
     "packages/grokbot-mcp": {
       "name": "grokbot-mcp",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "bin": {
         "grokbot-mcp": "dist/index.js",
       },
