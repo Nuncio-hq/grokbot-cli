@@ -31,6 +31,12 @@ const NOW = 1_791_948_600_000;
 const UUID_V4 =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
+/** The bot's own status fields, without the scripted status of the bot it messaged. */
+function withoutDelegate(status: object): object {
+  const { delegate: _, ...own } = status as { delegate?: unknown };
+  return own;
+}
+
 let dir: string;
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), "grokbot-runner-send-"));
@@ -145,6 +151,24 @@ describe("send", () => {
       true,
     ],
     [
+      "idle while the bot it messaged long ago is still working",
+      { delegate: { isRunning: true } },
+      [
+        delegationRow(137, "Reply PONG.", STAFF_TEST),
+        textReplyRow(138, "Asked Staff Test."),
+      ],
+      true,
+    ],
+    [
+      "idle when the bot it messaged long ago is idle and never replied",
+      { delegate: {} },
+      [
+        delegationRow(137, "Reply PONG.", STAFF_TEST),
+        textReplyRow(138, "Asked Staff Test."),
+      ],
+      false,
+    ],
+    [
       "idle after its last reply",
       {},
       [
@@ -162,7 +186,14 @@ describe("send", () => {
           ListGrokBotAgents: [ROSTER],
           ListGrokBotTranscriptEntries: [{ entries }],
           ListGrokBotAgentStatuses: [
-            { statuses: [{ agentId: AGENT, ...status }] },
+            {
+              statuses: [
+                { agentId: AGENT, ...withoutDelegate(status) },
+                ...("delegate" in status
+                  ? [{ agentId: STAFF_TEST.id, ...status.delegate }]
+                  : []),
+              ],
+            },
           ],
           SendGrokBotUserMessage: [ACCEPTED],
         },

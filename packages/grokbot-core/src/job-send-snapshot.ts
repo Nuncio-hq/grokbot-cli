@@ -19,16 +19,42 @@ import {
 /** Enough recent rows to find the highest updatedSeq before our message lands, and open delegations. */
 const BASELINE_ROWS = 20;
 
-/** A message the bot sent another bot in `entries` that has no reply from it there yet. */
-function hasOpenDelegation(entries: readonly TranscriptEntry[]): boolean {
-  const open: AgentRef[] = [];
+/** A reply sent this recently may still be on its way to the bot. */
+const REPLY_IN_FLIGHT_MS = 120_000;
+
+interface OpenDelegation {
+  readonly to: AgentRef;
+  readonly atMs: number | undefined;
+}
+
+/** Messages the bot sent other bots in `entries` that have no reply from them there yet. */
+function openDelegations(
+  entries: readonly TranscriptEntry[],
+): OpenDelegation[] {
+  const open: OpenDelegation[] = [];
   for (const e of entries) {
-    if (e.kind === "assistant-message" && e.toAgent) open.push(e.toAgent);
+    if (e.kind === "assistant-message" && e.toAgent)
+      open.push({ to: e.toAgent, atMs: e.timestampMs });
     const from = e.kind === "user-message" ? e.fromAgent : undefined;
-    const at = from ? open.findIndex((to) => isSameAgent(to, from)) : -1;
+    const at = from ? open.findIndex((d) => isSameAgent(d.to, from)) : -1;
     if (at >= 0) open.splice(at, 1);
   }
-  return open.length > 0;
+  return open;
+}
+
+/**
+ * Whether an open delegation can still bring a reply (which starts a new run): the bot it
+ * went to is still working, its status is unknown, or it was sent moments ago. Live 16 Oct:
+ * a delegate that answered while idle never had its reply delivered, so an idle delegate's
+ * old message is not waited on forever.
+ */
+function replyMayCome(
+  { to, atMs }: OpenDelegation,
+  statuses: ReadonlyMap<string, LiveStatus>,
+): boolean {
+  const status = to.id === undefined ? undefined : statuses.get(to.id);
+  if (status === undefined || isActive(status) || status.awaiting) return true;
+  return atMs === undefined || Date.now() - atMs < REPLY_IN_FLIGHT_MS;
 }
 
 /**
@@ -39,10 +65,12 @@ function hasOpenDelegation(entries: readonly TranscriptEntry[]): boolean {
  * an open card, or a reply still being written.
  */
 function isBotBusy(
-  status: LiveStatus,
+  agentId: string,
+  statuses: ReadonlyMap<string, LiveStatus>,
   recent: EntriesPage,
   inFlight: readonly string[],
 ): boolean {
+  const status = statuses.get(agentId) ?? IDLE_STATUS;
   if (isActive(status) || status.awaiting) return true;
   const echoed = new Set(
     recent.entries.flatMap((e) =>
@@ -50,7 +78,8 @@ function isBotBusy(
     ),
   );
   if (inFlight.some((id) => !echoed.has(id))) return true;
-  if (hasOpenDelegation(recent.entries)) return true;
+  if (openDelegations(recent.entries).some((d) => replyMayCome(d, statuses)))
+    return true;
   const newest = recent.entries.at(-1);
   if (newest === undefined) return false;
   if (newest.kind === "user-message") return true;
@@ -81,15 +110,15 @@ export async function snapshotBeforeSend(
       { signal },
     ),
   );
+  const delegates = openDelegations(recent.entries).flatMap((d) =>
+    d.to.id === undefined ? [] : [d.to.id],
+  );
+  const agentIds = [...new Set([agentId, ...delegates])];
   const statuses = parseAgentStatusesResponse(
-    await server.call(
-      "ListGrokBotAgentStatuses",
-      { agentIds: [agentId] },
-      { signal },
-    ),
+    await server.call("ListGrokBotAgentStatuses", { agentIds }, { signal }),
   );
   return {
     baseline: transcriptCursor(agentId, recent),
-    botBusy: isBotBusy(statuses.get(agentId) ?? IDLE_STATUS, recent, inFlight),
+    botBusy: isBotBusy(agentId, statuses, recent, inFlight),
   };
 }
