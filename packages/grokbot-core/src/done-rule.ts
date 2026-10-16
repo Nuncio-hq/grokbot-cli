@@ -7,8 +7,10 @@ import {
   type TranscriptEntry,
 } from "./transcript.js";
 import { findTurn } from "./turn-model.js";
+import type { BusyAtSend } from "./turn-sharing.js";
 
 export type { CardEntry } from "./transcript.js";
+export type { BusyAtSend } from "./turn-sharing.js";
 export type ReplyEntry = Extract<TranscriptEntry, { kind: "reply" }>;
 
 export type RunningReason =
@@ -34,6 +36,18 @@ export type DoneVerdict =
        * finalReply then holds a marker naming the hash, never an earlier note.
        */
       readonly blobHash?: string;
+    }
+  | {
+      /**
+       * The turn ended, but one bot run may have answered our message together with
+       * another (see turn-sharing.ts), so no reply can be called ours alone.
+       */
+      readonly status: "ambiguous";
+      readonly reason: string;
+      /** Every text reply of the turn in order, blank-line separated (a blob as its marker). */
+      readonly replyText: string;
+      readonly replies: readonly ReplyEntry[];
+      readonly blobHash?: string;
     };
 
 export interface DoneRuleInput {
@@ -41,6 +55,8 @@ export interface DoneRuleInput {
   /** The messageId we sent; the server echoes it back as the user row's clientNonce. */
   readonly sentMessageId: string;
   readonly status: LiveStatus;
+  /** Whether the bot was busy when each message we know of was sent; missing means busy. */
+  readonly busyAtSend?: BusyAtSend;
 }
 
 const running = (reason: RunningReason): DoneVerdict => ({
@@ -82,21 +98,36 @@ function roomReplyText(replies: readonly ReplyEntry[]): string | undefined {
   return byMember.size === 0 ? undefined : [...byMember.values()].join("\n");
 }
 
+/** Every reply of a shared turn: its text replies in order, a blob final reply as its marker. */
+function sharedReplyText(
+  turn: readonly TranscriptEntry[],
+  blobHash: string | undefined,
+): string {
+  const texts = turn.flatMap((e) =>
+    e.kind === "reply" && e.reply.type === "text" ? [e.reply.content] : [],
+  );
+  if (blobHash !== undefined) texts.push(blobReplyMarker(blobHash));
+  return texts.join("\n\n");
+}
+
 /**
  * Decides whether the turn started by `sentMessageId` has finished.
- * The turn is the echo's run plus the runs our delegates' replies and the owner's card
- * answers start (see findTurn); the final reply is the last text (or blob) reply of the
- * latest run. An open card of the turn awaits the owner once the bot stops, even when
- * live.awaiting is unset (question widgets leave it unset), but live.awaiting alone never
- * makes the turn await: it may belong to a later turn.
+ * The turn is the runs of our message and of any message one run may have answered with
+ * it, plus the runs our delegates' replies and the owner's card answers start (see
+ * findTurn); the final reply is the last text (or blob) reply of the latest run. A turn
+ * that may be shared ends `ambiguous` with every reply, never `done` with one of them.
+ * An open card of the turn awaits the owner once the bot stops, even when live.awaiting
+ * is unset (question widgets leave it unset), but live.awaiting alone never makes the
+ * turn await: it may belong to a later turn.
  * Pure: the caller supplies every transcript row it has and the latest live status.
  */
 export function evaluateDoneRule({
   entries,
   sentMessageId,
   status,
+  busyAtSend,
 }: DoneRuleInput): DoneVerdict {
-  const turn = findTurn(entries, sentMessageId);
+  const turn = findTurn(entries, sentMessageId, busyAtSend);
   if (!turn) return running("awaiting-echo");
   const cards = turn.openCards;
 
@@ -118,6 +149,16 @@ export function evaluateDoneRule({
   const final = turn.tail.filter(isFinalCandidate).at(-1);
   if (!final || isStreaming(final)) return running("awaiting-final-reply");
   const replies = turn.rows.filter((e): e is ReplyEntry => e.kind === "reply");
+  if (turn.sharedReason !== undefined) {
+    const blobHash = final.kind === "blob" ? final.blobHash : undefined;
+    return {
+      status: "ambiguous",
+      reason: turn.sharedReason,
+      replyText: sharedReplyText(turn.rows, blobHash),
+      replies,
+      ...(blobHash !== undefined && { blobHash }),
+    };
+  }
   if (final.kind === "blob") {
     const { blobHash } = final;
     return {

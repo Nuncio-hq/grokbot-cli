@@ -82,6 +82,7 @@ export {
   type ServerTransport,
 } from "./contracts.js";
 export {
+  type BusyAtSend,
   type CardEntry,
   type DoneVerdict,
   evaluateDoneRule,

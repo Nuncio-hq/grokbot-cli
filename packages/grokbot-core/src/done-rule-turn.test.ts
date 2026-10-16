@@ -23,20 +23,24 @@ describe("Done Rule keys the turn by requestId", () => {
     ).toBe("done:PONG");
   });
 
-  it("gives each of two back-to-back sends its own run", () => {
+  it("gives each of two back-to-back sends its own run once the later one found the bot idle", () => {
     const rows = [
       echo(10, "ra", "m-a"),
       textReplyRow(11, "note A", "ra"),
       echo(12, "rb", "m-b"),
       textReplyRow(13, "final A", "ra"),
     ];
-    expect(summary(rows, IDLE_STATUS, "m-a")).toBe("done:final A");
-    expect(summary(rows, IDLE_STATUS, "m-b")).toBe(
+    const idle = new Map([["m-b", false]]);
+    expect(summary(rows, IDLE_STATUS, "m-a", idle)).toBe("done:final A");
+    expect(summary(rows, IDLE_STATUS, "m-b", idle)).toBe(
       "running:awaiting-final-reply",
+    );
+    expect(summary(rows, IDLE_STATUS, "m-a")).toBe(
+      "ambiguous:note A\n\nfinal A",
     );
   });
 
-  it("follows the delegate's reply past an owner message sent meanwhile", () => {
+  it("follows the delegate's reply past an owner message sent to the idle bot meanwhile", () => {
     const rows = [
       echo(20, "r1"),
       delegationRow(21, "q", DEV_A, { requestId: "r1" }),
@@ -45,14 +49,18 @@ describe("Done Rule keys the turn by requestId", () => {
       textReplyRow(24, "hello", "r3"),
       delegateReplyRow(25, "A says 1", DEV_A, { requestId: "r2" }),
     ];
-    expect(summary(rows, IDLE_STATUS)).toBe("running:awaiting-final-reply");
-    const v = verdict(
-      [...rows, textReplyRow(26, "Total 1", "r2")],
-      IDLE_STATUS,
+    const idle = new Map([["m-2", false]]);
+    expect(summary(rows, IDLE_STATUS, "m-1", idle)).toBe(
+      "running:awaiting-final-reply",
     );
+    const all = [...rows, textReplyRow(26, "Total 1", "r2")];
+    const v = verdict(all, IDLE_STATUS, "m-1", idle);
     expect(
       v.status === "done" && [v.finalReply, v.replies.map((r) => r.seq)],
     ).toEqual(["Total 1", ["22", "26"]]);
+    expect(summary(all, IDLE_STATUS)).toBe(
+      "ambiguous:Asked Dev-A.\n\nhello\n\nTotal 1",
+    );
   });
 
   it("ignores another bot's unsolicited message and the reply to it", () => {

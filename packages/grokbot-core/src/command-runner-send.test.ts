@@ -4,8 +4,15 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createCommandRunner } from "./command-runner.js";
 import { GrokBotError } from "./contracts.js";
+import { STAFF_TEST } from "./fixtures/delegation-trace.js";
 import { fakeServer } from "./fixtures/fake-server.js";
-import { sendMessageRow, textReplyRow } from "./fixtures/wire-entries.js";
+import {
+  delegateReplyRow,
+  delegationRow,
+  sendMessageRow,
+  textReplyRow,
+  userRow,
+} from "./fixtures/wire-entries.js";
 import { type JobRecord, jobStore } from "./job-store.js";
 
 const AGENT = "f882ec52-17b1-4639-b0fc-07fed7526b09";
@@ -45,10 +52,13 @@ describe("send", () => {
             generation: "2",
             entries: [
               textReplyRow(139, "older"),
-              sendMessageRow(140, { type: "widget" }, "r-1", 141),
+              sendMessageRow(140, { type: "widget" }, "r-1", 141, {
+                respondedValue: "Blue",
+              }),
             ],
           },
         ],
+        ListGrokBotAgentStatuses: [{ statuses: [{ agentId: AGENT }] }],
         SendGrokBotUserMessage: [ACCEPTED],
       },
     });
@@ -62,10 +72,12 @@ describe("send", () => {
     const record: JobRecord = {
       jobId: out.jobId,
       agentId: AGENT,
+      agentName: "Primary Test",
       sentMessageId: out.sentMessageId,
       sentAtMs: NOW,
       baselineUpdatedSeq: "141",
       generation: "2",
+      botBusyAtSend: false,
       state: { status: "pending" },
     };
     expect([
@@ -78,8 +90,9 @@ describe("send", () => {
       ["ListGrokBotAgents", {}],
       [
         "ListGrokBotTranscriptEntries",
-        { agentId: AGENT, sessionId: "", limit: 5 },
+        { agentId: AGENT, sessionId: "", limit: 20 },
       ],
+      ["ListGrokBotAgentStatuses", { agentIds: [AGENT] }],
       [
         "SendGrokBotUserMessage",
         {
@@ -94,11 +107,80 @@ describe("send", () => {
     expect(await jobStore(dir).list()).toEqual([record]);
   });
 
+  it.each([
+    [
+      "running",
+      { isRunning: true },
+      [textReplyRow(139, "Working on it.")],
+      true,
+    ],
+    ["awaiting the owner", { live: { awaiting: "Pick one" } }, [], true],
+    [
+      "idle with an unanswered message as its newest row",
+      {},
+      [userRow(140, "earlier ask", { clientNonce: "m-0" })],
+      true,
+    ],
+    [
+      "idle with an open card as its newest row",
+      {},
+      [sendMessageRow(140, { type: "widget" }, "r-1")],
+      true,
+    ],
+    [
+      "idle while its subagents still run",
+      { live: { hasRunningSubagents: true } },
+      [textReplyRow(139, "Started a cloud agent.")],
+      true,
+    ],
+    [
+      "idle while a delegate's reply is still due",
+      {},
+      [
+        delegationRow(137, "Reply PONG.", STAFF_TEST),
+        textReplyRow(138, "Asked Staff Test."),
+      ],
+      true,
+    ],
+    [
+      "idle after its last reply",
+      {},
+      [
+        delegationRow(136, "Reply PONG.", STAFF_TEST),
+        delegateReplyRow(137, "PONG", STAFF_TEST),
+        textReplyRow(139, "RESULT: PONG"),
+      ],
+      false,
+    ],
+  ])(
+    "records whether the bot was busy when the message went out (%s)",
+    async (_, status, entries, busy) => {
+      const { server } = fakeServer({
+        calls: {
+          ListGrokBotAgents: [ROSTER],
+          ListGrokBotTranscriptEntries: [{ entries }],
+          ListGrokBotAgentStatuses: [
+            { statuses: [{ agentId: AGENT, ...status }] },
+          ],
+          SendGrokBotUserMessage: [ACCEPTED],
+        },
+      });
+      const runner = createCommandRunner({ server, jobs: jobStore(dir) });
+      const out = await runner.run("send", {
+        text: "second ask",
+        agent: AGENT,
+        json: false,
+      });
+      expect((await jobStore(dir).load(out.jobId))?.botBusyAtSend).toBe(busy);
+    },
+  );
+
   it("takes generation 0 and baseline 0 from an empty transcript", async () => {
     const { server } = fakeServer({
       calls: {
         ListGrokBotAgents: [ROSTER],
         ListGrokBotTranscriptEntries: [{}],
+        ListGrokBotAgentStatuses: [{ statuses: [] }],
         SendGrokBotUserMessage: [ACCEPTED],
       },
     });
@@ -135,6 +217,7 @@ describe("send", () => {
         calls: {
           ListGrokBotAgents: [ROSTER],
           ListGrokBotTranscriptEntries: [{ entries: [] }],
+          ListGrokBotAgentStatuses: [{ statuses: [] }],
           SendGrokBotUserMessage: [response],
         },
       });

@@ -59,7 +59,13 @@ export function dispatchHandlers(
         );
       }
       const outcome = await followJob(ctx, job, input.timeout, run);
-      return { jobId: job.jobId, agentId: job.agentId, outcome };
+      const { jobId, agentId, agentName } = job;
+      return {
+        jobId,
+        agentId,
+        ...(agentName !== undefined && { agentName }),
+        outcome,
+      };
     },
 
     tail: async (input, { signal }) => {

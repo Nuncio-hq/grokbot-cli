@@ -69,6 +69,9 @@ describe("Done Rule on the 15 Oct question widget (#141 to #150)", () => {
     expect(summary(rows, IDLE_STATUS, BLUE)).toBe("done:You picked Blue.");
   });
 
+  /** Live, the green ask went out after Blue's reply, with the bot idle. */
+  const greenSentIdle = new Map([[GREEN, false]]);
+
   it("keeps the next turn's widget and its reply out of a finished turn", () => {
     const next = [
       W.blueEcho,
@@ -78,14 +81,28 @@ describe("Done Rule on the 15 Oct question widget (#141 to #150)", () => {
       W.greenCard,
     ];
     expect([
-      summary(next, IDLE_STATUS, BLUE),
-      summary(next, IDLE_STATUS, GREEN),
+      summary(next, IDLE_STATUS, BLUE, greenSentIdle),
+      summary(next, IDLE_STATUS, GREEN, greenSentIdle),
     ]).toEqual(["done:You picked Blue.", "awaiting-approval:147"]);
     const all = [...next, W.greenAnswered, W.greenReply];
     expect([
-      summary(all, IDLE_STATUS, BLUE),
-      summary(all, IDLE_STATUS, GREEN),
+      summary(all, IDLE_STATUS, BLUE, greenSentIdle),
+      summary(all, IDLE_STATUS, GREEN, greenSentIdle),
     ]).toEqual(["done:You picked Blue.", "done:You picked Green."]);
+  });
+
+  it("never ends Blue done with Green's reply when nothing recorded how Green was sent", () => {
+    const all = [
+      W.blueEcho,
+      W.blueAnswered,
+      W.blueReply,
+      W.greenEcho,
+      W.greenAnswered,
+      W.greenReply,
+    ];
+    expect(summary(all, IDLE_STATUS, BLUE)).toBe(
+      "ambiguous:You picked Blue.\n\nYou picked Green.",
+    );
   });
 
   it("keeps the Fix A guard: the next turn's live.awaiting holds a finished turn running, never awaiting", () => {
@@ -98,8 +115,8 @@ describe("Done Rule on the 15 Oct question widget (#141 to #150)", () => {
     ];
     const awaiting = { ...IDLE_STATUS, awaiting: { reason: "Pick a color" } };
     expect([
-      summary(rows, awaiting, BLUE),
-      summary(rows, awaiting, GREEN),
+      summary(rows, awaiting, BLUE, greenSentIdle),
+      summary(rows, awaiting, GREEN, greenSentIdle),
     ]).toEqual(["running:target-active", "awaiting-approval:147"]);
   });
 });

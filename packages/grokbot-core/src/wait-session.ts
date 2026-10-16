@@ -15,6 +15,7 @@ import {
   readTranscriptSince,
   type TranscriptCursor,
 } from "./transcript-stream.js";
+import type { BusyAtSend } from "./turn-sharing.js";
 import { readBlobReply } from "./wait-blob.js";
 import { abortable } from "./wait-reconnect.js";
 import { RowStore } from "./wait-row-store.js";
@@ -26,6 +27,8 @@ export interface WaitJob {
   readonly agentId: string;
   readonly sentMessageId: string;
   readonly baselineUpdatedSeq: string;
+  /** Busy-at-send records of this and other known messages (see turn-sharing.ts). */
+  readonly busyAtSend?: BusyAtSend;
 }
 
 export interface WaitSessionConfig {
@@ -116,10 +119,12 @@ export class WaitSession {
       .map((e) =>
         e.kind === "blob" ? (this.#blobReplies.get(e.blobHash) ?? e) : e,
       );
+    const { sentMessageId, busyAtSend } = this.#config.job;
     const verdict = evaluateDoneRule({
       entries,
-      sentMessageId: this.#config.job.sentMessageId,
+      sentMessageId,
       status: this.status,
+      ...(busyAtSend && { busyAtSend }),
     });
     if (verdict.status === "running") this.#config.report(verdict);
     return verdict;
@@ -130,7 +135,7 @@ export class WaitSession {
    * may show the blob belongs to another run, so the turn can go back to running.
    */
   async finish(verdict: SettledVerdict): Promise<DoneVerdict> {
-    const hash = verdict.status === "done" ? verdict.blobHash : undefined;
+    const hash = "blobHash" in verdict ? verdict.blobHash : undefined;
     let final: DoneVerdict = verdict;
     if (hash !== undefined && !this.#blobReplies.has(hash)) {
       const blob = this.rows

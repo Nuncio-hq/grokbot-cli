@@ -101,6 +101,32 @@ describe("jobStore", () => {
     expect(await store.load("job-1")).toEqual(done);
   });
 
+  it("round-trips the agent name and busy-at-send record, and keeps an ambiguous job final", async () => {
+    const store = jobStore(dir);
+    const ambiguous: JobRecord = {
+      ...job,
+      agentName: "Primary Test",
+      botBusyAtSend: true,
+      state: {
+        status: "ambiguous",
+        reason: "shared run",
+        replyText: "A\n\nB",
+      },
+    };
+    await store.save(ambiguous);
+    await store.save({ ...job, state: { status: "done", finalReply: "B" } });
+    expect(await store.load("job-1")).toEqual(ambiguous);
+  });
+
+  it("loads a job saved before agentName and botBusyAtSend existed", async () => {
+    await writeFile(join(dir, "job-1.json"), JSON.stringify(job));
+    const loaded = await jobStore(dir).load("job-1");
+    expect([loaded?.agentName, loaded?.botBusyAtSend]).toEqual([
+      undefined,
+      undefined,
+    ]);
+  });
+
   it("removes a job, and removing a missing job is a no-op", async () => {
     const store = jobStore(dir);
     await store.save(job);

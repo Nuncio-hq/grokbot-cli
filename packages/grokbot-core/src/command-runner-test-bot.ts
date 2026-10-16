@@ -44,12 +44,17 @@ export const liveFrame = (fields: JsonObject = {}) => ({
   agentState: { live: [{ agentId: AGENT, ...fields }] },
 });
 
-/** Delegation trace bot: only the old turn until the send lands, then the echo plus `after`. */
+/**
+ * Delegation trace bot: idle with only the old turn until the send lands, then the echo
+ * plus `after`, with the scripted statuses (queued, the last one repeating).
+ */
 export function botAfterSend(
   after: readonly WireEntry[],
   script: Parameters<typeof fakeServer>[0],
 ) {
   let sent: string | undefined;
+  const scripted = script.calls?.ListGrokBotAgentStatuses ?? [IDLE];
+  const queue = typeof scripted === "function" ? [] : [...scripted];
   return fakeServer({
     ...script,
     calls: {
@@ -62,6 +67,11 @@ export function botAfterSend(
         entries: sent ? [OLD_TURN, echo(sent), ...after] : [OLD_TURN],
       }),
       ...script.calls,
+      ListGrokBotAgentStatuses: (body: JsonObject) => {
+        if (!sent) return IDLE;
+        if (typeof scripted === "function") return scripted(body);
+        return queue.length > 1 ? queue.shift() : queue[0];
+      },
     },
   });
 }

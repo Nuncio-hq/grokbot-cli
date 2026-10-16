@@ -18,19 +18,36 @@ export type JobState =
   | { readonly status: "pending" }
   | { readonly status: "awaiting-approval"; readonly reason: string }
   | { readonly status: "done"; readonly finalReply: string }
+  /** The turn ended, but one run may have answered this message with another (turn-sharing.ts). */
+  | {
+      readonly status: "ambiguous";
+      readonly reason: string;
+      readonly replyText: string;
+    }
   | { readonly status: "failed"; readonly error: string };
 
 /** A dispatched message we can resume waiting on. Holds no credentials. */
 export interface JobRecord {
   readonly jobId: string;
   readonly agentId: string;
+  /** The agent's name at send time, for messages; absent on jobs saved before 16 Oct 2026. */
+  readonly agentName?: string;
   readonly sentMessageId: string;
   readonly sentAtMs: number;
   /** Highest transcript updatedSeq seen before the send; the wait reads after it. */
   readonly baselineUpdatedSeq: string;
   readonly generation: string;
+  /**
+   * Whether the bot was busy (mid-run, or a message still unanswered) just before the
+   * send. Absent when unknown, which the Done Rule treats as busy (turn-sharing.ts).
+   */
+  readonly botBusyAtSend?: boolean;
   readonly state: JobState;
 }
+
+/** Done and ambiguous jobs are final: the turn ended, and a later wait returns them as saved. */
+export const isFinalState = (state: JobState): boolean =>
+  state.status === "done" || state.status === "ambiguous";
 
 export const DEFAULT_JOBS_DIR = join(homedir(), ".grokbot", "jobs");
 
@@ -52,6 +69,12 @@ function pickState(state: JobState): JobState {
       return { status: state.status, reason: state.reason };
     case "done":
       return { status: state.status, finalReply: state.finalReply };
+    case "ambiguous":
+      return {
+        status: state.status,
+        reason: state.reason,
+        replyText: state.replyText,
+      };
     case "failed":
       return { status: state.status, error: state.error };
   }
@@ -62,10 +85,14 @@ function pickRecord(job: JobRecord): JobRecord {
   return {
     jobId: job.jobId,
     agentId: job.agentId,
+    ...(job.agentName !== undefined && { agentName: job.agentName }),
     sentMessageId: job.sentMessageId,
     sentAtMs: job.sentAtMs,
     baselineUpdatedSeq: job.baselineUpdatedSeq,
     generation: job.generation,
+    ...(job.botBusyAtSend !== undefined && {
+      botBusyAtSend: job.botBusyAtSend,
+    }),
     state: pickState(job.state),
   };
 }
@@ -81,6 +108,9 @@ function parseState(raw: unknown): JobState | undefined {
   const finalReply = field("finalReply");
   if (status === "done" && finalReply !== undefined)
     return { status, finalReply };
+  const [reason, replyText] = [field("reason"), field("replyText")];
+  if (status === "ambiguous" && reason !== undefined && replyText !== undefined)
+    return { status, reason, replyText };
   const error = field("error");
   if (status === "failed" && error !== undefined) return { status, error };
   return undefined;
@@ -116,20 +146,24 @@ export function parseJobRecord(raw: unknown): JobRecord {
       `corrupt job record ${jobId ?? "(no id)"}`,
     );
   }
+  const agentName = str("agentName");
+  const busy = o.botBusyAtSend;
   return {
     jobId,
     agentId,
+    ...(agentName !== undefined && { agentName }),
     sentMessageId,
     sentAtMs,
     baselineUpdatedSeq,
     generation,
+    ...(typeof busy === "boolean" && { botBusyAtSend: busy }),
     state,
   };
 }
 
 export interface JobStore {
   readonly dir: string;
-  /** Writes the record atomically. A job saved as done stays done: later saves are ignored. */
+  /** Writes the record atomically. A job saved as done or ambiguous stays so: later saves are ignored. */
   save(job: JobRecord): Promise<void>;
   load(jobId: string): Promise<JobRecord | null>;
   list(): Promise<JobRecord[]>;
@@ -165,7 +199,7 @@ export function jobStore(dir: string = DEFAULT_JOBS_DIR): JobStore {
     async save(job) {
       const path = pathOf(job.jobId);
       const saved = await load(job.jobId).catch(() => null);
-      if (saved?.state.status === "done") return;
+      if (saved && isFinalState(saved.state)) return;
       await mkdir(dir, { recursive: true, mode: 0o700 });
       const tmp = join(dir, `.${job.jobId}.json.${randomUUID()}.tmp`);
       try {
