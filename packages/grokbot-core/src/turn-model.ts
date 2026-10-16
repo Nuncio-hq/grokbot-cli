@@ -56,7 +56,8 @@ const NO_RECORDS: BusyAtSend = new Map();
  * The turn's runs start with the runs of the owner messages one run may have answered
  * together with ours (just ours, unless sharedMessages links others). Each delegate reply
  * that closes one of our open delegations starts another, and so does the run the bot
- * resumes in after the owner resolves one of the turn's cards. The latest linked message's
+ * resumes in after the owner resolves one of the turn's cards, and a run that continues
+ * our server turn number after background work. The latest linked message's
  * run is where the bot answers, so the tail restarts there. A row without a requestId
  * (legacy rows, blobs) counts only before the owner's next unlinked message, and so does
  * every row when the echo has none.
@@ -93,6 +94,10 @@ export function findTurn(
   }
 
   const runs = new Set<string | undefined>(shared.echoes.map(runOf));
+  /** Server turn numbers of our message and the messages linked to it. */
+  const ownServerTurns = new Set(
+    shared.echoes.flatMap((e) => serverTurnOf(e) ?? []),
+  );
   const open: AgentRef[] = [];
   const cards: CardEntry[] = [];
   const resumed = new Set<CardEntry>();
@@ -109,6 +114,19 @@ export function findTurn(
     });
     if (resolved.length === 0) return false;
     for (const c of resolved) resumed.add(c);
+    runs.add(run);
+    latestRuns = new Set([run]);
+    tailStart = turn.length;
+    return true;
+  };
+  /**
+   * Admits `run` when it continues one of our server turns: live 16 Oct (#217 to #220),
+   * after a background subagent finished, the bot answered in a new run (new requestId)
+   * under the same turn number as our message. No other message's run shares it.
+   */
+  const continuesTurn = (run: string): boolean => {
+    const keys = serverTurnsOfRun.get(run) ?? new Set();
+    if (![...keys].some((k) => ownServerTurns.has(k))) return false;
     runs.add(run);
     latestRuns = new Set([run]);
     tailStart = turn.length;
@@ -134,7 +152,11 @@ export function findTurn(
       tailStart = turn.length;
       return;
     }
-    if (run === undefined ? !beforeOwner : !runs.has(run) && !resumesCards(run))
+    if (
+      run === undefined
+        ? !beforeOwner
+        : !runs.has(run) && !resumesCards(run) && !continuesTurn(run)
+    )
       return;
     if (e.kind === "assistant-message" && e.toAgent) open.push(e.toAgent);
     turn.push(e);
