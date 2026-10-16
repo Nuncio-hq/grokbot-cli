@@ -77,9 +77,11 @@ export const DISPATCH_RENDERERS: HumanRenderers<DispatchCommandName> = {
           ),
     ),
   ask: ({ jobId, outcome }) => outcomeText(jobId, outcome),
-  send: ({ jobId, agent }) => ({
+  send: ({ jobId, agent, queued }) => ({
     stdout: `${jobId}\n`,
-    note: `Sent to ${agent.name}. Get the reply with: grokbot wait ${jobId}\n`,
+    note: queued
+      ? `Queued for ${agent.name}: it is busy, so the message goes out once it is free. Send it and get the reply with: grokbot wait ${jobId}\n`
+      : `Sent to ${agent.name}. Get the reply with: grokbot wait ${jobId}\n`,
   }),
   wait: ({ jobId, outcome }) => outcomeText(jobId, outcome),
   tail: ({ agent, entries }) =>

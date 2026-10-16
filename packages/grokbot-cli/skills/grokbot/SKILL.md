@@ -43,7 +43,9 @@ grokbot wait "$job" --timeout 1800
 
 `ask` and `wait` return when the Done Rule settles. The bot's turn has ended, every bot it delegated to has finished, and a final reply exists. A room turn prints one `Name: text` line per member. Done means the bot's run for your message ended. It does not mean the task is verified, so check the reply against what you asked for.
 
-Send one message at a time to a bot and wait for its reply before you send the next. A message that reaches a busy bot is answered together with the one it is working on, in one run. Neither job can then tell its own reply apart, so both end with exit 5.
+You can send several messages to one bot. `grokbot` gives a bot one of your messages at a time, so each job gets its own reply. A message sent while the bot is busy is queued: `send` still prints its job id, and stderr says it is queued. It goes out when the bot is free and some `send`, `ask` or `wait` on that bot runs, and a `wait` that finishes one job sends the next. So always `wait` on every job you send. To run tasks in parallel, send them to different bots.
+
+A message typed in the app while your job runs can still share a run with it. Both jobs then end with exit 5.
 
 Read the exit code:
 
@@ -53,8 +55,8 @@ Read the exit code:
 | 1 | Error. stderr says what failed. | Fix the cause or tell the owner. |
 | 2 | Usage error. stderr prints the usage line. | Fix the arguments. |
 | 3 | Awaiting approval. A card blocks the bot. | Follow "Approval cards" below. |
-| 4 | Still running after `--timeout`. stdout is the job id. | `grokbot wait <job>` resumes it. |
-| 5 | Ambiguous. One run answered this message together with another. stdout has every reply of that run, in order. stderr says which message it shared. | Pick the reply that answers your task, or ask again once the bot is idle. |
+| 4 | Still running, or still queued, after `--timeout`. stdout is the job id. | `grokbot wait <job>` resumes it. |
+| 5 | Ambiguous. One run answered this message together with another, such as one typed in the app. stdout has every reply of that run, in order. stderr says which message it shared. | Pick the reply that answers your task, or ask again once the bot is idle. |
 | 130 | Interrupted. stderr has `Resume with: grokbot wait <job>`. | Resume it. |
 
 `send` prints the job id on stdout. `ask` writes `job <id>` to stderr as soon as the message is sent, even with `--json`. Keep the id, because `grokbot wait <id>` is the only way back to the job.
@@ -138,7 +140,7 @@ grokbot worker-plan                        # prints the worker command; starts n
 | `grokbot agents` | read-only | List GrokBot agents on the account |
 | `grokbot team` | read-only | List agents with live running/idle/awaiting status |
 | `grokbot ask <text> [--timeout <integer>] [--agent <string>]` | writes | Send a prompt and wait until the Done Rule settles |
-| `grokbot send <text> [--agent <string>]` | writes | Dispatch a message and return a resumable job id |
+| `grokbot send <text> [--agent <string>]` | writes | Dispatch a message, or queue it while the bot is busy, and return a resumable job id |
 | `grokbot wait <job> [--timeout <integer>]` | read-only | Wait for a dispatched job id to finish |
 | `grokbot tail [-n <integer>] [--agent <string>]` | read-only | Read recent decoded transcript entries |
 | `grokbot interrupt [--agent <string>]` | writes | Interrupt the active run on an agent |

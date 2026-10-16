@@ -65,6 +65,7 @@ export type {
   CommandRunnerOptions,
   DispatchedEvent,
   JobOutcome,
+  QueuedEvent,
   RunEvent,
   RunOptions,
   TeamMember,

@@ -4,7 +4,12 @@ import { runCli } from "./fixtures/run-cli.js";
 
 const lines = (...text: string[]) => `${text.join("\n")}\n`;
 const sent = {
-  send: { jobId: "job-9", agent: PRIMARY, sentMessageId: "m-9" },
+  send: {
+    jobId: "job-9",
+    agent: PRIMARY,
+    sentMessageId: "m-9",
+    queued: false,
+  },
 } as const;
 
 describe("job commands in human mode", () => {
@@ -110,6 +115,17 @@ describe("job commands in human mode", () => {
       code: 0,
     });
   });
+
+  it("says a queued send goes out once the bot is free", async () => {
+    const queued = { send: { ...sent.send, queued: true } };
+    const run = await runCli(["send", "build it"], { outputs: queued });
+    expect(run).toMatchObject({
+      stdout: "job-9\n",
+      stderr:
+        "Queued for Primary Test: it is busy, so the message goes out once it is free. Send it and get the reply with: grokbot wait job-9\n",
+      code: 0,
+    });
+  });
 });
 
 describe("--json output", () => {
@@ -127,6 +143,7 @@ describe("--json output", () => {
         harness: "temporal",
       },
       sentMessageId: "m-9",
+      queued: false,
     });
     expect(run).toMatchObject({ stderr: "", code: 0 });
   });

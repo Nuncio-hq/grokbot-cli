@@ -73,6 +73,7 @@ describe("send", () => {
       jobId: out.jobId,
       agentId: AGENT,
       agentName: "Primary Test",
+      queuedAtMs: NOW,
       sentMessageId: out.sentMessageId,
       sentAtMs: NOW,
       baselineUpdatedSeq: "141",
@@ -85,7 +86,8 @@ describe("send", () => {
       UUID_V4.test(out.sentMessageId),
       out.jobId === out.sentMessageId,
       out.agent.name,
-    ]).toEqual([true, true, false, "Primary Test"]);
+      out.queued,
+    ]).toEqual([true, true, false, "Primary Test", false]);
     expect(log.map((c) => [c.method, c.body])).toEqual([
       ["ListGrokBotAgents", {}],
       [
@@ -153,9 +155,9 @@ describe("send", () => {
       false,
     ],
   ])(
-    "records whether the bot was busy when the message went out (%s)",
+    "queues the message while the bot is busy, else sends it as idle (%s)",
     async (_, status, entries, busy) => {
-      const { server } = fakeServer({
+      const { server, log } = fakeServer({
         calls: {
           ListGrokBotAgents: [ROSTER],
           ListGrokBotTranscriptEntries: [{ entries }],
@@ -171,7 +173,19 @@ describe("send", () => {
         agent: AGENT,
         json: false,
       });
-      expect((await jobStore(dir).load(out.jobId))?.botBusyAtSend).toBe(busy);
+      const saved = await jobStore(dir).load(out.jobId);
+      const sends = log.filter((c) => c.method === "SendGrokBotUserMessage");
+      expect([
+        out.queued,
+        saved?.state.status,
+        saved?.text,
+        saved?.botBusyAtSend,
+        sends.length,
+      ]).toEqual(
+        busy
+          ? [true, "queued", "second ask", undefined, 0]
+          : [false, "pending", undefined, false, 1],
+      );
     },
   );
 

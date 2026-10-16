@@ -41,7 +41,9 @@ function outcomeText(who: string, jobId: string, outcome: JobOutcome): string {
     case "ambiguous":
       return `${who} finished, but the reply is ambiguous: ${outcome.reason}. Every reply of that run, in order:\n${outcome.replyText}`;
     case "pending":
-      return `${who} is still working (${outcome.reason}). Job ${jobId} is saved; ${waitHint(jobId)} to keep waiting.`;
+      return outcome.queued
+        ? `${outcome.reason}. Job ${jobId} is saved; ${waitHint(jobId)} to send it and keep waiting.`
+        : `${who} is still working (${outcome.reason}). Job ${jobId} is saved; ${waitHint(jobId)} to keep waiting.`;
     case "awaiting-approval":
       return `${who} is waiting for owner approval (${outcome.reason}). Approve it in the Grok Bot app, then ${waitHint(jobId)}.`;
   }
@@ -88,8 +90,10 @@ export const DISPATCH_SUMMARIES: ToolSummaries<DispatchCommandName> = {
       ...members.map(memberText),
     ].join("\n"),
   ask: ({ jobId, agent, outcome }) => outcomeText(agent.name, jobId, outcome),
-  send: ({ jobId, agent }) =>
-    `Sent to ${agent.name}. Job ${jobId} is saved; ${waitHint(jobId)} for the reply.`,
+  send: ({ jobId, agent, queued }) =>
+    queued
+      ? `Queued for ${agent.name}: it is busy, so the message goes out once it is free. Job ${jobId} is saved; ${waitHint(jobId)} to send it and get the reply.`
+      : `Sent to ${agent.name}. Job ${jobId} is saved; ${waitHint(jobId)} for the reply.`,
   wait: ({ jobId, agentId, agentName, outcome }) =>
     outcomeText(agentName ?? `Agent ${agentId}`, jobId, outcome),
   tail: ({ agent, entries }) =>

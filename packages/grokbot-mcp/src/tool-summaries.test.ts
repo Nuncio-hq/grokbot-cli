@@ -43,9 +43,20 @@ describe("summarize", () => {
         jobId: "job-5",
         agent: PRIMARY_TEST,
         sentMessageId: "m-1",
+        queued: false,
       }),
     ).toBe(
       'Sent to Primary Test. Job job-5 is saved; call grokbot_wait with {"job":"job-5"} for the reply.',
+    );
+    expect(
+      summarize("send", {
+        jobId: "job-5",
+        agent: PRIMARY_TEST,
+        sentMessageId: "m-1",
+        queued: true,
+      }),
+    ).toBe(
+      'Queued for Primary Test: it is busy, so the message goes out once it is free. Job job-5 is saved; call grokbot_wait with {"job":"job-5"} to send it and get the reply.',
     );
     expect(
       summarize("wait", {
@@ -55,6 +66,24 @@ describe("summarize", () => {
         outcome: { status: "done", finalReply: "RESULT: PONG", replies: [] },
       }),
     ).toBe("Primary Test replied:\nRESULT: PONG");
+  });
+
+  it("says a wait that timed out while queued has not sent the message", () => {
+    expect(
+      summarize("wait", {
+        jobId: "job-7",
+        agentId: PRIMARY_TEST.agentId,
+        agentName: "Primary Test",
+        outcome: {
+          status: "pending",
+          reason:
+            "Primary Test is busy with earlier work, so the message is queued and not sent yet",
+          queued: true,
+        },
+      }),
+    ).toBe(
+      'Primary Test is busy with earlier work, so the message is queued and not sent yet. Job job-7 is saved; call grokbot_wait with {"job":"job-7"} to send it and keep waiting.',
+    );
   });
 
   it("names a job saved before names were recorded by its agentId", () => {
