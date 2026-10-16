@@ -50,19 +50,50 @@ describe("grokbot-mcp tools/call", () => {
     ]);
   });
 
-  it("keeps a timeout the client passes, and the CLI default for wait", async () => {
+  it("keeps a timeout the client passes, and bounds ask and wait to 45 s by default", async () => {
     const { runner, calls } = fakeRunner(() => Promise.reject(new Error("x")));
     await exchange(
       runner,
       call(1, "grokbot_ask", { text: "ping", timeout: 600 }),
       call(2, "grokbot_ask", { text: "ping", timeout: "" }),
       call(3, "grokbot_wait", { job: "job-1" }),
+      call(4, "grokbot_wait", { job: "job-1", timeout: 900 }),
     );
     expect(calls.map((c) => [c.name, c.input])).toEqual([
       ["ask", { text: "ping", timeout: 600, json: false }],
       ["ask", { text: "ping", timeout: 45, json: false }],
-      ["wait", { job: "job-1", timeout: 600, json: false }],
+      ["wait", { job: "job-1", timeout: 45, json: false }],
+      ["wait", { job: "job-1", timeout: 900, json: false }],
     ]);
+  });
+
+  it("returns a bounded wait that is still running with the job id to call again", async () => {
+    const { runner } = fakeRunner(() =>
+      Promise.resolve({
+        jobId: "job-3",
+        agentId: PRIMARY_TEST.agentId,
+        agentName: "Primary Test",
+        outcome: {
+          status: "pending",
+          reason:
+            "no Done verdict within 45000 ms (last: running, target-active)",
+        },
+      }),
+    );
+    const [message] = await exchange(
+      runner,
+      call(1, "grokbot_wait", { job: "job-3" }),
+    );
+    expect(message).toMatchObject({
+      result: {
+        content: [
+          {
+            type: "text",
+            text: 'Primary Test is still working (no Done verdict within 45000 ms (last: running, target-active)). Job job-3 is saved; call grokbot_wait with {"job":"job-3"} to keep waiting.',
+          },
+        ],
+      },
+    });
   });
 
   it("reports pending and awaiting-approval asks as results with the job id", async () => {

@@ -138,10 +138,30 @@ describe("grokbot-mcp tools/list", () => {
       },
       annotations: { readOnlyHint: true, destructiveHint: false },
     });
+    const outcomes =
+      '"done" means the bot\'s run for this message ended, not that the task is verified; "ambiguous" means one run answered this message together with another, and the result holds every reply of that run.';
+    expect(tools[4]).toEqual({
+      name: "grokbot_wait",
+      description: `Wait for a dispatched job id to finish. Waits 45 s unless timeout is set, to stay under MCP host time limits; a still-running result carries the job id, so call grokbot_wait again with it. ${outcomes}`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          job: { type: "string", description: "Job id returned by send" },
+          timeout: {
+            type: "integer",
+            description: "Seconds to wait before giving up",
+            default: 45,
+            minimum: 1,
+          },
+        },
+        required: ["job"],
+        additionalProperties: false,
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false },
+    });
     expect(tools[2]).toEqual({
       name: "grokbot_ask",
-      description:
-        "Send a prompt and wait until the Done Rule settles. Writes: changes state on a live GrokBot agent. Waits 45 s unless timeout is set; a pending result carries a job id, and grokbot_wait resumes it.",
+      description: `Send a prompt and wait until the Done Rule settles. Writes: changes state on a live GrokBot agent. Waits 45 s unless timeout is set; a still-running result carries a job id, and grokbot_wait resumes it. ${outcomes}`,
       inputSchema: {
         type: "object",
         properties: {

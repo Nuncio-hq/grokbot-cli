@@ -12,13 +12,24 @@ import {
   waitHint,
 } from "./mcp-tool-parts.js";
 
-/** Shorter than typical MCP client request timeouts, so ask returns its job id first. */
-const MCP_ASK_TIMEOUT_SECONDS = 45;
+/**
+ * Well under the ~300 s at which MCP hosts kill a tool call (Hermes), so ask and wait
+ * return a still-running result with the job id first instead of dying mid-wait.
+ */
+const MCP_WAIT_TIMEOUT_SECONDS = 45;
+
+/** What a finished result means, shared by every tool that waits on a job. */
+const OUTCOMES =
+  '"done" means the bot\'s run for this message ended, not that the task is verified; "ambiguous" means one run answered this message together with another, and the result holds every reply of that run';
 
 export const DISPATCH_OVERRIDES: McpOverrides<DispatchCommandName> = {
   ask: {
-    note: `Waits ${MCP_ASK_TIMEOUT_SECONDS} s unless timeout is set; a pending result carries a job id, and grokbot_wait resumes it`,
-    defaults: { timeout: MCP_ASK_TIMEOUT_SECONDS },
+    note: `Waits ${MCP_WAIT_TIMEOUT_SECONDS} s unless timeout is set; a still-running result carries a job id, and grokbot_wait resumes it. ${OUTCOMES}`,
+    defaults: { timeout: MCP_WAIT_TIMEOUT_SECONDS },
+  },
+  wait: {
+    note: `Waits ${MCP_WAIT_TIMEOUT_SECONDS} s unless timeout is set, to stay under MCP host time limits; a still-running result carries the job id, so call grokbot_wait again with it. ${OUTCOMES}`,
+    defaults: { timeout: MCP_WAIT_TIMEOUT_SECONDS },
   },
   interrupt: { destructive: true },
 };
@@ -27,6 +38,8 @@ function outcomeText(who: string, jobId: string, outcome: JobOutcome): string {
   switch (outcome.status) {
     case "done":
       return `${who} replied:\n${outcome.finalReply}`;
+    case "ambiguous":
+      return `${who} finished, but the reply is ambiguous: ${outcome.reason}. Every reply of that run, in order:\n${outcome.replyText}`;
     case "pending":
       return `${who} is still working (${outcome.reason}). Job ${jobId} is saved; ${waitHint(jobId)} to keep waiting.`;
     case "awaiting-approval":
@@ -77,8 +90,8 @@ export const DISPATCH_SUMMARIES: ToolSummaries<DispatchCommandName> = {
   ask: ({ jobId, agent, outcome }) => outcomeText(agent.name, jobId, outcome),
   send: ({ jobId, agent }) =>
     `Sent to ${agent.name}. Job ${jobId} is saved; ${waitHint(jobId)} for the reply.`,
-  wait: ({ jobId, agentId, outcome }) =>
-    outcomeText(`Agent ${agentId}`, jobId, outcome),
+  wait: ({ jobId, agentId, agentName, outcome }) =>
+    outcomeText(agentName ?? `Agent ${agentId}`, jobId, outcome),
   tail: ({ agent, entries }) =>
     [
       `${agent.name}, last ${plural(entries.length, "entry", "entries")}:`,
