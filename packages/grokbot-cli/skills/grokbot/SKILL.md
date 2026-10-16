@@ -41,7 +41,9 @@ job=$(grokbot send --agent Researcher "Compare our pricing with the top three co
 grokbot wait "$job" --timeout 1800
 ```
 
-`ask` and `wait` return when the Done Rule settles. The bot's turn has ended, every bot it delegated to has finished, and a final reply exists. A room turn prints one `Name: text` line per member.
+`ask` and `wait` return when the Done Rule settles. The bot's turn has ended, every bot it delegated to has finished, and a final reply exists. A room turn prints one `Name: text` line per member. Done means the bot's run for your message ended. It does not mean the task is verified, so check the reply against what you asked for.
+
+Send one message at a time to a bot and wait for its reply before you send the next. A message that reaches a busy bot is answered together with the one it is working on, in one run. Neither job can then tell its own reply apart, so both end with exit 5.
 
 Read the exit code:
 
@@ -52,6 +54,7 @@ Read the exit code:
 | 2 | Usage error. stderr prints the usage line. | Fix the arguments. |
 | 3 | Awaiting approval. A card blocks the bot. | Follow "Approval cards" below. |
 | 4 | Still running after `--timeout`. stdout is the job id. | `grokbot wait <job>` resumes it. |
+| 5 | Ambiguous. One run answered this message together with another. stdout has every reply of that run, in order. stderr says which message it shared. | Pick the reply that answers your task, or ask again once the bot is idle. |
 | 130 | Interrupted. stderr has `Resume with: grokbot wait <job>`. | Resume it. |
 
 `send` prints the job id on stdout. `ask` writes `job <id>` to stderr as soon as the message is sent, even with `--json`. Keep the id, because `grokbot wait <id>` is the only way back to the job.
@@ -172,7 +175,8 @@ grokbot worker-plan                        # prints the worker command; starts n
 
 Use the CLI whenever you can run shell commands. Use the `grokbot-mcp` server when your runtime has no shell, or when the host already runs it. Register it as a stdio server with `npx -y grokbot-mcp`. Its tools are the commands above, renamed `grokbot_<command>` with dashes turned into underscores, such as `grokbot_ask` and `grokbot_skills_list`. Over MCP:
 
-- `grokbot_ask` waits 45 seconds by default, then returns a job id for `grokbot_wait`.
+- `grokbot_ask` and `grokbot_wait` wait 45 seconds by default, so a host never kills the call. If the bot is still working, the result says so and gives the job id. Call `grokbot_wait` again with that id until the job is done.
+- A finished result has status `done` or `ambiguous`, the MCP form of exit 0 and exit 5.
 - Destructive and sensitive tools take `yes: true`, with the same owner-approval rule.
 - `worker-start`, `--force-protected`, `--include-managed`, `--print-url`, and file-path arguments are CLI only. `grokbot_skills_push` takes the SKILL.md text as `markdown`.
 - `login`, `logout`, and `whoami` are CLI only.
