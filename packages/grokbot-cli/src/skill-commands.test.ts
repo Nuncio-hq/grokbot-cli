@@ -16,7 +16,7 @@ const pick = (...names: string[]) =>
 describe("renderCommandTable", () => {
   it("renders one row per command, dropping --json and labelling safety", () => {
     expect(
-      renderCommandTable(pick("agents", "fire", "approve"), ["whoami"]),
+      renderCommandTable(pick("agents", "fire", "approve"), ["whoami"], false),
     ).toBe(`| Command | Safety | What it does |
 | --- | --- | --- |
 | \`grokbot agents\` | read-only | List GrokBot agents on the account |
@@ -27,7 +27,9 @@ describe("renderCommandTable", () => {
   });
 
   it("leaves required flags unbracketed and keeps short aliases", () => {
-    expect(renderCommandTable(pick("hire", "room-create", "tail"), [])).toBe(
+    expect(
+      renderCommandTable(pick("hire", "room-create", "tail"), [], false),
+    ).toBe(
       `| Command | Safety | What it does |
 | --- | --- | --- |
 | \`grokbot tail [-n <integer>] [--agent <string>]\` | read-only | Read recent decoded transcript entries |
@@ -43,7 +45,7 @@ describe("renderCommandTable", () => {
     );
   });
 
-  it("covers every catalog command, then login, logout and whoami, by default", () => {
+  it("covers every catalog command, then login, logout, whoami and stats, by default", () => {
     const named = [
       ...renderCommandTable().matchAll(/^\| `grokbot ([a-z-]+)/gm),
     ].map((match) => match[1]);
@@ -52,6 +54,7 @@ describe("renderCommandTable", () => {
       "login",
       "logout",
       "whoami",
+      "stats",
     ]);
   });
 });

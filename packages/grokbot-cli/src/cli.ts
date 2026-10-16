@@ -1,14 +1,31 @@
 #!/usr/bin/env node
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { createCommandRunner } from "grokbot-core";
+import {
+  createCommandRunner,
+  detectClient,
+  GROKBOT_VERSION,
+  usageEnabled,
+  withUsageLog,
+} from "grokbot-core";
 import { main } from "./main.js";
 
 async function run(): Promise<void> {
   const interrupt = new AbortController();
   process.once("SIGINT", () => interrupt.abort());
   const code = await main(process.argv.slice(2), {
-    createRunner: (options) => createCommandRunner(options),
+    createRunner: (options) =>
+      withUsageLog(createCommandRunner(options), {
+        surface: "cli",
+        version: GROKBOT_VERSION,
+        // A person types in a terminal; an agent's shell has no TTY on stdin.
+        client: () =>
+          detectClient({
+            env: process.env,
+            isTTY: process.stdin.isTTY === true,
+          }),
+        enabled: () => usageEnabled(process.env),
+      }),
     stdout: process.stdout,
     stderr: process.stderr,
     env: process.env,

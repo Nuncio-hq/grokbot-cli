@@ -7,6 +7,7 @@ import type {
 import type { AuthDeps } from "../auth-command.js";
 import type { ConfigDeps } from "../config-command.js";
 import { main } from "../main.js";
+import type { StatsDeps } from "../stats-command.js";
 
 export interface RunCall {
   readonly name: string;
@@ -39,6 +40,8 @@ export interface CliSetup {
   readonly auth?: AuthDeps;
   /** Fake settings + Keychain backend for `grokbot config`. */
   readonly config?: ConfigDeps;
+  /** Fake usage log and GrokBot reads for `grokbot stats`. */
+  readonly stats?: StatsDeps;
 }
 
 function collector() {
@@ -86,6 +89,7 @@ export async function runCli(
     ...(setup.signal && { signal: setup.signal }),
     ...(setup.auth && { auth: setup.auth }),
     ...(setup.config && { config: setup.config }),
+    ...(setup.stats && { stats: setup.stats }),
   });
   return {
     stdout: stdout.text(),

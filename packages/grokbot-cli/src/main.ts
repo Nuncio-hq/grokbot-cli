@@ -16,6 +16,7 @@ import { localInvocation, runLocal } from "./local-commands.js";
 import { cliError, parseArgv } from "./parse-argv.js";
 import { progressLine } from "./progress.js";
 import { renderOutput } from "./render.js";
+import type { StatsDeps } from "./stats-command.js";
 
 export interface TextSink {
   write(text: string): unknown;
@@ -35,6 +36,8 @@ export interface MainContext {
   readonly auth?: AuthDeps;
   /** Backend of `grokbot config`; built lazily like `auth`. */
   readonly config?: ConfigDeps;
+  /** Backend of `grokbot stats`; built lazily like `auth`. */
+  readonly stats?: StatsDeps;
 }
 
 const INTERRUPTED = Symbol("interrupted");

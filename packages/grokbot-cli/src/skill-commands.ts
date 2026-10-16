@@ -10,6 +10,7 @@ import {
   positionalParams,
   takesValue,
 } from "./command-params.js";
+import { STATS_HELP, STATS_SUMMARY } from "./stats-command.js";
 
 export const TABLE_START =
   "<!-- BEGIN generated command table: bun run gen:skill -->";
@@ -57,16 +58,27 @@ function accountRow(name: AuthCommandName): string {
 
 const ACCOUNT = Object.keys(AUTH_COMMANDS) as AuthCommandName[];
 
-/** The SKILL.md command table: catalog commands in catalog order, then the account commands. */
+/** `grokbot stats`: local like the account commands, listed so agents can read their own usage. */
+const STATS_ROW = row(
+  (STATS_HELP.split("\n")[2] ?? "")
+    .replace("Usage: ", "")
+    .replace(" [--json]", ""),
+  "local; --bots reads GrokBot",
+  STATS_SUMMARY,
+);
+
+/** The SKILL.md command table: catalog commands in catalog order, the account commands, then stats. */
 export function renderCommandTable(
   commands: readonly Command[] = listCommands(),
   account: readonly AuthCommandName[] = ACCOUNT,
+  withStats = true,
 ): string {
   return [
     "| Command | Safety | What it does |",
     "| --- | --- | --- |",
     ...commands.map(catalogRow),
     ...account.map(accountRow),
+    ...(withStats ? [STATS_ROW] : []),
     "",
   ].join("\n");
 }

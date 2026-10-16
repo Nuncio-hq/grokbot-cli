@@ -3,6 +3,7 @@ import {
   cliConfigStore,
   credentialStore,
   isKeychainAccess,
+  isUsageSetting,
   type KeychainAccess,
 } from "grokbot-core";
 import { EXIT_CODE } from "./exit-codes.js";
@@ -10,15 +11,16 @@ import type { TextSink } from "./main.js";
 
 /**
  * `grokbot config`: grokbot's own local settings. CLI-only like login (no RPC, never
- * offered over MCP). Today one setting: who may read the saved sign-in without asking.
+ * offered over MCP). Two settings: who may read the saved sign-in without asking, and
+ * whether grokbot keeps its local usage log.
  */
 export const CONFIG_SUMMARY =
-  "Show or change grokbot's local settings (keychain-access)";
+  "Show or change grokbot's local settings (keychain-access, usage)";
 
 export const CONFIG_HELP = [
   CONFIG_SUMMARY,
   "",
-  "Usage: grokbot config [keychain-access [silent|prompt]] [--json]",
+  "Usage: grokbot config [keychain-access [silent|prompt] | usage [on|off]] [--json]",
   "",
   "keychain-access decides who may read grokbot login's sign-in from the macOS Keychain:",
   "  silent  Any program running as you, without a dialog (default). Needed for",
@@ -27,11 +29,19 @@ export const CONFIG_HELP = [
   "          Safer, but grokbot-mcp and background agents stall until you click.",
   "",
   "Changing it re-creates the saved sign-in with the new access; you stay signed in.",
+  "",
+  "usage decides whether grokbot keeps its usage log on this computer (default on).",
+  "  It records which command ran, from where (you, Claude Code, a script...), how it",
+  "  ended and how long it took; never messages, replies, bot names or ids. Nothing",
+  "  is sent anywhere. Read it with grokbot stats. GROKBOT_USAGE=off turns it off for",
+  "  one run.",
+  "",
   "Settings live in ~/.grokbot/grokbot-cli.json, which never holds a token.",
   "",
 ].join("\n");
 
 const SETTING = "keychain-access";
+const USAGE = "usage";
 
 /** Side effects of `grokbot config`, injectable so tests never touch the Keychain. */
 export interface ConfigDeps {
@@ -82,32 +92,54 @@ export async function runConfigCommand(
   }
   const [setting, value, ...extra] = words;
   if (extra.length > 0) return usage(ctx.stderr, "too many arguments");
-  if (setting !== undefined && setting !== SETTING) {
+  if (setting !== undefined && setting !== SETTING && setting !== USAGE) {
     return usage(
       ctx.stderr,
-      `unknown setting "${setting}" (known: ${SETTING})`,
+      `unknown setting "${setting}" (known: ${SETTING}, ${USAGE})`,
     );
   }
-  if (value !== undefined && !isKeychainAccess(value)) {
+  if (setting === SETTING && value !== undefined && !isKeychainAccess(value)) {
     return usage(ctx.stderr, `${SETTING} must be "silent" or "prompt"`);
   }
+  if (setting === USAGE && value !== undefined && !isUsageSetting(value)) {
+    return usage(ctx.stderr, `${USAGE} must be "on" or "off"`);
+  }
 
-  const { keychainAccess } = await ctx.deps.read();
+  const current = await ctx.deps.read();
+  const { keychainAccess } = current;
   if (value === undefined) {
     const saved = await ctx.deps.itemAccess();
     if (json) {
       ctx.stdout.write(
-        `${JSON.stringify({ keychainAccess, savedSignIn: saved ?? null, path: ctx.deps.path }, null, 2)}\n`,
+        `${JSON.stringify({ keychainAccess, usage: current.usage, savedSignIn: saved ?? null, path: ctx.deps.path }, null, 2)}\n`,
       );
     } else if (setting) {
-      ctx.stdout.write(`${keychainAccess}\n`);
+      ctx.stdout.write(
+        `${setting === USAGE ? current.usage : keychainAccess}\n`,
+      );
     } else {
       const item = saved ? `(saved sign-in: ${saved})` : "(no saved sign-in)";
       ctx.stdout.write(
-        `${SETTING}  ${keychainAccess}  ${item}\n\nSettings file: ${ctx.deps.path}\n`,
+        `${SETTING}  ${keychainAccess}  ${item}\n${USAGE}            ${current.usage}  (local only; see grokbot stats)\n\nSettings file: ${ctx.deps.path}\n`,
       );
     }
     return EXIT_CODE.ok;
+  }
+
+  if (setting === USAGE && isUsageSetting(value)) {
+    const changed = value !== current.usage;
+    if (changed) await ctx.deps.write({ ...current, usage: value });
+    ctx.stdout.write(
+      json
+        ? `${JSON.stringify({ usage: value, changed }, null, 2)}\n`
+        : changed
+          ? `${USAGE} is now ${value}.${value === "off" ? " Nothing new is recorded; the saved log stays until you delete ~/.grokbot/usage." : ""}\n`
+          : `${USAGE} is already ${value}.\n`,
+    );
+    return EXIT_CODE.ok;
+  }
+  if (!isKeychainAccess(value)) {
+    return usage(ctx.stderr, `${SETTING} must be "silent" or "prompt"`);
   }
 
   const saved = await ctx.deps.itemAccess();
@@ -121,7 +153,7 @@ export async function runConfigCommand(
   }
   // Move the saved sign-in first; if that fails, the old setting stays as it was.
   const { migrated } = await ctx.deps.setItemAccess(value);
-  await ctx.deps.write({ keychainAccess: value });
+  await ctx.deps.write({ ...current, keychainAccess: value });
   ctx.stdout.write(
     json
       ? `${JSON.stringify({ keychainAccess: value, changed: true, migrated }, null, 2)}\n`
