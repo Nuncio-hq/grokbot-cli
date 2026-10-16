@@ -607,6 +607,28 @@
           <b>Done when:</b> <code>grokbot login</code> signs the CLI in with the GrokBot app logged out, keeps the token in the Keychain, refreshes it on expiry, and a read-only <code>grokbot agents</code> works end to end. <b>Status:</b> built and unit-tested. Live checks so far: the login page answers 200, <code>/auth/poll</code> answers 404 (pending) for a <code>cli</code> pair, <code>whoami</code> reports the app's login, and <code>agents</code> is unchanged. <b>Not yet proven:</b> a full browser sign-in and a refresh, which need the owner at the browser.
         </div>
       </article>
+
+      <!-- PHASE 6 (PLANNED, designed with the owner 16 Oct) -->
+      <article class="roadmap-col roadmap-col--planned" id="phase-6">
+        <div class="roadmap-col__meta">
+          <span>PHASE 06 · BOTS TALK BACK TO CLAUDE</span>
+          <span>Designed 16 Oct · not built · first test run on the test bots</span>
+        </div>
+        <h3>Two-Way: a Bot Can Reach Claude Unasked</h3>
+        <p>Today only Claude starts a conversation: it sends, waits and reads. When a bot needs something on its own (a decision, an approval, it is blocked, or a long task Claude gave it is done), nobody on Claude's side hears it. Phase 06 gives bots one address for Claude and gives Claude a way to receive, on the owner's Mac, in the right project folder, in a session the owner can open. The owner keeps chatting with bots in the app as before; those chats are never routed to Claude.</p>
+        <ol class="roadmap-steps">
+          <li><div><b>Mailbox bot "Claude Inbox":</b> a dedicated GrokBot bot. Other bots reach Claude with <code>SendToAgent</code> to it, the same way they message each other. It needs no new service or token, keeps every message on GrokBot's servers while the Mac is off, and the owner can read it in the GrokBot app, phone included. Its instructions say: reply with one word and do nothing else. The Done Rule must treat a message to the mailbox as answered at once: in the 16 Oct test its reply never reached the sender, so the sender's <code>ask</code> waited on it until it timed out.</div></li>
+          <li><div><b>Teach every bot:</b> a Box-wide skill <code>reach-claude</code> (pushed once with <code>grokbot skills push</code>) says when to message Claude, never to send secrets, not to wait, and the format: <code>[&lt;repo name&gt;] &lt;title&gt;</code>, <code>Need: decision | approval | info | done</code>, <code>Details</code>, <code>Urgent</code>. A skill loads only when a bot thinks it applies, so each bot's instructions also get one line pointing to it (<code>grokbot update</code>), and <code>grokbot hire</code> adds that line to new bots.</div></li>
+          <li><div><b>Mac background program:</b> starts at login (launchd), follows the Claude Inbox transcript from a saved cursor, so messages sent while the Mac was off are picked up when it comes back. No relay on another server and no second store: GrokBot's transcript is the store, the program keeps only "read up to here" and per-message state. The <code>WatchGrokBotTranscripts</code> stream, reconnects and the Done Rule are reused from <code>grokbot-core</code>.</div></li>
+          <li><div><b>Find the project folder by git remote:</b> the program maps repo name to local folder by reading the git remote of each folder in the owner's projects folder, with a hand-edited override file. Folder names are not reliable: one project's repo name differs from its folder name. When a message names no repo, or the repo has no local folder, a "dispatcher" Claude session in the projects folder reads it and picks the folder.</div></li>
+          <li><div><b>One Claude session per task:</b> the program runs Claude Code headless in that folder (<code>claude -p</code>, a fixed <code>--session-id</code>, later <code>--resume</code>), one session per bot and project, so follow-ups keep their context. Claude answers the bot with <code>grokbot send</code>. Headless Claude only does what is already allowed; anything that needs a permission waits for the owner. A daily wake limit, quiet hours and a pause switch apply.</div></li>
+          <li><div><b>Busy, then wait:</b> before resuming a session, the program checks its transcript file (<code>~/.claude/projects/&lt;folder&gt;/&lt;session-id&gt;.jsonl</code>). If someone other than the program wrote to it in the last 10 minutes, the owner is working in it: the program holds the message, shows a notification, and resumes the session with the held messages once it has been quiet for 10 minutes. A lock per session stops two headless runs writing at once.</div></li>
+          <li><div><b>Open in Claude desktop:</b> the owner opens any of these sessions in the desktop app with <code>claude --desktop --resume &lt;session-id&gt;</code> (Claude Code 2.1.285+, documented; local version 2.1.301), which continues the same session, or finds it with <code>/resume</code> in the desktop app. A session that is running headless cannot be moved until it stops.</div></li>
+        </ol>
+        <div class="roadmap-done">
+          <b>Done when:</b> a test bot asks for a decision while the Mac is asleep, the Mac picks it up on wake, Claude answers from the right folder, the test bot gets the answer, and the owner opens that session in Claude desktop. <b>Not:</b> a relay on another server, Claude running on a server out of the owner's sight, or a second message store. <b>Fallbacks:</b> a Slack channel (one thread per task) or email (the bots' own inboxes) can replace the mailbox bot; everything after "receive" stays the same.
+        </div>
+      </article>
     </div>
 
     <!-- BUILD STATUS · PHASES 02–04 (overnight autonomous run, 14–15 Oct) -->
@@ -713,10 +735,10 @@ packages/grokbot-mcp    <span class="c"># npm `grokbot-mcp@0.1.0`      · Thin s
     <div class="chapter-head">
       <div>
         <span class="chapter-num">05 / Architectural Decisions</span>
-        <h2 id="decisions-title">Six owner-locked <em>architectural contracts</em>.</h2>
+        <h2 id="decisions-title">Seven owner-locked <em>architectural contracts</em>.</h2>
         <p class="chapter-lead">Accepted by the owner. Change one only with the owner's explicit OK, and record the change in the engineering log.</p>
       </div>
-      <span class="tag tag--ok">6 Accepted</span>
+      <span class="tag tag--ok">7 Accepted</span>
     </div>
 
     <div class="decisions-editorial">
@@ -778,6 +800,16 @@ packages/grokbot-mcp    <span class="c"># npm `grokbot-mcp@0.1.0`      · Thin s
         <h3>HTML-Only Docs in This Repo · No Usage Caps</h3>
         <p><code>docs/index.html</code> is the single source of truth; <code>docs/reference.html</code> is generated from <code>docs/grokbot-tools-and-api.json</code>; <code>AGENTS.md</code> is a short pointer. No artificial usage caps.</p>
         <div class="adr-item__not"><b>Not:</b> Scattering Markdown plans, reports, or journals across the repo.</div>
+      </article>
+
+      <article class="adr-item">
+        <div class="adr-item__head">
+          <span class="adr-item__num">07</span>
+          <span>16 Oct 2026 · Bot to Claude</span>
+        </div>
+        <h3>Bots Reach Claude Through a "Claude Inbox" Bot; Claude Runs Only on the Owner's Mac</h3>
+        <p>Bots message a mailbox bot with <code>SendToAgent</code>, taught by the <code>reach-claude</code> skill. A background program on the owner's Mac picks messages up (also after the Mac was off), finds the project folder by git remote, and wakes a Claude Code session per task that the owner can open in Claude desktop. See <a href="#phase-6">Phase 06</a>.</p>
+        <div class="adr-item__not"><b>Not:</b> Claude running on a server where the owner cannot see it, a relay server, or routing the owner's own chats with bots to Claude.</div>
       </article>
     </div>
   </section>
@@ -998,6 +1030,12 @@ packages/grokbot-mcp    <span class="c"># npm `grokbot-mcp@0.1.0`      · Thin s
           <li><div><b><code>worker start</code> token channel.</b> <code>cursor-agent</code> v2026.10.01 <code>worker start</code> reads its token only from <code>--auth-token</code>, <code>--auth-token-file</code> or a stored login (no env, stdin or fd). <code>grokbot worker-start</code> serves the GrokBot token through a 0600 FIFO. Unproven: does <code>cursor-agent</code> accept the GrokBot app's session token through <code>--auth-token-file</code>? First live run is the owner's.</div></li>
           <li><div><b>Bot desktop window index.</b> No Box Gateway method exposes <code>.sand-window-assignments.json</code>; the app finds desktops through <code>getForeverBoxStatus</code> <code>windows[].vncUrl</code>. <code>grokbot vnc</code> needs <code>--window N</code> for now.</div></li>
           <li><div><b>Turn ends while the bot is busy elsewhere.</b> A finished turn is held as running while the bot runs a later turn (status is per bot, not per run). Resumed jobs are safe (a saved done is final), but a live <code>ask</code> can time out to pending if the owner messages the bot mid-wait. Needs a wire fact: does live status carry a <code>requestId</code>?</div></li>
+          <li><div><b>Phase 06: why the mailbox's reply did not reach the sender (16 Oct).</b> Staff Test (as the mailbox) posted "Received" to Primary Test, but no row arrived on Primary Test in over 7 minutes. Earlier bot-to-bot tests did return replies. Either the sender picked another <code>SendToAgent</code> delivery mode (it said it "flagged" the message), or a reply to a turn that already ended is not delivered. The design does not need the reply, so this only matters if bots should get a receipt.</div></li>
+          <li><div><b>Phase 06: can the mailbox bot stay silent?</b> Every message makes it run one turn. If it can be told to post nothing, it saves a model turn per message; if not, a one-word reply is the floor. Measure the time and cost per message.</div></li>
+          <li><div><b>Phase 06: a bot slot for Claude Inbox.</b> A real mailbox bot takes one bot slot on the subscription. Creating it is the owner's call.</div></li>
+          <li><div><b>Phase 06: limits.</b> How many times a day the Mac program may wake Claude, the quiet hours, and whether 10 minutes is the right "owner is working in this session" window.</div></li>
+          <li><div><b>Phase 06: messages typed into the app.</b> The owner may also message Claude Inbox in the app. Whether those count as messages for Claude needs a rule.</div></li>
+          <li><div><b><code>grokbot update --instructions ""</code> cannot clear instructions.</b> The empty value is dropped as if missing, so clearing needs <code>--instructions-file</code> with an empty file (found 16 Oct).</div></li>
           <li><div><b>Exact attribution of a shared run.</b> When a message reaches a busy bot, one run answers it together with the message the bot was working on. Both jobs then end <code>ambiguous</code> (exit 5) with every reply of that run (16 Oct). An exact split needs a wire fact we do not have, such as a row field that says which message a reply answers. Since the per-bot queue (16 Oct) this only happens with a message typed in the app while a job runs, because <code>grokbot</code> never gives a busy bot another of its messages.</div></li>
           <li><div><b>Blob replies unconfirmed live.</b> <code>PresignSandBoxStoreReads</code> response field names and the size at which replies become blobs are unknown; the code falls back to a "[reply stored as blob]" marker.</div></li>
           <li><div><b>CLI-owned login (<a href="#phase-5">Phase 05</a>): first live sign-in.</b> The owner approved it and amended Rule 3 (15 Oct); it is built. Still unproven until the owner runs <code>grokbot login</code> once: (1) whether the web page completes a <code>redirectTarget=cli</code> sign-in and <code>/auth/poll</code> releases the pair (the app sends <code>sand</code>; <code>cli</code> is the code's default; the poll already answers 404 for a <code>cli</code> pair); (2) whether <code>/oauth/token</code> accepts the app's production <code>client_id</code> for that pair (override with <code>GROKBOT_AUTH_CLIENT_ID</code> if Cursor rotates it).</div></li>
@@ -1150,6 +1188,13 @@ packages/grokbot-mcp    <span class="c"># npm `grokbot-mcp@0.1.0`      · Thin s
         </summary>
         <div class="details-body">
           <ol class="log-timeline">
+            <li><time>16 Oct 2026</time><p><b>Designed Phase 06 (bots talk back to Claude) with the owner, and tested the mailbox idea on the test bots.</b> Options weighed: a relay on the always-on dev server with Claude there (dropped: the owner would not see Claude's work, and GrokBot already keeps messages while the Mac is off), a Slack channel, email, GitHub Issues, and a mailbox bot. The owner chose the mailbox bot plus a background program on the Mac, with folders found by git remote and one Claude session per task that opens in Claude desktop (<a href="#phase-6">Phase 06</a>, decision 07). Checked the docs: <code>claude --desktop --resume &lt;id&gt;</code> moves a CLI session into Claude desktop, and a static read of the Grok Bot app showed it sends at once while a bot runs, so the owner's own chats need no change.
+              <ul>
+                <li><b>Live test:</b> pushed a test <code>reach-claude</code> skill naming Staff Test as the mailbox, gave Staff Test "reply Received only" instructions and Primary Test a one-line pointer to the skill, then asked Primary Test for a project storage decision it was told not to make itself. Primary Test opened the skill first, sent Staff Test a message in the exact format (repo tag, <code>Need: decision</code>, details, <code>Urgent: no</code>), touched no repository, told the owner it had asked Claude and ended its turn. Staff Test received the full text and replied "Received".</li>
+                <li><b>Problem found:</b> that reply never reached Primary Test, so the CLI's <code>ask</code> waited on the open delegation and ended pending (exit 4) after 300 s, and again after 90 s more. Phase 06 now says the Done Rule treats a message to the mailbox as answered at once.</li>
+                <li><b>Cleanup:</b> the skill was removed (170 left in the Box library), and both bots' title and description match the saved copy from before the test. The test job is left pending in the local job store.</li>
+              </ul>
+            </p></li>
             <li><time>16 Oct 2026</time><p><b>Added a per-bot queue, so two messages to one bot each get their own reply.</b> The shared-run fix below only made such jobs end <code>ambiguous</code>. The bot itself behaves the same in the app: Grok Bot v0.71.2 sends a message at once while the bot runs (static read of <code>app.asar</code>: <code>isAgentRunning</code> only sets a display flag, and its send journal queues only while offline or during a computer update). A person reads the one combined reply; a job cannot split it.
               <ul>
                 <li><b>Rule now (<code>job-queue.ts</code>):</b> <code>send</code> saves the job as <code>queued</code> with its text, then sends the bot's queue oldest first while the bot is free. Free means the send snapshot sees no run, subagent, approval, open delegation, unanswered newest message or open card, and no message we sent in the last 60 s is still missing its echo. A queued message goes out on the next <code>send</code>, <code>ask</code> or <code>wait</code> on that bot (there is no daemon), and a <code>wait</code> whose turn ends <code>done</code> or <code>ambiguous</code> sends the next one. <code>wait</code> on a queued job polls every 2 s within its one timeout; still queued at the timeout gives pending (exit 4) and the job stays queued. The snapshot fields and <code>botBusyAtSend</code> are taken when the message really goes out, and the text is dropped then.</li>
