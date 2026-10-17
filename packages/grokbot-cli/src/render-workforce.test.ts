@@ -8,6 +8,13 @@ const SKILL = {
   source: "workflow",
   description: "Probe",
 };
+const BUILT_IN = {
+  id: "add-connector",
+  name: "add-connector",
+  source: "managed",
+  description: "Connect an MCP server",
+  managedBy: "grokbot" as const,
+};
 const ROUTINE = {
   automationId: "auto-1",
   name: "Weekly report",
@@ -113,7 +120,12 @@ describe("workforce commands on the CLI", () => {
 
   it("skills-list and skills-push say the library is Box-wide", async () => {
     const list = await runCli(["skills-list", "Primary Test"], {
-      outputs: { "skills-list": { agent: PRIMARY, skills: [SKILL] } },
+      outputs: {
+        "skills-list": {
+          agent: PRIMARY,
+          skills: [{ ...SKILL, managedBy: "user" }, BUILT_IN],
+        },
+      },
     });
     const pushed = await Promise.all(
       (["imported", "unchanged", "exists", "replaced"] as const).map((result) =>
@@ -124,7 +136,10 @@ describe("workforce commands on the CLI", () => {
     );
     expect([list.stdout, ...pushed.map((p) => p.stdout)]).toEqual([
       "Box-wide (all bots) skill library, read through Primary Test:\n" +
-        "NAME                   SOURCE    ID\ngb-phase2-probe-skill  workflow  gb-phase2-probe-skill\n",
+        "NAME                   TYPE             SOURCE    ID\n" +
+        "add-connector          grokbot-managed  managed   add-connector\n" +
+        "gb-phase2-probe-skill  user-managed     workflow  gb-phase2-probe-skill\n" +
+        "1 grokbot-managed (built into GrokBot), 1 user-managed (from this account's connectors and its own imports).\n",
       "Imported skill gb-phase2-probe-skill (gb-phase2-probe-skill) into the Box-wide (all bots) skill library.\n",
       "The Box-wide (all bots) skill library already has gb-phase2-probe-skill (gb-phase2-probe-skill) with this content; nothing imported.\n",
       "The Box-wide (all bots) skill library already has gb-phase2-probe-skill (gb-phase2-probe-skill); its content could not be compared, so nothing was imported. Add --replace --yes to import this file over it.\n",

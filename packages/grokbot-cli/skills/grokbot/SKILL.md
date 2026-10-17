@@ -1,11 +1,11 @@
 ---
 name: grokbot
-description: Drives a GrokBot AI workforce from the shell with the grokbot CLI. Dispatches tasks to bots and waits for their replies, resolves approval cards, hires and briefs bots, runs multi-bot rooms, manages the Box-wide skill library and routines, and calls Box MCP tools. Use when the user mentions GrokBot or Grok Bot, their bots or AI employees, delegating work to a bot, approval cards, or the grokbot command.
+description: Works with GrokBot bots from the shell through the grokbot CLI. Briefs bots and waits for their replies, resolves approval cards, hires bots, runs multi-bot rooms, manages the Box-wide skill library (grokbot-managed and user-managed skills) and routines (schedules, webhooks, email and app events), and calls Box MCP tools. Use when the user mentions GrokBot or Grok Bot, their bots, handing work to a bot, a bot's email inbox, routines or webhooks that wake a bot, approval cards, or the grokbot command.
 ---
 
 # GrokBot workforce
 
-You are the CEO. The owner's GrokBot bots are your staff. Decide what to delegate, dispatch it with `grokbot`, read the result, and bring the owner in for anything that needs their approval.
+GrokBot bots are always-on assistants, each with its own cloud computer, memory and connectors. You and the owner decide the work together. Hand a bot what benefits from being always on, from its computer or from its connectors, brief it well, check what it sends back, and bring the owner in for anything that needs their approval.
 
 ## Rules
 
@@ -65,6 +65,39 @@ Add `--json` when you parse output. stdout is then one JSON document, and job id
 
 `grokbot team` shows who is running, idle, or waiting on the owner. `grokbot tail -n 20 --agent X` shows a bot's recent transcript. `grokbot interrupt --agent X` stops its current run.
 
+## Brief a bot
+
+A bot does its best work from a brief that states:
+
+- One goal, and what "done" looks like.
+- The hard limits, such as "read-only", "contact no one", "spend nothing", or a word limit.
+- Where the truth lives: a Notion page, a repo, an account, a file.
+- The format you want back, and whether you want progress notes or one final answer.
+- "Use your own computer unless I name my Mac." Mac tools need the owner's approval for each action, so they fail where there is no one to ask, such as a routine.
+- "Reply in this chat." `grokbot` waits on the bot's main chat, and an answer posted in a task thread can be missed.
+- "When you finish, send one message with the result, and say plainly if it is only drafted, waiting for approval, blocked, or still running."
+
+Never ask a bot to add a connector or install a plugin in the same message as the task. It must first ask the owner, so the task stalls. Prefer one bot to a room: in a room every member processes every message, which costs more usage, and a member may pass without replying.
+
+## What a bot can do
+
+Most of a bot's abilities are reached by asking it in chat, not through a `grokbot` command. The list below comes from the GrokBot app (0.71.2) and the bots' built-in skills. Not every item has been run through `grokbot`, so check the result.
+
+- **Research:** web search and reading pages, plus whatever the account's connectors reach.
+- **Its own computer:** a Linux machine with a shell, files and a signed-in browser and desktop, for sites with no connector (`box-desktop`, `no-connector-fallback`). Logins it cannot finish go to the owner (`sign-in`). The owner can watch with `grokbot vnc`.
+- **Code:** repo work through Cursor cloud agents on a linked GitHub, GitLab, Bitbucket or Azure DevOps repo. They can open pull requests (`code-changes`, `source-control`).
+- **Background work:** subagents run while the bot keeps answering chat. `ask` and `wait` count them, so a job is not done until they finish.
+- **Routines:** work on a schedule or when an event arrives. See "Routines" below.
+- **Its own email inbox:** a bot can claim an address and send and read mail as itself (`agent-email`). Mail wakes a bot only through an email-trigger routine.
+- **Messages as the owner:** drafts or sends email and chat messages as the owner, with approval for each one (`send-on-behalf`). It can also live in Slack or Microsoft Teams as its own app (`channels`).
+- **The owner's Mac:** commands, file reads, copying files to and from its own computer, and iMessage. Each action needs the owner's approval.
+- **Meetings and voice:** joins Google Meet or Zoom calls, reads transcripts and summaries, answers voice memos, and takes live voice chats and phone calls (`voice`). Joining a meeting with other people and placing a call both need approval.
+- **Documents and media:** documents and live canvases beside the chat, decks (`slides`, `office-pptx`), and image and video generation. Files come back as attachments; `tail` shows their names.
+- **Memory and skills:** keeps facts between chats, saves a repeated task as a skill (`skill-authoring`), learns a task the owner demonstrates once (`learn-from-demonstration`), and exports its whole setup as a shareable template (`export-bot-template`).
+- **Forms and purchases:** shows the owner a form in chat for logins, addresses or codes (`in-chat-forms`), and buys things only after the owner confirms (`purchases`).
+
+Anything that sends, posts, spends, deletes or acts on the Mac goes through an approval card or an automatic safety check.
+
 ## Approval cards
 
 Exit 3 means a bot is waiting on the owner.
@@ -80,6 +113,8 @@ grokbot wait "$job"                        # then resume the job
 
 Show the owner what the card asks before you approve or deny it. Answer a question widget yourself only with facts the owner gave you or the task settles; otherwise ask the owner. `approve --always` allows that action from then on, so use it only when the owner asks for it. With more than one open card, pass `--card <id>` from `approvals`.
 
+`grokbot` handles question widgets, cloud-computer and Mac approvals, and secret requests. Other cards only the owner can answer, in the GrokBot app: connector grants, repo connections, forms, virtual cards, 1Password requests, Messages access, phone calls, meeting consent and computer hand-offs. If a job exits 3 and `grokbot approvals` lists nothing, or lists a card it cannot answer, tell the owner to open the bot in the app.
+
 ## Manage the workforce
 
 ```bash
@@ -94,7 +129,12 @@ grokbot fire Researcher --yes              # owner OK first
 
 `hire` gives each bot its own `/workspace/staff/<slug>` folder. Running it again with the same name re-briefs that bot and keeps its instructions unless you pass new ones.
 
-Skills live in one Box-wide library. The bot you name only routes the call, and every change applies to all bots.
+Skills live in one Box-wide library. The bot you name only routes the call, and every change applies to all bots. `skills-list` sorts them into two types:
+
+- **grokbot-managed** (source `managed`): built into GrokBot, such as `routines`, `agent-email`, `voice`, `sign-in` and the booking and shopping playbooks. GrokBot keeps them current; the set can differ by account or region. Read their descriptions to learn what a bot can already do.
+- **user-managed** (source `plugin` or `workflow`): `plugin` skills arrive with a connector the account installed, and `workflow` skills are the account's own imports. Another account has them only if it installs the same connector or imports the same file.
+
+To steer a bot, name the skill in your message: "Follow your routines skill." `skills-remove` and `skills-run` act on imported (`workflow`) skills only; `--include-managed` widens them to every other skill, so leave that flag to the owner. `skills-push` never overwrites a grokbot-managed or plugin skill.
 
 ```bash
 grokbot skills-list "Primary Test"
@@ -106,7 +146,9 @@ grokbot skills-remove "Primary Test" weekly-report --yes                       #
 
 Pushing a skill whose name and content already match changes nothing.
 
-Routines run a bot on a schedule:
+### Routines
+
+A routine runs a bot on its own, on a schedule or when an event arrives. `routines-create` makes schedule (cron) routines:
 
 ```bash
 grokbot routines-list Researcher
@@ -116,7 +158,16 @@ grokbot routines-disable Researcher "Monday digest"
 grokbot routines-delete Researcher "Monday digest" --yes   # owner OK first
 ```
 
-`skills-run` and `routines-create` have not been run against a live account yet. Check the result with `skills-list` or `routines-list`.
+The app also supports routines that fire on:
+
+- a webhook: each one gets its own URL and a sender key, sent as `Authorization: Bearer <key>`. Only the owner can copy the key, from the routine's panel in the app. Keep it in a secret store, never in chat, logs or a repo.
+- email to the bot's own inbox, filtered by sender. `name+tag@` addresses let each service wake its own routine.
+- Slack, Microsoft Teams, GitHub (pull requests, reviews, CI), Linear, Sentry or PagerDuty events, once that platform is linked to the bot.
+- a group of two or more of these.
+
+For any of these, ask the bot in chat to create the routine paused and to follow its `routines` skill. Saving a routine shows the owner a card, and the owner turns it on. GrokBot pauses routines while the owner is away, so a schedule can stop without warning; check `routines-list` now and then.
+
+`skills-run`, `routines-create` and the event triggers have not been run through `grokbot` against a live account yet. Check the result with `skills-list` or `routines-list`.
 
 ## Box tools and computers
 
@@ -129,6 +180,13 @@ grokbot worker-plan                        # prints the worker command; starts n
 ```
 
 `mcp-call` acts with the owner's authority, so it needs `--yes`. Leave `worker-start` to the owner, because it runs a worker in the foreground as their account.
+
+## Limits worth knowing
+
+- Files the owner uploads to a bot: 25 MiB each, 200 files, 1 GiB in all.
+- Secrets have UPPER_SNAKE names and values of 8 bytes to 4 KiB. Put logins and keys in secrets or the vault, never in a message.
+- One live voice chat at a time.
+- Usage is metered weekly. A run that fails, for example on a usage or rate limit or a team policy, ends with exit 1 and `failed its turn: <reason>` on stderr. Tell the owner instead of retrying.
 
 ## Command reference
 

@@ -43,6 +43,26 @@ export const toSkill = ({ id, name, source, description }: Skill): Skill => ({
   description,
 });
 
+/**
+ * Who a skill belongs to. GrokBot ships its `managed` skills to every account; `plugin`
+ * skills come with a connector the account installed and `workflow` skills are its own
+ * imports, so both are the user's.
+ */
+export type SkillManager = "grokbot" | "user";
+
+export const managedBy = (source: string): SkillManager =>
+  source === "managed" ? "grokbot" : "user";
+
+/** A `skills-list` row: the skill plus who manages it. */
+export interface ListedSkill extends Skill {
+  readonly managedBy: SkillManager;
+}
+
+export const toListedSkill = (s: Skill): ListedSkill => ({
+  ...toSkill(s),
+  managedBy: managedBy(s.source),
+});
+
 /** Parses a skill library, sent either bare or as `{ workflows }`. */
 export function parseLibrary(
   raw: unknown,

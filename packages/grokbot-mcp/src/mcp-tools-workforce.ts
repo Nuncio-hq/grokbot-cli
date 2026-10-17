@@ -66,7 +66,10 @@ export const WORKFORCE_SUMMARIES: ToolSummaries<WorkforceCommandName> = {
   "skills-list": ({ agent, skills }) =>
     [
       `The Box-wide (all bots) skill library has ${plural(skills.length, "skill", "skills")} (read through ${agent.name}):`,
-      ...skills.map((s) => `- ${s.name || s.id} (${s.source}, ${s.id})`),
+      ...skills.map(
+        (s) =>
+          `- ${s.name || s.id} (${s.managedBy}-managed, ${s.source}, ${s.id})`,
+      ),
     ].join("\n"),
   "skills-push": ({ agent, skill, result }) =>
     result === "exists"

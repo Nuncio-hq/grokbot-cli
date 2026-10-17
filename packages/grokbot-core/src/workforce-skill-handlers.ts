@@ -14,6 +14,7 @@ import {
   pushTarget,
   sameContent,
   skillName,
+  toListedSkill,
   toSkill,
 } from "./workforce-skills.js";
 
@@ -59,7 +60,7 @@ export function skillHandlers(ctx: RunnerContext): CommandHandlers<Names> {
       const agent = await agentOf(input.agent, signal);
       return {
         agent,
-        skills: (await libraryOf(agent.agentId, signal)).map(toSkill),
+        skills: (await libraryOf(agent.agentId, signal)).map(toListedSkill),
       };
     },
 

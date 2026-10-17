@@ -13,6 +13,10 @@ const nextRun = (r: Routine) =>
 const routineLine = (verb: string, r: Routine, agent: Agent) =>
   `${verb} routine ${r.name} (${r.automationId}) for ${agent.name}. ${nextRun(r)}\n`;
 const LIBRARY = "the Box-wide (all bots) skill library";
+const skillTypes = (skills: CommandOutputs["skills-list"]["skills"]) => {
+  const own = skills.filter((s) => s.managedBy !== "grokbot").length;
+  return `${skills.length - own} grokbot-managed (built into GrokBot), ${own} user-managed (from this account's connectors and its own imports).\n`;
+};
 const pushed = (
   skill: CommandOutputs["skills-push"]["skill"],
 ): Record<CommandOutputs["skills-push"]["result"], string> => {
@@ -52,9 +56,17 @@ export const WORKFORCE_RENDERERS: HumanRenderers<WorkforceCommandName> = {
       skills.length === 0
         ? `The Box-wide (all bots) skill library is empty (read through ${agent.name}).\n`
         : `Box-wide (all bots) skill library, read through ${agent.name}:\n${table(
-            ["NAME", "SOURCE", "ID"],
-            skills.map((s) => [s.name || "-", s.source || "-", s.id]),
-          )}`,
+            ["NAME", "TYPE", "SOURCE", "ID"],
+            [
+              ...skills.filter((s) => s.managedBy === "grokbot"),
+              ...skills.filter((s) => s.managedBy !== "grokbot"),
+            ].map((s) => [
+              s.name || "-",
+              `${s.managedBy}-managed`,
+              s.source || "-",
+              s.id,
+            ]),
+          )}${skillTypes(skills)}`,
     ),
   "skills-push": ({ skill, result }) => plain(pushed(skill)[result]),
   "skills-remove": ({ skill, remaining }) =>

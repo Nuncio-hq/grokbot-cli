@@ -1,7 +1,7 @@
 import type { Agent } from "./agents.js";
 import type { ProfileField } from "./workforce-profile.js";
 import type { Routine } from "./workforce-routines.js";
-import type { Skill } from "./workforce-skills.js";
+import type { ListedSkill, Skill } from "./workforce-skills.js";
 
 /** Phase 02 command results, one key per workforce command. */
 export interface WorkforceOutputs {
@@ -29,7 +29,7 @@ export interface WorkforceOutputs {
   };
   readonly "skills-list": {
     readonly agent: Agent;
-    readonly skills: readonly Skill[];
+    readonly skills: readonly ListedSkill[];
   };
   readonly "skills-push": {
     readonly agent: Agent;
