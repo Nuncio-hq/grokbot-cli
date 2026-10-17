@@ -107,6 +107,7 @@ async function apply(
     case "turn-failed":
       return { type: "turn-failed", raw: event.raw };
   }
+  await session.confirmSubagentList();
   candidate.consider(session.settle());
   return undefined;
 }
