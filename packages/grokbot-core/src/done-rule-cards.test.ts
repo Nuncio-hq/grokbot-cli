@@ -140,11 +140,11 @@ describe("Done Rule on a dismissed widget (14 Oct #10 to #14, reply synthesized)
 describe("Done Rule on a secret request card (14 Oct #13 to #18)", () => {
   const { echo, card, provided, reply } = SECRET;
 
-  it("awaits the owner on the open card, named by its type", () => {
+  it("awaits the owner on the open card, named by what it asks", () => {
     const v = verdict([echo, card], IDLE_STATUS, SECRET_MESSAGE_ID);
     expect(
       v.status === "awaiting-approval" && [v.reason, v.cards.map((c) => c.seq)],
-    ).toEqual(["secret-request", ["15"]]);
+    ).toEqual(["Secret requested: Dummy test token", ["15"]]);
   });
 
   it("is done with the new-run reply once the secret is provided", () => {

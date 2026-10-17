@@ -7,7 +7,10 @@ import {
   listCommands,
 } from "./command-catalog.js";
 import { commandJsonSchema, parseCommandInput } from "./command-input.js";
-import { GATEWAY_METHOD_SAFETY } from "./method-safety.js";
+import {
+  DASHBOARD_METHOD_SAFETY,
+  GATEWAY_METHOD_SAFETY,
+} from "./method-safety.js";
 
 describe("listCommands", () => {
   it("lists the Phase 01 commands first, in a stable order", () => {
@@ -185,6 +188,8 @@ describe("catalog against docs/grokbot-tools-and-api.json", () => {
   const methodTags = (command: Command) => [
     ...command.methods.map((m) => safetyOf.get(m)),
     ...(command.gatewayMethods ?? []).map((m) => GATEWAY_METHOD_SAFETY[m]),
+    ...(command.dashboardMethods ?? []).map((m) => DASHBOARD_METHOD_SAFETY[m]),
+    ...(command.firesWebhook ? ["writes"] : []),
   ];
 
   it("lists at least one RPC method per command, each known to the API catalog", () => {

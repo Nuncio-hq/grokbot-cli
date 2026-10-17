@@ -1,7 +1,10 @@
 import {
   type DispatchCommandName,
+  describeBoxHandoff,
+  describeCard,
   isActive,
   type JobOutcome,
+  OWNER_ONLY_NOTE,
   type TeamMember,
   type TranscriptEntry,
 } from "grokbot-core";
@@ -45,13 +48,46 @@ function outcomeText(who: string, jobId: string, outcome: JobOutcome): string {
         ? `${outcome.reason}. Job ${jobId} is saved; ${waitHint(jobId)} to send it and keep waiting.`
         : `${who} is still working (${outcome.reason}). Job ${jobId} is saved; ${waitHint(jobId)} to keep waiting.`;
     case "awaiting-approval":
-      return `${who} is waiting for owner approval (${outcome.reason}). Approve it in the Grok Bot app, then ${waitHint(jobId)}.`;
+      return awaitingText(who, jobId, outcome);
   }
+}
+
+const OWNER_ONLY = `${OWNER_ONLY_NOTE.charAt(0).toUpperCase()}${OWNER_ONLY_NOTE.slice(1)}`;
+
+/** Names every open card and the box hand-off, and who can resolve them. */
+function awaitingText(
+  who: string,
+  jobId: string,
+  outcome: Extract<JobOutcome, { status: "awaiting-approval" }>,
+): string {
+  const cards = outcome.cards.map((c) => ({
+    type: c.cardType,
+    ...describeCard(c.cardType, c.message),
+  }));
+  const lines = [
+    ...(outcome.handoff
+      ? [
+          `- box hand-off: ${describeBoxHandoff(outcome.handoff)} (${OWNER_ONLY_NOTE})`,
+        ]
+      : []),
+    ...cards.map(
+      (c) =>
+        `- ${c.type}: ${c.text}${c.ownerOnly ? ` (${OWNER_ONLY_NOTE})` : ""}`,
+    ),
+  ];
+  const act = cards.some((c) => !c.ownerOnly)
+    ? "See grokbot_approvals and resolve the cards grokbot can once the owner says yes"
+    : OWNER_ONLY;
+  const list = lines.length > 0 ? `\n${lines.join("\n")}\n` : " ";
+  return `${who} is waiting for owner approval (${outcome.reason}).${list}${act}, then ${waitHint(jobId)}.`;
 }
 
 function memberText({ agent, status }: TeamMember): string {
   if (status.awaiting) {
     return `- ${agent.name}: awaiting owner (${status.awaiting.reason})`;
+  }
+  if (status.boxHandoff && !status.isRunning) {
+    return `- ${agent.name}: awaiting box hand-off (${describeBoxHandoff(status.boxHandoff)})`;
   }
   if (!isActive(status)) return `- ${agent.name}: idle`;
   const tool = status.activityTool ? ` (${status.activityTool})` : "";

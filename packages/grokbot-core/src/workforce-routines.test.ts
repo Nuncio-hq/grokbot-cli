@@ -9,7 +9,8 @@ import {
   workforceRunner,
 } from "./fixtures/workforce-fakes.js";
 
-const ROSTER = [{ agents: [...BASE_ROSTER, PROBE_BOT] }];
+/** A bot on the Cloud Box harness, whose routines go through the Box Gateway. */
+const ROSTER = [{ agents: [...BASE_ROSTER, { ...PROBE_BOT, harness: "box" }] }];
 const record = (fields: JsonObject) =>
   JSON.stringify({
     id: "weekly-report",
@@ -25,14 +26,21 @@ const PAUSED = {
   automationId: "auto-1",
   recordJson: record({ isEnabled: false, nextRunAt: null }),
 };
+const CRON = {
+  type: "cron",
+  schedule: "CRON_TZ=Australia/Adelaide 0 9 * * 1",
+};
 const ROUTINE = {
   automationId: "auto-1",
+  id: "weekly-report",
   name: "Weekly report",
   prompt: "Write the weekly report.",
   trigger: "cron",
+  triggerConfig: CRON,
   schedule: "CRON_TZ=Australia/Adelaide 0 9 * * 1",
   enabled: true,
   nextRunAt: "2026-10-19T22:30:00.000Z",
+  createdAt: null,
 };
 const AGENT = { agent: "GB Phase2 Probe", json: false };
 const failure = (e: unknown) =>
@@ -151,6 +159,10 @@ describe("routines-create", () => {
     name: "Weekly report",
     cron: "CRON_TZ=Australia/Adelaide 0 9 * * 1",
     prompt: "Write the weekly report.",
+    webhook: false,
+    "require-auth-pass": false,
+    paused: false,
+    timeout: 300,
   };
 
   it("sends a cron spec through the gateway and returns the routine the server lists", async () => {

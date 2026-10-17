@@ -46,7 +46,7 @@ describe("job commands in human mode", () => {
     });
   });
 
-  it("prints the approval reason and card types when awaiting", async () => {
+  it("names every open card and says which only the owner can answer", async () => {
     const outcome = {
       status: "awaiting-approval",
       reason: "auto-review-approval",
@@ -58,10 +58,29 @@ describe("job commands in human mode", () => {
     expect(run).toMatchObject({
       stdout: lines(
         "Awaiting approval: auto-review-approval",
-        "Open cards: auto-review-approval, secret-request",
+        "Open cards: auto-review-approval (Approval needed), secret-request (Secret requested)",
       ),
       stderr:
-        "To continue, run grokbot approve --yes or grokbot deny --yes; resolve it in the Grok Bot app. Then resume with: grokbot wait job-3\n",
+        "To continue, run grokbot approve --yes or grokbot deny --yes; only the owner can answer this in the GrokBot app (secret-request). Then resume with: grokbot wait job-3\n",
+      code: 3,
+    });
+  });
+
+  it("names a box hand-off as a step only the owner can take", async () => {
+    const outcome = {
+      status: "awaiting-approval",
+      reason: "Take over the bot's computer: Sign in to Xero",
+      cards: [],
+      handoff: { requestId: "h-1", instruction: "Sign in to Xero" },
+    } as const;
+    const run = await runCli(["wait", "job-5"], {
+      outputs: { wait: { jobId: "job-5", agentId: PRIMARY.agentId, outcome } },
+    });
+    expect(run).toMatchObject({
+      stdout:
+        "Awaiting approval: Take over the bot's computer: Sign in to Xero\n",
+      stderr:
+        "To continue, only the owner can answer this in the GrokBot app (box hand-off). Then resume with: grokbot wait job-5\n",
       code: 3,
     });
   });

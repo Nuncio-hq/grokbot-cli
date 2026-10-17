@@ -24,29 +24,10 @@ const SKILL = {
   required: true,
   position: 1,
 } as const;
-const ROUTINE = {
-  type: "string",
-  description: "Routine name or automationId",
-  required: true,
-  position: 1,
-} as const;
 const ROSTER = "ListGrokBotAgents";
-const ROUTINES = "ListGrokBotAgentAutomations";
 const SKILLS = "getAgentWorkflows";
-const routineToggle = (summary: string) =>
-  ({
-    summary,
-    safety: "writes",
-    methods: [ROSTER, ROUTINES, "SetGrokBotAgentAutomationEnabled"],
-    params: {
-      agent: AGENT,
-      routine: ROUTINE,
-      "force-protected": FORCE_PROTECTED,
-      json: JSON_PARAM,
-    },
-  }) as const satisfies CommandSpec;
 
-/** Phase 02: the Box-wide skill library and each bot's routines. */
+/** Phase 02: the Box-wide skill library. */
 export const LIBRARY_COMMANDS = {
   "skills-list": {
     summary: "List the Box-wide (all bots) skill library, read through one bot",
@@ -117,48 +98,6 @@ export const LIBRARY_COMMANDS = {
       agent: AGENT,
       skill: SKILL,
       "include-managed": INCLUDE_MANAGED,
-      json: JSON_PARAM,
-    },
-  },
-  "routines-list": {
-    summary: "List a bot's routines with trigger and next run",
-    safety: "read-only",
-    methods: [ROSTER, ROUTINES],
-    params: { agent: AGENT, json: JSON_PARAM },
-  },
-  "routines-enable": routineToggle("Turn a bot's routine on"),
-  "routines-disable": routineToggle("Turn a bot's routine off"),
-  "routines-delete": {
-    summary: "Delete a bot's routine",
-    safety: "destructive",
-    methods: [ROSTER, ROUTINES, "DeleteGrokBotAgentAutomation"],
-    params: {
-      agent: AGENT,
-      routine: ROUTINE,
-      "force-protected": FORCE_PROTECTED,
-      yes: YES_PARAM,
-      json: JSON_PARAM,
-    },
-  },
-  "routines-create": {
-    summary: "Create a cron routine for a bot (untested live)",
-    safety: "writes",
-    methods: [ROSTER, ROUTINES],
-    gatewayMethods: ["createAgentAutomation"],
-    params: {
-      agent: AGENT,
-      name: { type: "string", description: "Routine name", required: true },
-      cron: {
-        type: "string",
-        description:
-          'Cron schedule, e.g. "0 9 * * 1" or "CRON_TZ=Australia/Adelaide 0 9 * * 1"',
-        required: true,
-      },
-      prompt: {
-        type: "string",
-        description: "What the bot does on each run",
-        required: true,
-      },
       json: JSON_PARAM,
     },
   },

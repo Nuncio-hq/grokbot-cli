@@ -1,4 +1,9 @@
-import type { CommandOutputs, GovernanceCommandName } from "grokbot-core";
+import {
+  type CommandOutputs,
+  describeBoxHandoff,
+  type GovernanceCommandName,
+  OWNER_ONLY_NOTE,
+} from "grokbot-core";
 import {
   type HumanRenderers,
   line,
@@ -18,6 +23,13 @@ function clip(text: string): string {
     : flat;
 }
 
+/** A bot awaits the owner but no card is in the rows read (governance-card-handlers.ts). */
+const NO_CARD_NOTE =
+  "no open card in the last 50 rows; check the bot in the GrokBot app";
+
+/** A card grokbot leaves to the owner: what it asks, then who can answer it. */
+const ownerOnly = (text: string) => `${clip(text)} (${OWNER_ONLY_NOTE})`;
+
 /** One-line summary of what a card asks. */
 export function cardDetail(card: Card): string {
   switch (card.type) {
@@ -28,14 +40,52 @@ export function cardDetail(card: Card): string {
           : card.prompt,
       );
     case "auto-review-approval":
-      return clip(
-        [card.summary, card.command].filter((part) => part !== "").join(": "),
-      );
+      return card.ownerOnly
+        ? ownerOnly(card.summary)
+        : clip(
+            [card.summary, card.command]
+              .filter((part) => part !== "")
+              .join(": "),
+          );
     case "local-tool-permission":
       return clip(`${card.action}: ${card.target}`);
     default:
-      return card.type;
+      return ownerOnly(card.summary);
   }
+}
+
+type AgentRow = CommandOutputs["approvals"]["agents"][number];
+
+/** Table rows for one agent: a pending box hand-off, then its cards, else its awaiting reason. */
+function approvalRows({ agent, awaiting, handoff, cards }: AgentRow) {
+  const handoffRow = handoff
+    ? [
+        [
+          agent.name,
+          "box-handoff",
+          handoff.requestId,
+          ownerOnly(describeBoxHandoff(handoff)),
+        ],
+      ]
+    : [];
+  const cardRows = cards.map((card) => [
+    agent.name,
+    card.type,
+    card.entryId,
+    cardDetail(card),
+  ]);
+  const awaitingRow =
+    cards.length === 0 && !handoff
+      ? [
+          [
+            agent.name,
+            "-",
+            "-",
+            `${clip(`awaiting: ${awaiting ?? ""}`.trim())} (${NO_CARD_NOTE})`,
+          ],
+        ]
+      : [];
+  return [...handoffRow, ...cardRows, ...awaitingRow];
 }
 
 const quote = (arg: string) =>
@@ -50,16 +100,7 @@ const CREDENTIAL_WARNING =
 export const GOVERNANCE_RENDERERS: HumanRenderers<GovernanceCommandName> = {
   approvals: ({ agents }) => {
     if (agents.length === 0) return plain("No open approval cards.\n");
-    const rows = agents.flatMap(({ agent, awaiting, cards }) =>
-      cards.length === 0
-        ? [[agent.name, "-", "-", `awaiting: ${awaiting ?? ""}`.trim()]]
-        : cards.map((card) => [
-            agent.name,
-            card.type,
-            card.entryId,
-            cardDetail(card),
-          ]),
-    );
+    const rows = agents.flatMap(approvalRows);
     return plain(table(["AGENT", "CARD", "ID", "DETAIL"], rows));
   },
   answer: ({ agent, card, dismissed, value }) => ({

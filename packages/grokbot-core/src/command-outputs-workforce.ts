@@ -1,7 +1,8 @@
 import type { Agent } from "./agents.js";
+import type { KeychainItem } from "./keychain-items.js";
 import type { ProfileField } from "./workforce-profile.js";
 import type { Routine } from "./workforce-routines.js";
-import type { Skill } from "./workforce-skills.js";
+import type { ListedSkill, Skill } from "./workforce-skills.js";
 
 /** Phase 02 command results, one key per workforce command. */
 export interface WorkforceOutputs {
@@ -29,7 +30,7 @@ export interface WorkforceOutputs {
   };
   readonly "skills-list": {
     readonly agent: Agent;
-    readonly skills: readonly Skill[];
+    readonly skills: readonly ListedSkill[];
   };
   readonly "skills-push": {
     readonly agent: Agent;
@@ -63,10 +64,42 @@ export interface WorkforceOutputs {
     readonly agent: Agent;
     readonly routine: Routine;
     readonly remaining: number;
+    /** True when a webhook key for it was in the Keychain and is now gone. */
+    readonly webhookKeyRemoved: boolean;
   };
   readonly "routines-create": {
     readonly agent: Agent;
     readonly routine: Routine;
     readonly result: "created" | "exists";
+    /** Set when the bot saved it in chat: the job of that message. */
+    readonly jobId?: string;
+  };
+  readonly "routines-update": {
+    readonly agent: Agent;
+    readonly routine: Routine;
+    /** Empty when every field already had the requested value (nothing was written). */
+    readonly changed: readonly ("name" | "prompt" | "trigger")[];
+    /** Set when the bot saved it in chat: the job of that message. */
+    readonly jobId?: string;
+  };
+  readonly "routines-run": { readonly agent: Agent; readonly routine: Routine };
+  readonly "routines-webhook-key": {
+    readonly agent: Agent;
+    readonly routine: Routine;
+    /** Where senders POST, with `Authorization: Bearer <key>`. */
+    readonly url: string;
+    /** The item holding the key. The key itself is never in any output. */
+    readonly keychainItem: KeychainItem;
+    /** `exists`: a key was already stored and replace was not set; nothing was minted. */
+    readonly result: "minted" | "replaced" | "exists";
+  };
+  readonly "routines-fire": {
+    readonly agent: Agent;
+    readonly routine: Routine;
+    readonly url: string;
+    /** HTTP status of the accepted POST. */
+    readonly status: number;
+    /** The response body: parsed JSON, else its text (at most 300 characters). */
+    readonly reply: unknown;
   };
 }

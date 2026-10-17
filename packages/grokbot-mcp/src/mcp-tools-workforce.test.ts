@@ -206,6 +206,22 @@ describe("workforce tools hide CLI-only and file-path params", () => {
   });
 });
 
+describe("routine safety over MCP", () => {
+  it("keeps webhook-key minting off MCP and hides force-protected on routine writes", async () => {
+    const tools = await listTools();
+    const names = tools.map((t) => t.name);
+    const props = (name: string) =>
+      Object.keys(
+        tools.find((t) => t.name === name)?.inputSchema.properties ?? {},
+      );
+    expect([
+      names.includes("grokbot_routines_webhook_key"),
+      props("grokbot_routines_create").includes("force-protected"),
+      props("grokbot_routines_update").includes("force-protected"),
+    ]).toEqual([false, false, false]);
+  });
+});
+
 describe("MCP tool names", () => {
   it("use underscores and map back to hyphenated commands", () => {
     expect([

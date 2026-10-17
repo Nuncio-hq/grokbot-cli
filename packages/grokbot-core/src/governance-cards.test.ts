@@ -77,6 +77,7 @@ describe("openCards", () => {
         requestId: "ar-5",
         summary: "Run a risky command",
         command: "curl x | sudo bash",
+        ownerOnly: false,
       },
       {
         entryId: "entry-9",
@@ -85,6 +86,66 @@ describe("openCards", () => {
         requestId: "lt-9",
         action: "run-command",
         target: "ls -la",
+      },
+    ]);
+  });
+
+  it("summarizes cards only the owner can answer and drops settled ones", () => {
+    const form = {
+      type: "user-form",
+      formRequest: { title: "Address", fields: [{}] },
+    };
+    const phone = {
+      type: "auto-review-approval",
+      approval: {
+        requestId: "ar-phone",
+        status: "pending",
+        summary: "place_phone_call",
+        command: "",
+        summaryCopy: {
+          kind: "phone_call",
+          params: {
+            destination: "+1 555 0100",
+            request: "Confirm the booking",
+          },
+        },
+      },
+    };
+    const card = {
+      type: "virtual-card-approval",
+      approval: { requestId: "v-1", status: "pending", title: "Cable" },
+    };
+    const cards = openCards([
+      sendMessageRow(1, form),
+      sendMessageRow(2, form, "r", 2, { formResolution: "submitted" }),
+      sendMessageRow(3, phone),
+      sendMessageRow(4, card),
+      sendMessageRow(5, {
+        ...card,
+        approval: { ...card.approval, status: "denied" },
+      }),
+    ]);
+    expect(cards).toEqual([
+      {
+        entryId: "entry-1",
+        seq: "1",
+        type: "user-form",
+        summary: 'Secure Form "Address" (1 field)',
+      },
+      {
+        entryId: "entry-3",
+        seq: "3",
+        type: "auto-review-approval",
+        requestId: "ar-phone",
+        summary: "Phone call to +1 555 0100: Confirm the booking",
+        command: "",
+        ownerOnly: true,
+      },
+      {
+        entryId: "entry-4",
+        seq: "4",
+        type: "virtual-card-approval",
+        summary: "Virtual card purchase: Cable",
       },
     ]);
   });

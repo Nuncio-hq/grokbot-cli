@@ -10,9 +10,15 @@ import {
 } from "../contracts.js";
 import { jobStore } from "../job-store.js";
 import {
+  assertDashboardMethodAllowed,
   assertGatewayMethodAllowed,
   assertMethodAllowed,
 } from "../method-safety.js";
+import type { WebhookFirer } from "../routine-webhook.js";
+import {
+  WEBHOOK_KEY_SERVICE,
+  type WebhookKeyStore,
+} from "../routine-webhook-keys.js";
 
 export const MAIN = "9823898c-841c-4085-85bd-10d51e5e2a1d";
 export const PRIMARY = "f882ec52-17b1-4639-b0fc-07fed7526b09";
@@ -97,7 +103,8 @@ export const listed = ({
 });
 
 export interface Recorded {
-  readonly via: "server" | "gateway";
+  /** `webhook`: a routine webhook POST; its method is the URL. */
+  readonly via: "server" | "gateway" | "dashboard" | "webhook";
   readonly method: string;
   readonly body: JsonObject;
   readonly confirmed: boolean;
@@ -124,6 +131,43 @@ export const httpError = (method: string, status: number, text = "") =>
     `${method} failed with HTTP ${status}${text ? `: ${text}` : ""}`,
   );
 
+/** Routine webhook keys in memory, keyed like the Keychain store (no createdAt in the item). */
+export function memoryKeyStore(
+  keys: Map<string, { createdAt: number | null; key: string }> = new Map(),
+): WebhookKeyStore & { readonly keys: typeof keys } {
+  const item = (ref: { agentId: string; automationId: string }) => ({
+    service: WEBHOOK_KEY_SERVICE,
+    account: `${ref.agentId}/${ref.automationId}`,
+  });
+  return {
+    keys,
+    item,
+    async load(ref) {
+      const stored = keys.get(item(ref).account);
+      return stored?.createdAt === ref.createdAt ? stored.key : undefined;
+    },
+    async save(ref, key) {
+      keys.set(item(ref).account, { createdAt: ref.createdAt, key });
+    },
+    async remove(ref) {
+      return keys.delete(item(ref).account);
+    },
+  };
+}
+
+export interface FakeExtras {
+  /** DashboardService replies, logged as `dashboard`. */
+  readonly dashboard?: Script;
+  /** Default: an empty memoryKeyStore(), so no test touches the real Keychain. */
+  readonly webhookKeys?: WebhookKeyStore;
+  /** The webhook's answer; default HTTP 200 with no body. */
+  readonly webhook?: (
+    url: string,
+    key: string,
+    body: JsonObject,
+  ) => { readonly status: number; readonly reply: unknown };
+}
+
 /**
  * A command runner over fake server and gateway transports that log every call in one
  * ordered list and enforce the same safety gate as the real transports. Local state
@@ -133,6 +177,7 @@ export function workforceRunner(
   server: Script,
   gateway: Script = {},
   stateDir: string = mkdtempSync(join(tmpdir(), "grokbot-workforce-")),
+  extras: FakeExtras = {},
 ) {
   const log: Recorded[] = [];
   const queues = new Map<string, unknown[]>();
@@ -171,10 +216,27 @@ export function workforceRunner(
       )(body, options.confirmed === true);
     },
   };
+  const dashboard: Pick<ServerTransport, "call"> = {
+    async call(method, body, options = {}) {
+      assertDashboardMethodAllowed(method, options.confirmed === true);
+      return respond(
+        "dashboard",
+        extras.dashboard ?? {},
+        method,
+      )(body, options.confirmed === true);
+    },
+  };
+  const fireWebhook: WebhookFirer = async (url, key, body) => {
+    log.push({ via: "webhook", method: url, body, confirmed: false });
+    return extras.webhook?.(url, key, body) ?? { status: 200, reply: null };
+  };
   const runner = createCommandRunner({
     server: serverT,
     gateway: gatewayT,
     jobs: jobStore(join(stateDir, "jobs")),
+    dashboard,
+    webhookKeys: extras.webhookKeys ?? memoryKeyStore(),
+    fireWebhook,
   });
   return { runner, log, stateDir };
 }
