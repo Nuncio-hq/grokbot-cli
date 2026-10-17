@@ -5,14 +5,20 @@ import { asJsonObject, readString } from "./transcript.js";
 export interface Routine {
   /** The server id every routine call takes; not the record's name-based id. */
   readonly automationId: string;
+  /** The record's own id, which the Box Gateway's routine methods take. */
+  readonly id: string;
   readonly name: string;
   readonly prompt: string;
   /** Trigger type, e.g. `cron` or `webhook`. */
   readonly trigger: string;
+  /** The whole trigger, e.g. `{type: "github", repo, events}`. */
+  readonly triggerConfig: JsonObject;
   /** Human schedule text, e.g. `CRON_TZ=Australia/Adelaide 0 9 * * 1`. */
   readonly schedule: string;
   readonly enabled: boolean;
   readonly nextRunAt: string | null;
+  /** Milliseconds; a re-created routine gets a new one. */
+  readonly createdAt: number | null;
 }
 
 function fail(method: string, problem: string): never {
@@ -47,9 +53,11 @@ function parseRoutine(raw: unknown, method: string): Routine {
   const trigger: JsonObject = asJsonObject(record.trigger) ?? {};
   return {
     automationId,
+    id: readString(record, "id") ?? "",
     name: readString(record, "name") ?? "",
     prompt: readString(record, "prompt") ?? "",
     trigger: readString(trigger, "type") ?? "",
+    triggerConfig: trigger,
     schedule:
       readString(record, "schedule") ??
       readString(trigger, "schedule") ??
@@ -57,6 +65,7 @@ function parseRoutine(raw: unknown, method: string): Routine {
       "",
     enabled: record.isEnabled === true,
     nextRunAt: timeText(record.nextRunAt),
+    createdAt: typeof record.createdAt === "number" ? record.createdAt : null,
   };
 }
 
@@ -70,13 +79,15 @@ export function parseRoutines(
   return rows.map((row) => parseRoutine(row, method));
 }
 
-/** By exact automationId, then by name (case-insensitive). */
+/** By exact automationId, then record id, then name (case-insensitive). */
 export function findRoutine(
   routines: readonly Routine[],
   query: string,
 ): Routine {
   const q = query.trim();
-  const byId = routines.find((r) => r.automationId === q);
+  const byId =
+    routines.find((r) => r.automationId === q) ??
+    routines.find((r) => r.id !== "" && r.id === q);
   if (byId) return byId;
   const hits = routines.filter(
     (r) => r.name.trim().toLowerCase() === q.toLowerCase(),

@@ -47,7 +47,13 @@ describe("listing commands in human mode", () => {
         status: status({ awaiting: { reason: "auto-review-approval" } }),
       },
       { agent: DEV_1, status: status({ isRunning: true, isComposing: true }) },
-      { agent: DEV_2, status: status({ hasRunningSubagents: true }) },
+      {
+        agent: DEV_2,
+        status: status({
+          hasRunningSubagents: true,
+          boxHandoff: { requestId: "h-1", instruction: "Sign in" },
+        }),
+      },
       { agent: ROOM, status: status() },
     ];
     const run = await runCli(["team"], { outputs: { team: { members } } });
@@ -57,7 +63,7 @@ describe("listing commands in human mode", () => {
         "Primary Test  f882ec52  running (shell)",
         "Staff Test    201a8cb2  awaiting auto-review-approval",
         "Test-Dev-1    aa11bb22  composing",
-        "Test-Dev-2    bb22cc33  subagents",
+        "Test-Dev-2    bb22cc33  awaiting box hand-off",
         "GB Test Room  7c0d1e2f  idle",
       ),
     );

@@ -1,5 +1,8 @@
 import { GrokBotError } from "./contracts.js";
-import type { GATEWAY_METHOD_SAFETY } from "./method-safety.js";
+import type {
+  DASHBOARD_METHOD_SAFETY,
+  GATEWAY_METHOD_SAFETY,
+} from "./method-safety.js";
 import type { SERVER_METHOD_SAFETY } from "./method-safety-table.js";
 
 /** Parsed value of each param type. */
@@ -61,6 +64,10 @@ interface SpecFields {
   readonly methods: readonly (keyof typeof SERVER_METHOD_SAFETY)[];
   /** Box Gateway methods the command calls. The EnsureSandBox the gateway runs first does not count toward `safety`. */
   readonly gatewayMethods?: readonly (keyof typeof GATEWAY_METHOD_SAFETY)[];
+  /** aiserver.v1.DashboardService methods the command calls. */
+  readonly dashboardMethods?: readonly (keyof typeof DASHBOARD_METHOD_SAFETY)[];
+  /** The command POSTs to a routine's webhook, which counts as `writes`. */
+  readonly firesWebhook?: true;
 }
 
 /**

@@ -96,14 +96,32 @@ export const WORKFORCE_RENDERERS: HumanRenderers<WorkforceCommandName> = {
     plain(routineLine("Turned on", routine, agent)),
   "routines-disable": ({ agent, routine }) =>
     plain(routineLine("Turned off", routine, agent)),
-  "routines-delete": ({ agent, routine, remaining }) =>
+  "routines-delete": ({ agent, routine, remaining, webhookKeyRemoved }) =>
     plain(
-      `Deleted routine ${routine.name} (${routine.automationId}) from ${agent.name}. ${count(remaining, "routine", "routines")} left.\n`,
+      `Deleted routine ${routine.name} (${routine.automationId}) from ${agent.name}. ${count(remaining, "routine", "routines")} left.${webhookKeyRemoved ? " Removed its webhook key from the Keychain." : ""}\n`,
     ),
   "routines-create": ({ agent, routine, result }) =>
     plain(
       result === "created"
         ? routineLine("Created", routine, agent)
         : `${agent.name} already has routine ${routine.name} (${routine.automationId}); nothing created.\n`,
+    ),
+  "routines-update": ({ agent, routine, changed }) =>
+    plain(
+      changed.length === 0
+        ? `Routine ${routine.name} (${routine.automationId}) already has those values; nothing changed.\n`
+        : routineLine(`Changed ${changed.join(", ")} of`, routine, agent),
+    ),
+  "routines-run": ({ agent, routine }) =>
+    plain(
+      `Started routine ${routine.name} (${routine.automationId}) on ${agent.name}.\n`,
+    ),
+  "routines-webhook-key": ({ agent, routine, url, keychainItem, result }) =>
+    plain(
+      `${result === "exists" ? `A webhook key for routine ${routine.name} is already stored; nothing minted (--replace mints a new one). It is` : `${result === "minted" ? "Minted" : "Replaced"} the webhook key for routine ${routine.name} and stored it`} in the Keychain (service ${keychainItem.service}); it is never printed.\nWebhook URL: ${url}\nFire it with: grokbot routines-fire ${JSON.stringify(agent.name)} ${JSON.stringify(routine.name)}\n`,
+    ),
+  "routines-fire": ({ agent, routine, status, reply }) =>
+    plain(
+      `Fired routine ${routine.name} (${routine.automationId}) on ${agent.name}: HTTP ${status}.${reply === null ? "" : ` Reply: ${typeof reply === "string" ? reply : JSON.stringify(reply)}`}\n`,
     ),
 };

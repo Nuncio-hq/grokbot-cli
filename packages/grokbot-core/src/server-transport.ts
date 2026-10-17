@@ -8,7 +8,16 @@ import {
   type JsonObject,
   type ServerTransport,
 } from "./contracts.js";
-import { assertMethodAllowed } from "./method-safety.js";
+import {
+  assertDashboardMethodAllowed,
+  assertMethodAllowed,
+} from "./method-safety.js";
+
+/** The GrokBot backend: both RPC services and the routine webhooks live here. */
+export const BACKEND_URL = "https://api2.cursor.sh";
+
+/** The aiserver.v1 service a transport calls; each has its own safety table. */
+export type BackendService = "GrokBotService" | "DashboardService";
 
 export type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -18,6 +27,8 @@ export interface ServerTransportOptions {
   readonly fetch?: FetchLike;
   readonly baseUrl?: string;
   readonly userAgent?: string;
+  /** Default: GrokBotService. */
+  readonly service?: BackendService;
 }
 
 /** One POST to either backend. Shared with the gateway transport. */
@@ -40,10 +51,15 @@ const MAX_ERROR_BODY_CHARS = 300;
 export function createServerTransport({
   getToken,
   fetch = (url, init) => globalThis.fetch(url, init),
-  baseUrl = "https://api2.cursor.sh",
+  baseUrl = BACKEND_URL,
   userAgent = "grokbot-core",
+  service = "GrokBotService",
 }: ServerTransportOptions): ServerTransport {
-  const root = `${baseUrl.replace(/\/+$/, "")}/aiserver.v1.GrokBotService`;
+  const root = `${baseUrl.replace(/\/+$/, "")}/aiserver.v1.${service}`;
+  const assertAllowed =
+    service === "DashboardService"
+      ? assertDashboardMethodAllowed
+      : assertMethodAllowed;
   const prepare = async (
     method: string,
     options: CallOptions,
@@ -66,11 +82,11 @@ export function createServerTransport({
 
   return {
     async call(method, body, options = {}) {
-      assertMethodAllowed(method, options.confirmed === true);
+      assertAllowed(method, options.confirmed === true);
       return postJson(await prepare(method, options), body);
     },
     stream(method, body, options = {}) {
-      assertMethodAllowed(method, options.confirmed === true);
+      assertAllowed(method, options.confirmed === true);
       return streamMessages(() => prepare(method, options), body);
     },
   };
@@ -80,7 +96,23 @@ export async function postJson(
   request: HttpRequest,
   body: JsonObject,
 ): Promise<unknown> {
-  const { method } = request;
+  const { text } = await postText(request, body);
+  if (text === "") return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new GrokBotError(
+      "protocol",
+      `${request.method} returned a non-JSON body.`,
+    );
+  }
+}
+
+/** One JSON POST that accepts any 2xx body. Only failures are redacted. */
+export async function postText(
+  request: HttpRequest,
+  body: JsonObject,
+): Promise<{ readonly status: number; readonly text: string }> {
   const deadline = createDeadline(request);
   try {
     const response = await request.fetch(request.url, {
@@ -90,13 +122,7 @@ export async function postJson(
       signal: deadline.signal,
     });
     if (!response.ok) throw await responseFailure(request, response);
-    const text = await response.text();
-    if (text === "") return {};
-    try {
-      return JSON.parse(text);
-    } catch {
-      throw new GrokBotError("protocol", `${method} returned a non-JSON body.`);
-    }
+    return { status: response.status, text: await response.text() };
   } catch (error) {
     throw deadline.toError(error);
   }

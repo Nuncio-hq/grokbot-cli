@@ -5,6 +5,15 @@ export interface Awaiting {
   readonly reason: string;
 }
 
+/**
+ * A step the bot asked the owner to do on its own computer (live.boxHandoffRequestId and
+ * boxHandoffInstruction). The bot resumes once the owner ends it in the app.
+ */
+export interface BoxHandoff {
+  readonly requestId: string;
+  readonly instruction: string;
+}
+
 /** Live run state of one bot. Proto3 omits false, so a missing field means false. */
 export interface LiveStatus {
   readonly isRunning: boolean;
@@ -13,6 +22,7 @@ export interface LiveStatus {
   readonly awaiting: Awaiting | null;
   readonly hasRunningSubagents: boolean;
   readonly activityTool: string | undefined;
+  readonly boxHandoff: BoxHandoff | null;
 }
 
 export const IDLE_STATUS: LiveStatus = Object.freeze({
@@ -22,6 +32,7 @@ export const IDLE_STATUS: LiveStatus = Object.freeze({
   awaiting: null,
   hasRunningSubagents: false,
   activityTool: undefined,
+  boxHandoff: null,
 });
 
 /** True while the bot is still working its turn. Awaiting alone is not activity. */
@@ -40,6 +51,15 @@ function parseAwaiting(value: unknown): Awaiting | null {
   return o ? { reason: readString(o, "reason") ?? "" } : null;
 }
 
+function parseBoxHandoff(o: JsonObject): BoxHandoff | null {
+  const requestId = readString(o, "boxHandoffRequestId");
+  if (!requestId) return null;
+  return {
+    requestId,
+    instruction: readString(o, "boxHandoffInstruction") ?? "",
+  };
+}
+
 /** Parses a `live` object from ListGrokBotAgentStatuses or an agentState frame. */
 export function parseLiveStatus(
   live: unknown,
@@ -54,6 +74,7 @@ export function parseLiveStatus(
     awaiting: parseAwaiting(o.awaiting),
     hasRunningSubagents: o.hasRunningSubagents === true,
     activityTool: activity ? readString(activity, "tool") : undefined,
+    boxHandoff: parseBoxHandoff(o),
   };
 }
 

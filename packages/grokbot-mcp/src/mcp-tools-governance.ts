@@ -1,4 +1,9 @@
-import type { CommandOutputs, GovernanceCommandName } from "grokbot-core";
+import {
+  type CommandOutputs,
+  describeBoxHandoff,
+  type GovernanceCommandName,
+  OWNER_ONLY_NOTE,
+} from "grokbot-core";
 import {
   type McpOverrides,
   plural,
@@ -25,12 +30,33 @@ function cardText(card: Card): string {
     case "widget":
       return `widget ${card.entryId}: ${card.prompt}${card.options.length > 0 ? ` [${card.options.join(" | ")}]` : ""}`;
     case "auto-review-approval":
-      return `auto-review-approval ${card.entryId}: ${card.summary}${card.command ? ` (${card.command})` : ""}`;
+      return card.ownerOnly
+        ? `auto-review-approval ${card.entryId}: ${card.summary} (${OWNER_ONLY_NOTE})`
+        : `auto-review-approval ${card.entryId}: ${card.summary}${card.command ? ` (${card.command})` : ""}`;
     case "local-tool-permission":
       return `local-tool-permission ${card.entryId}: ${card.action} ${card.target}`;
     default:
-      return `${card.type} ${card.entryId}`;
+      return `${card.type} ${card.entryId}: ${card.summary} (${OWNER_ONLY_NOTE})`;
   }
+}
+
+type AgentRow = CommandOutputs["approvals"]["agents"][number];
+
+/** One agent's lines: a pending box hand-off, then its cards, else its awaiting reason. */
+function agentLines({ agent, awaiting, handoff, cards }: AgentRow): string[] {
+  const lines = [
+    ...(handoff
+      ? [
+          `- ${agent.name}: box-handoff ${handoff.requestId}: ${describeBoxHandoff(handoff)} (${OWNER_ONLY_NOTE})`,
+        ]
+      : []),
+    ...cards.map((card) => `- ${agent.name}: ${cardText(card)}`),
+  ];
+  if (lines.length > 0) return lines;
+  const reason = awaiting ? ` ${awaiting}` : "";
+  return [
+    `- ${agent.name}: awaiting${reason} (no open card in the last 50 rows; check the bot in the GrokBot app)`,
+  ];
 }
 
 const resolved = (out: CommandOutputs["approve"]) =>
@@ -40,13 +66,7 @@ export const GOVERNANCE_SUMMARIES: ToolSummaries<GovernanceCommandName> = {
   approvals: ({ agents }) =>
     agents.length === 0
       ? "No open approval cards."
-      : agents
-          .flatMap(({ agent, awaiting, cards }) =>
-            cards.length === 0
-              ? [`- ${agent.name}: awaiting ${awaiting ?? ""}`.trimEnd()]
-              : cards.map((card) => `- ${agent.name}: ${cardText(card)}`),
-          )
-          .join("\n"),
+      : agents.flatMap(agentLines).join("\n"),
   answer: ({ agent, card, dismissed, value }) =>
     dismissed
       ? `Dismissed widget ${card.entryId} on ${agent.name}.`

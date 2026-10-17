@@ -21,6 +21,7 @@ describe("parseLiveStatus", () => {
       awaiting: null,
       hasRunningSubagents: false,
       activityTool: undefined,
+      boxHandoff: null,
     });
   });
 
@@ -40,7 +41,23 @@ describe("parseLiveStatus", () => {
       awaiting: null,
       hasRunningSubagents: true,
       activityTool: "SendToAgent",
+      boxHandoff: null,
     });
+  });
+
+  it("reads a pending box hand-off, and none without a request id", () => {
+    expect([
+      parseLiveStatus({
+        boxHandoffRequestId: "h-1",
+        boxHandoffInstruction: "Sign in to the bank site",
+      }).boxHandoff,
+      parseLiveStatus({ boxHandoffRequestId: "h-2" }).boxHandoff,
+      parseLiveStatus({ boxHandoffInstruction: "stale" }).boxHandoff,
+    ]).toEqual([
+      { requestId: "h-1", instruction: "Sign in to the bank site" },
+      { requestId: "h-2", instruction: "" },
+      null,
+    ]);
   });
 
   it("reads awaiting as an object or a bare string", () => {

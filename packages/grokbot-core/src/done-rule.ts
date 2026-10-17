@@ -1,11 +1,6 @@
-import type { LiveStatus } from "./agent-status.js";
-import {
-  asJsonObject,
-  type BlobEntry,
-  type CardEntry,
-  readString,
-  type TranscriptEntry,
-} from "./transcript.js";
+import type { BoxHandoff, LiveStatus } from "./agent-status.js";
+import { describeBoxHandoff, describeCard } from "./card-descriptions.js";
+import type { BlobEntry, CardEntry, TranscriptEntry } from "./transcript.js";
 import { findTurn, type Turn } from "./turn-model.js";
 import type { BusyAtSend } from "./turn-sharing.js";
 
@@ -26,6 +21,8 @@ export type DoneVerdict =
       readonly status: "awaiting-approval";
       readonly reason: string;
       readonly cards: readonly CardEntry[];
+      /** Set when the bot waits on the owner to do a step on its computer. */
+      readonly handoff?: BoxHandoff;
     }
   | {
       readonly status: "done";
@@ -105,10 +102,9 @@ export function blobReplyMarker(blobHash: string): string {
   return `[reply stored as blob ${blobHash}; run grokbot tail]`;
 }
 
-/** What a card asks the owner when live.awaiting gives no reason: a widget's prompt, else its type. */
+/** What a card asks the owner when live.awaiting gives no reason (card-descriptions.ts). */
 function cardReason(card: CardEntry): string {
-  const widget = asJsonObject(card.message.widget);
-  return (widget && readString(widget, "prompt")) || card.cardType;
+  return describeCard(card.cardType, card.message).text;
 }
 
 type TextReplyEntry = ReplyEntry & {
@@ -148,6 +144,23 @@ function sharedReplyText(
 }
 
 /**
+ * The pending box hand-off this turn waits on. The bot resumes after the owner ends a
+ * hand-off (EndGrokBotBoxHandoff starts that run), so no reply seen before it is final,
+ * and the app's own idle test also requires no hand-off. Live state is per bot, so a
+ * hand-off is someone else's only when the owner wrote after us and our turn already has
+ * its final reply: a hand-off raised before our message still holds our message back.
+ */
+function blockingHandoff(
+  status: LiveStatus,
+  turn: Turn,
+): BoxHandoff | undefined {
+  const handoff = status.boxHandoff ?? undefined;
+  if (!handoff) return undefined;
+  const answered = turn.tail.some(isFinalCandidate);
+  return turn.laterOwnerMessage && answered ? undefined : handoff;
+}
+
+/**
  * Decides whether the turn started by `sentMessageId` has finished.
  * The turn is the runs of our message and of any message one run may have answered with
  * it, plus the runs our delegates' replies and the owner's card answers start (see
@@ -155,7 +168,8 @@ function sharedReplyText(
  * that may be shared ends `ambiguous` with every reply, never `done` with one of them.
  * An open card of the turn awaits the owner once the bot stops, even when live.awaiting
  * is unset (question widgets leave it unset), but live.awaiting alone never makes the
- * turn await: it may belong to a later turn.
+ * turn await: it may belong to a later turn. A pending box hand-off awaits the owner once
+ * the bot stops (see blockingHandoff): no row marks it, so waiting would only time out.
  * A running subagent blocks only when it started during this turn (see
  * subagentsBlockTurn). The caller passes start times when it could read them.
  * Pure: the caller supplies every transcript row it has, the latest live status,
@@ -172,16 +186,21 @@ export function evaluateDoneRule({
   if (!turn) return running("awaiting-echo");
   const cards = turn.openCards;
 
-  if (status.awaiting) {
-    if (cards.length === 0) return running("target-active");
+  if (status.awaiting && cards.length > 0) {
     return {
       status: "awaiting-approval",
       reason: status.awaiting.reason,
       cards,
     };
   }
+  const handoff = blockingHandoff(status, turn);
+  if (status.awaiting && !handoff) return running("target-active");
   if (status.isRunning || status.isComposing || status.isRetrying)
     return running("target-active");
+  if (handoff) {
+    const reason = describeBoxHandoff(handoff);
+    return { status: "awaiting-approval", reason, cards, handoff };
+  }
   if (
     status.hasRunningSubagents &&
     subagentsBlockTurn(turn, subagentStartedAtMs)

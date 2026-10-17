@@ -17,13 +17,26 @@ const BUILT_IN = {
 };
 const ROUTINE = {
   automationId: "auto-1",
+  id: "weekly-report",
   name: "Weekly report",
   prompt: "Write it.",
   trigger: "cron",
+  triggerConfig: { type: "cron", schedule: "0 9 * * 1" },
   schedule: "0 9 * * 1",
   enabled: true,
   nextRunAt: "2026-10-19T22:30:00.000Z",
+  createdAt: 1000,
 };
+const HOOK = {
+  ...ROUTINE,
+  automationId: "auto-9",
+  name: "Deploy hook",
+  trigger: "webhook",
+  triggerConfig: { type: "webhook" },
+  schedule: "",
+};
+const KEY_ITEM = { service: "grokbot-cli-webhook", account: "ab12" };
+const HOOK_URL = "https://api2.cursor.sh/automations/webhook/auto-9";
 
 describe("workforce commands on the CLI", () => {
   it("hire parses flags and the positional name, and prints the folder", async () => {
@@ -181,6 +194,81 @@ describe("workforce commands on the CLI", () => {
       "NAME           ID      STATE  TRIGGER    NEXT RUN\n" +
         "Weekly report  auto-1  on     0 9 * * 1  2026-10-19T22:30:00.000Z\n",
       "Turned off routine Weekly report (auto-1) for Primary Test. Paused.\n",
+    ]);
+  });
+
+  it("routines-create passes every trigger flag through", async () => {
+    const run = await runCli(
+      [
+        "routines-create",
+        "Primary Test",
+        "--name",
+        "CI watch",
+        "--prompt",
+        "Say why CI failed.",
+        "--github",
+        "owner/repo",
+        "--events",
+        "ci-failed,pr-opened",
+        "--ci-branch",
+        "main",
+        "--paused",
+      ],
+      {
+        outputs: {
+          "routines-create": {
+            agent: PRIMARY,
+            routine: { ...ROUTINE, enabled: false },
+            result: "created",
+          },
+        },
+      },
+    );
+    expect(run.calls[0]?.input).toMatchObject({
+      agent: "Primary Test",
+      name: "CI watch",
+      github: "owner/repo",
+      events: ["ci-failed", "pr-opened"],
+      "ci-branch": "main",
+      paused: true,
+      webhook: false,
+    });
+  });
+
+  it("routines-webhook-key and routines-fire name the URL and never a key", async () => {
+    const key = await runCli(
+      ["routines-webhook-key", "Primary Test", "Deploy hook", "--yes"],
+      {
+        outputs: {
+          "routines-webhook-key": {
+            agent: PRIMARY,
+            routine: HOOK,
+            url: HOOK_URL,
+            keychainItem: KEY_ITEM,
+            result: "minted",
+          },
+        },
+      },
+    );
+    const fire = await runCli(
+      ["routines-fire", "Primary Test", "Deploy hook", "--payload", "{}"],
+      {
+        outputs: {
+          "routines-fire": {
+            agent: PRIMARY,
+            routine: HOOK,
+            url: HOOK_URL,
+            status: 202,
+            reply: { ok: true },
+          },
+        },
+      },
+    );
+    expect([key.stdout, fire.stdout]).toEqual([
+      "Minted the webhook key for routine Deploy hook and stored it in the Keychain (service grokbot-cli-webhook); it is never printed.\n" +
+        `Webhook URL: ${HOOK_URL}\n` +
+        'Fire it with: grokbot routines-fire "Primary Test" "Deploy hook"\n',
+      'Fired routine Deploy hook (auto-9) on Primary Test: HTTP 202. Reply: {"ok":true}\n',
     ]);
   });
 });

@@ -31,6 +31,8 @@ export interface Turn {
    * Absent when no such message is in view, so the turn is still open.
    */
   readonly endMs: number | undefined;
+  /** The owner sent a message after ours that is not linked to it (see endMs). */
+  readonly laterOwnerMessage: boolean;
   /** Set when one run may have answered our message together with another (see turn-sharing). */
   readonly sharedReason?: string;
 }
@@ -189,6 +191,7 @@ export function findTurn(
       nextOwner && isOwnerMessage(nextOwner)
         ? nextOwner.timestampMs
         : undefined,
+    laterOwnerMessage: nextOwner !== undefined,
     ...(reason !== undefined && { sharedReason: reason }),
   };
 }
