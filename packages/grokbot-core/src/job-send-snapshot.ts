@@ -53,13 +53,7 @@ function replyMayCome(
   statuses: ReadonlyMap<string, LiveStatus>,
 ): boolean {
   const status = to.id === undefined ? undefined : statuses.get(to.id);
-  if (
-    status === undefined ||
-    isActive(status) ||
-    status.awaiting ||
-    status.boxHandoff
-  )
-    return true;
+  if (status === undefined || isActive(status) || status.awaiting) return true;
   return atMs === undefined || Date.now() - atMs < REPLY_IN_FLIGHT_MS;
 }
 

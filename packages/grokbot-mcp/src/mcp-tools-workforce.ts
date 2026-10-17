@@ -35,7 +35,7 @@ export const WORKFORCE_OVERRIDES: McpOverrides<WorkforceCommandName> = {
   "routines-enable": { hiddenParams: [FORCE] },
   "routines-disable": { hiddenParams: [FORCE] },
   "routines-delete": { hiddenParams: [FORCE] },
-  "routines-create": { hiddenParams: [TRIGGER_FILE] },
+  "routines-create": { hiddenParams: [TRIGGER_FILE, FORCE] },
   "routines-update": { hiddenParams: [TRIGGER_FILE, FORCE] },
   // Minting a credential is the owner's call at the terminal, like login.
   "routines-webhook-key": { cliOnly: true },
@@ -108,7 +108,7 @@ export const WORKFORCE_SUMMARIES: ToolSummaries<WorkforceCommandName> = {
   "routines-run": ({ agent, routine }) =>
     `Started ${agent.name}'s routine ${routine.name} (${routine.automationId}).`,
   "routines-webhook-key": ({ routine, url, result }) =>
-    `${result === "exists" ? "Already had" : result === "minted" ? "Minted" : "Replaced"} a webhook key for ${routine.name} in the Keychain. URL: ${url}`,
+    `${result === "exists" ? "Already had" : result === "minted" ? "Minted" : "Minted an additional"} webhook key for ${routine.name} in the Keychain${result === "replaced" ? "; earlier keys stay valid until the routine is deleted" : ""}. URL: ${url}`,
   "routines-fire": ({ agent, routine, status, reply }) =>
     `Fired ${agent.name}'s routine ${routine.name}: HTTP ${status}${reply === null ? "" : `, reply ${JSON.stringify(reply)}`}.`,
 };

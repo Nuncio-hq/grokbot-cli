@@ -22,7 +22,24 @@ export interface RoutineSpec {
  * wrote a Box file the server never listed, an update changed nothing, run-now was
  * refused), so only the bot itself can save them, with its UpdateRoutine tool.
  */
-export const routinesViaChat = (agent: Agent) => agent.harness === "temporal";
+export function routinesViaChat(agent: Agent): boolean {
+  if (agent.kind === "room") {
+    throw new GrokBotError(
+      "not-found",
+      `${agent.name} is a room, which has no routines of its own. Pass one of its bots.`,
+    );
+  }
+  if (agent.harness === "temporal") return true;
+  // The Box Gateway path left orphan routine files on temporal bots, so it is used only
+  // for a bot that names another harness, never for one whose harness is unknown.
+  if (agent.harness === "") {
+    throw new GrokBotError(
+      "protocol",
+      `${agent.name} reports no harness, so grokbot cannot tell where its routines live. Ask the bot in chat.`,
+    );
+  }
+  return false;
+}
 
 /** The message that asks a bot to save a routine exactly as specified. */
 export function routineInstruction(
@@ -126,6 +143,6 @@ export async function saveRoutineInChat(
   }
   throw new GrokBotError(
     outcome.status === "pending" ? "timeout" : "protocol",
-    `${agent.name} has not saved routine "${spec.name}" (${outcomeText(outcome)}). Check with grokbot wait ${jobId}, then routines-list.`,
+    `${agent.name} has not saved routine "${spec.name}" yet (${outcomeText(outcome)}). The instruction may still be carried out, so do not send it again: check with grokbot wait ${jobId}, then routines-list.`,
   );
 }

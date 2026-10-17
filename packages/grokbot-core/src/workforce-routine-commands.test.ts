@@ -2,6 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import type { Agent } from "./agents.js";
 import { GrokBotError, type JsonObject } from "./contracts.js";
 import {
   BASE_ROSTER,
@@ -15,6 +16,7 @@ import {
   type Script,
   workforceRunner,
 } from "./fixtures/workforce-fakes.js";
+import { routinesViaChat } from "./workforce-routine-chat.js";
 
 /** A bot on the Cloud Box harness, whose routines go through the Box Gateway. */
 const ROSTER = [{ agents: [...BASE_ROSTER, { ...PROBE_BOT, harness: "box" }] }];
@@ -387,7 +389,7 @@ describe("routines-fire", () => {
       "not-found",
       expect.stringContaining("routines-webhook-key"),
     ]);
-    expect(methods(log)).not.toContain(expect.stringMatching(/^webhook:/));
+    expect(methods(log)).not.toContainEqual(expect.stringMatching(/^webhook:/));
   });
 
   it("refuses a payload that is not a JSON object", async () => {
@@ -402,5 +404,97 @@ describe("routines-fire", () => {
       })
       .catch(failure);
     expect(error).toEqual(["not-found", "The payload must be a JSON object."]);
+  });
+});
+
+describe("routine review fixes", () => {
+  it("routines-create refuses a protected bot without --force-protected", async () => {
+    const { runner: r, log } = runner({});
+    const error = await r
+      .run("routines-create", {
+        ...FLAGS,
+        agent: "Primary Test",
+        name: "Every five minutes",
+        prompt: "Reply PONG.",
+        cron: "*/5 * * * *",
+        paused: false,
+      })
+      .catch(failure);
+    expect(error).toEqual(["safety", expect.any(String)]);
+    expect(methods(log)).not.toContain("server:SendGrokBotUserMessage");
+  });
+
+  it("refuses rooms and bots with no harness instead of using the Box Gateway", () => {
+    const bot = (fields: object) =>
+      ({
+        kind: "agent",
+        agentId: PROBE,
+        rowId: "1",
+        name: "Some bot",
+        title: "",
+        description: "",
+        harness: "",
+        ...fields,
+      }) as Agent;
+    const reason = (agent: Agent) => {
+      try {
+        return routinesViaChat(agent);
+      } catch (e) {
+        return failure(e)[0];
+      }
+    };
+    expect([
+      reason(bot({ harness: "temporal" })),
+      reason(bot({ harness: "box" })),
+      reason(bot({})),
+      reason(bot({ kind: "room", memberAgentIds: [] })),
+    ]).toEqual([true, false, "protocol", "not-found"]);
+  });
+
+  it("routines-delete deletes a non-webhook routine without touching the Keychain", async () => {
+    const webhookKeys = {
+      ...memoryKeyStore(),
+      async remove(): Promise<boolean> {
+        throw new Error("The keychain is locked.");
+      },
+    };
+    const { runner: r } = runner(
+      {
+        ListGrokBotAgentAutomations: [{ automations: [CRON] }],
+        DeleteGrokBotAgentAutomation: [{}],
+      },
+      {},
+      { webhookKeys },
+    );
+    const out = await r.run("routines-delete", {
+      ...AGENT,
+      routine: "Weekly report",
+      yes: true,
+    });
+    expect(out.webhookKeyRemoved).toBe(false);
+  });
+
+  it("routines-delete deletes on the server before removing the key, and says so when the Keychain fails", async () => {
+    const webhookKeys = {
+      ...memoryKeyStore(),
+      async remove(): Promise<boolean> {
+        throw new Error("The keychain is locked.");
+      },
+    };
+    const { runner: r, log } = runner(
+      {
+        ListGrokBotAgentAutomations: [{ automations: [HOOK] }],
+        DeleteGrokBotAgentAutomation: [{}],
+      },
+      {},
+      { webhookKeys },
+    );
+    const error = await r
+      .run("routines-delete", { ...AGENT, routine: "Deploy hook", yes: true })
+      .catch(failure);
+    expect([methods(log).at(-1), error]).toEqual([
+      "server:DeleteGrokBotAgentAutomation",
+      ["protocol", expect.stringContaining("Deleted routine Deploy hook")],
+    ]);
   });
 });

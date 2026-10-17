@@ -8,20 +8,18 @@ import { asJsonObject, readString } from "./transcript.js";
 import { readInputFile } from "./workforce-handler-helpers.js";
 import { assertMayTouch } from "./workforce-protected-agents.js";
 import { routineReads, webhookKeyRef } from "./workforce-routine-handlers.js";
-import { findRoutine, type Routine } from "./workforce-routines.js";
+import {
+  findRoutine,
+  isWebhookRoutine,
+  type Routine,
+} from "./workforce-routines.js";
 
 type Names = "routines-webhook-key" | "routines-fire";
 
 const MINT = "CreateAutomationWebhookApiKey";
 
-/** A webhook trigger, alone or inside a group, as the app checks before it mints. */
 function assertWebhook(routine: Routine, command: string): void {
-  const { type, listeners } = routine.triggerConfig;
-  const inGroup =
-    type === "group" &&
-    Array.isArray(listeners) &&
-    listeners.some((l) => asJsonObject(l)?.type === "webhook");
-  if (type === "webhook" || inGroup) return;
+  if (isWebhookRoutine(routine)) return;
   throw new GrokBotError(
     "not-found",
     `${routine.name} fires on ${routine.trigger || "no trigger"}, not a webhook, so ${command} does not apply.`,
@@ -97,7 +95,7 @@ export function routineWebhookHandlers(
         const why = error instanceof Error ? error.message : String(error);
         throw new GrokBotError(
           "auth",
-          `A key was minted but could not be stored, so it is lost: ${why} Fix the Keychain and mint again.`,
+          `A key was minted but could not be stored here: ${why} The server still accepts it until the routine is deleted. Fix the Keychain and mint another.`,
           { cause: error },
         );
       }

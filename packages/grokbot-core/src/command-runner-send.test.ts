@@ -160,6 +160,33 @@ describe("send", () => {
       true,
     ],
     [
+      "waiting on a computer hand-off",
+      {
+        live: {
+          boxHandoffRequestId: "h-1",
+          boxHandoffInstruction: "Sign in to Xero",
+        },
+      },
+      [textReplyRow(139, "Please sign in on my computer.")],
+      true,
+    ],
+    [
+      "idle when the bot it messaged long ago is idle but waiting on a hand-off",
+      {
+        delegate: {
+          live: {
+            boxHandoffRequestId: "h-2",
+            boxHandoffInstruction: "Sign in",
+          },
+        },
+      },
+      [
+        delegationRow(137, "Reply PONG.", STAFF_TEST),
+        textReplyRow(138, "Asked Staff Test."),
+      ],
+      false,
+    ],
+    [
       "idle when the bot it messaged long ago is idle and never replied",
       { delegate: {} },
       [

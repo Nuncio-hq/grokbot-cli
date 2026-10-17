@@ -156,3 +156,19 @@ describe("describeBoxHandoff", () => {
     ]);
   });
 });
+
+describe("card text never shows a site's path or query", () => {
+  it("keeps only the host of a site without a scheme", () => {
+    const { text } = describeCard("credential-request", {
+      credentialRequest: {
+        kind: "brokered-login",
+        goal: "Sign in to the store",
+        entries: [{ website: "shop.example.com/login?session=abc123" }],
+      },
+    });
+    expect([
+      text.includes("shop.example.com"),
+      text.includes("abc123"),
+    ]).toEqual([true, false]);
+  });
+});

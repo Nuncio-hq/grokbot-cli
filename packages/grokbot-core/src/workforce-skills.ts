@@ -6,7 +6,7 @@ import { asJsonObject, readString } from "./transcript.js";
 export interface Skill {
   readonly id: string;
   readonly name: string;
-  /** `workflow` for imported skills; `plugin` and `managed` come with the box. */
+  /** `managed`: built into GrokBot; `plugin`: came with a connector the account installed; `workflow`: imported. */
   readonly source: string;
   readonly description: string;
 }

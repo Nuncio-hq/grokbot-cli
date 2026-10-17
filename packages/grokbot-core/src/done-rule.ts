@@ -149,6 +149,8 @@ function sharedReplyText(
  * and the app's own idle test also requires no hand-off. Live state is per bot, so a
  * hand-off is someone else's only when the owner wrote after us and our turn already has
  * its final reply: a hand-off raised before our message still holds our message back.
+ * Known limit: live state does not say which run raised a hand-off, so one raised by a
+ * routine run after our turn was answered also holds our job until the owner ends it.
  */
 function blockingHandoff(
   status: LiveStatus,
@@ -185,15 +187,16 @@ export function evaluateDoneRule({
   const turn = findTurn(entries, sentMessageId, busyAtSend);
   if (!turn) return running("awaiting-echo");
   const cards = turn.openCards;
+  const handoff = blockingHandoff(status, turn);
 
   if (status.awaiting && cards.length > 0) {
     return {
       status: "awaiting-approval",
       reason: status.awaiting.reason,
       cards,
+      ...(handoff && { handoff }),
     };
   }
-  const handoff = blockingHandoff(status, turn);
   if (status.awaiting && !handoff) return running("target-active");
   if (status.isRunning || status.isComposing || status.isRetrying)
     return running("target-active");

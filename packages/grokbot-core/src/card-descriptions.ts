@@ -39,12 +39,15 @@ function parseShare(command: string): JsonObject {
   }
 }
 
+/** Just the host, so a path or query (which can carry a session id) is never shown. */
 function hostOf(url: string): string {
-  try {
-    return new URL(url).host || url;
-  } catch {
-    return url;
+  for (const candidate of [url, `https://${url}`]) {
+    try {
+      const { host } = new URL(candidate);
+      if (host) return host;
+    } catch {}
   }
+  return url.split(/[/?#]/, 1)[0] ?? "";
 }
 
 /**

@@ -16,6 +16,7 @@ import {
 import { triggerFromFlags } from "./workforce-routine-triggers.js";
 import {
   findRoutine,
+  isWebhookRoutine,
   parseRoutines,
   type Routine,
 } from "./workforce-routines.js";
@@ -114,10 +115,6 @@ export function routineHandlers(ctx: RunnerContext): CommandHandlers<Names> {
         await routinesOf(agent.agentId, signal),
         input.routine,
       );
-      // Like the app: the local key goes first, so a failed removal keeps the routine.
-      const webhookKeyRemoved = await ctx.webhookKeys.remove(
-        webhookKeyRef(agent, routine),
-      );
       const left = parseRoutines(
         await server.call(
           DELETE,
@@ -126,12 +123,33 @@ export function routineHandlers(ctx: RunnerContext): CommandHandlers<Names> {
         ),
         DELETE,
       );
-      return { agent, routine, remaining: left.length, webhookKeyRemoved };
+      // Deleting the routine ends all its keys on the server, so the local copy goes
+      // after it, and only for webhook routines: other routines never need the Keychain.
+      if (!isWebhookRoutine(routine))
+        return {
+          agent,
+          routine,
+          remaining: left.length,
+          webhookKeyRemoved: false,
+        };
+      try {
+        const webhookKeyRemoved = await ctx.webhookKeys.remove(
+          webhookKeyRef(agent, routine),
+        );
+        return { agent, routine, remaining: left.length, webhookKeyRemoved };
+      } catch (error) {
+        const why = error instanceof Error ? error.message : String(error);
+        throw new GrokBotError(
+          "protocol",
+          `Deleted routine ${routine.name} (${routine.automationId}), so its keys no longer work, but its Keychain item could not be removed: ${why}`,
+        );
+      }
     },
 
     "routines-create": async (input, run) => {
       const { signal } = run;
       const agent = await agentOf(input.agent, signal);
+      assertMayTouch(agent, input["force-protected"], "routines-create");
       const trigger = await triggerFromFlags(input);
       if (trigger === undefined)
         throw new GrokBotError("not-found", NO_TRIGGER);

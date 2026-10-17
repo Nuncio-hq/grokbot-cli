@@ -99,10 +99,31 @@ describe("Done Rule on a pending box hand-off", () => {
     ]).toEqual(["running:target-active", "awaiting-approval:"]);
   });
 
-  it("holds our message when a hand-off raised before it is still pending", () => {
-    expect(summary([echo, laterOwner], handingOff, ID)).toBe(
-      "awaiting-approval:",
+  it("holds our unanswered message while a hand-off is pending", () => {
+    expect(summary([echo], handingOff, ID)).toBe("awaiting-approval:");
+  });
+
+  it("known limit: holds our answered turn when nothing after it shows whose the hand-off is", () => {
+    expect(summary([echo, askHelp], handingOff, ID)).toBe("awaiting-approval:");
+  });
+
+  it("names the hand-off too when a card of the turn also awaits the owner", () => {
+    const v = verdict(
+      [echo, note, form],
+      { ...handingOff, awaiting: { reason: "Shipping address" } },
+      ID,
     );
+    expect(v.status === "awaiting-approval" && v.handoff).toEqual(HANDOFF);
+  });
+
+  it("settles on the reply of the run that resumes after the hand-off ends", () => {
+    const resumed = withEntryId(
+      textReplyRow(7, "Signed in; done.", "r2"),
+      "t7s1",
+    );
+    expect(
+      summary([echo, withEntryId(askHelp, "t7s0"), resumed], IDLE_STATUS, ID),
+    ).toBe("done:Signed in; done.");
   });
 
   it("settles our answered turn when the owner wrote to an idle bot after it, since the hand-off is not ours", () => {

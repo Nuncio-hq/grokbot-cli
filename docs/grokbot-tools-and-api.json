@@ -1338,7 +1338,7 @@
    "function": "Adds an asset such as an image to a document.",
    "status_label": null,
    "needs_approval": "unknown",
-   "evidence": "schema",
+   "evidence": "name-only",
    "confidence": "low",
    "notes": "Document reads return assets as named, expiring URLs (ReadGrokBotGroupChatDocument returns content and assets), which fits the name. No write-side shape was found, so the arguments are unknown. No dedicated status label; the app falls back to the generic 'Working' label.",
    "in_tool_registry": true

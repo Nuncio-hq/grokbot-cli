@@ -118,7 +118,7 @@ export const WORKFORCE_RENDERERS: HumanRenderers<WorkforceCommandName> = {
     ),
   "routines-webhook-key": ({ agent, routine, url, keychainItem, result }) =>
     plain(
-      `${result === "exists" ? `A webhook key for routine ${routine.name} is already stored; nothing minted (--replace mints a new one). It is` : `${result === "minted" ? "Minted" : "Replaced"} the webhook key for routine ${routine.name} and stored it`} in the Keychain (service ${keychainItem.service}); it is never printed.\nWebhook URL: ${url}\nFire it with: grokbot routines-fire ${JSON.stringify(agent.name)} ${JSON.stringify(routine.name)}\n`,
+      `${result === "exists" ? `A webhook key for routine ${routine.name} is already stored; nothing minted (--replace mints a new one). It is` : `${result === "minted" ? "Minted the webhook key" : "Minted an additional webhook key (earlier keys stay valid until the routine is deleted)"} for routine ${routine.name} and stored it`} in the Keychain (service ${keychainItem.service}); it is never printed.\nWebhook URL: ${url}\nFire it with: grokbot routines-fire ${JSON.stringify(agent.name)} ${JSON.stringify(routine.name)}\n`,
     ),
   "routines-fire": ({ agent, routine, status, reply }) =>
     plain(

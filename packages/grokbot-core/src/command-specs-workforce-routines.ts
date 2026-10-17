@@ -131,6 +131,7 @@ export const ROUTINE_COMMANDS = {
         description: "Create it switched off",
         default: false,
       },
+      "force-protected": FORCE_PROTECTED,
       timeout: CHAT_TIMEOUT,
       json: JSON_PARAM,
     },
@@ -172,7 +173,7 @@ export const ROUTINE_COMMANDS = {
       replace: {
         type: "boolean",
         description:
-          "Mint a new key even if one is stored, for a key the webhook refuses",
+          "Mint an additional key even if one is stored; earlier keys stay valid until the routine is deleted",
         default: false,
       },
       yes: YES_PARAM,

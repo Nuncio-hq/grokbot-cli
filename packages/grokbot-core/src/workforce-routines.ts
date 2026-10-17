@@ -105,3 +105,14 @@ export function findRoutine(
     `No routine "${q}". List them with grokbot routines-list.`,
   );
 }
+
+/** A webhook trigger, alone or inside a group, as the app checks before it mints a key. */
+export function isWebhookRoutine(routine: Routine): boolean {
+  const { type, listeners } = routine.triggerConfig;
+  return (
+    type === "webhook" ||
+    (type === "group" &&
+      Array.isArray(listeners) &&
+      listeners.some((l) => asJsonObject(l)?.type === "webhook"))
+  );
+}
