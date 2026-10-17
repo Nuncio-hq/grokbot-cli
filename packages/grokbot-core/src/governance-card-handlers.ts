@@ -1,5 +1,6 @@
 import { parseAgentStatusesResponse } from "./agent-status.js";
 import type { Agent } from "./agents.js";
+import { OWNER_ONLY_NOTE } from "./card-descriptions.js";
 import type {
   AgentCards,
   GovernanceOutputs,
@@ -138,6 +139,16 @@ export async function resolveCard(
     input.card,
     agent,
   );
+  // Phone calls and bot shares are auto-review cards whose description is owner-only.
+  // Allowing one places a call or publishes a share. --yes and --always do not override
+  // that: approve throws before the resolve RPC. Deny still resolves them as refused.
+  if (
+    verb === "approve" &&
+    card.type === "auto-review-approval" &&
+    card.ownerOnly
+  ) {
+    throw new GrokBotError("safety", `${card.summary}: ${OWNER_ONLY_NOTE}.`);
+  }
   const always = input.always === true;
   const plan = planResolution(card, verb, always, agent.agentId);
   // The Mac daemon checks this file before running the command, so it lands first,

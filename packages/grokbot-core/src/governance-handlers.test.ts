@@ -144,6 +144,94 @@ describe("approve and deny refuse without --yes", () => {
   });
 });
 
+const phoneRow = sendMessageRow(8, {
+  type: "auto-review-approval",
+  approval: {
+    requestId: "ar-phone",
+    status: "pending",
+    summary: "place_phone_call",
+    command: "",
+    summaryCopy: {
+      kind: "phone_call",
+      params: { destination: "+1 555 0100", request: "Book a table for 2" },
+    },
+  },
+});
+const shareRow = sendMessageRow(9, {
+  type: "auto-review-approval",
+  approval: {
+    requestId: "ar-share",
+    status: "pending",
+    surface: "bot_share",
+    summary: "share_bot",
+    command: JSON.stringify({ name: "Research Bot", visibility: "public" }),
+  },
+});
+const resolves = (log: { method: string }[]) =>
+  log.filter((call) => call.method.startsWith("Resolve")).map((c) => c.method);
+
+describe("approve refuses owner-only cards before any resolve call", () => {
+  it("refuses a phone call with --yes and does not resolve it", async () => {
+    const { run, log } = governanceRunner({
+      ListGrokBotTranscriptEntries: entries(phoneRow),
+      ResolveGrokBotAutoReviewApproval: [{ dispatched: true }],
+    });
+    expect([
+      await failure(
+        run("approve", { agent: STAFF, always: false, yes: true, json: false }),
+      ),
+      resolves(log),
+    ]).toEqual([
+      [
+        "safety",
+        "Phone call to +1 555 0100: Book a table for 2: only the owner can answer this in the GrokBot app.",
+      ],
+      [],
+    ]);
+  });
+
+  it("refuses a bot share with --always the same way", async () => {
+    const { run, log } = governanceRunner({
+      ListGrokBotTranscriptEntries: entries(shareRow),
+      ResolveGrokBotAutoReviewApproval: [{ dispatched: true }],
+    });
+    expect([
+      await failure(
+        run("approve", { agent: STAFF, always: true, yes: true, json: false }),
+      ),
+      resolves(log),
+    ]).toEqual([
+      [
+        "safety",
+        'Share this bot as a template "Research Bot" (public): only the owner can answer this in the GrokBot app.',
+      ],
+      [],
+    ]);
+  });
+
+  it("still denies a phone call", async () => {
+    const { run, log } = governanceRunner({
+      ListGrokBotTranscriptEntries: entries(phoneRow),
+      ResolveGrokBotAutoReviewApproval: [{ dispatched: true }],
+    });
+    const denied = await run("deny", {
+      agent: STAFF,
+      yes: true,
+      json: false,
+    });
+    expect([denied.resolution, resolves(log), log.at(-1)?.body]).toEqual([
+      "denied",
+      ["ResolveGrokBotAutoReviewApproval"],
+      {
+        agentId: STAFF,
+        requestId: "ar-phone",
+        resolution: "GROK_BOT_AUTO_REVIEW_APPROVAL_RESOLUTION_DENIED",
+        approvalPlatform: "desktop",
+      },
+    ]);
+  });
+});
+
 describe("approve and deny an auto-review card", () => {
   it("sends the exact enum and desktop platform, confirmed, through the real runner", async () => {
     const { runner, log } = realGovernanceRunner({
