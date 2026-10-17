@@ -3,21 +3,21 @@ import {
   type LiveStatus,
   parseAgentStatusesResponse,
 } from "./agent-status.js";
-import type { ServerTransport } from "./contracts.js";
+import type { JsonObject, ServerTransport } from "./contracts.js";
 import {
   type DoneVerdict,
   evaluateDoneRule,
   type ReplyEntry,
 } from "./done-rule.js";
 import type { FetchLike } from "./server-transport.js";
-import { parseSeq, type TranscriptEntry } from "./transcript.js";
+import { asJsonObject, parseSeq, type TranscriptEntry } from "./transcript.js";
 import {
   readTranscriptSince,
   type TranscriptCursor,
 } from "./transcript-stream.js";
 import type { BusyAtSend } from "./turn-sharing.js";
 import { readBlobReply } from "./wait-blob.js";
-import { abortable } from "./wait-reconnect.js";
+import { abortable, isFatal } from "./wait-reconnect.js";
 import { RowStore } from "./wait-row-store.js";
 
 export type SettledVerdict = Exclude<DoneVerdict, { status: "running" }>;
@@ -43,12 +43,43 @@ export interface WaitSessionConfig {
   readonly onNewRows: () => void;
 }
 
+/** A finite number, or a proto int64 sent as a digit string. */
+function readMs(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && /^\d+$/.test(value)) return Number(value);
+  return undefined;
+}
+
+/**
+ * Start times from ListGrokBotSubagents. Undefined when the body is not a list,
+ * so the Done Rule keeps waiting. An empty object means none are running.
+ */
+function parseSubagentStartedAtMs(raw: unknown): readonly number[] | undefined {
+  const body = asJsonObject(raw);
+  if (!body) return undefined;
+  if (body.subagents === undefined) return [];
+  if (!Array.isArray(body.subagents)) return undefined;
+  const times: number[] = [];
+  for (const item of body.subagents) {
+    const row: JsonObject | undefined = asJsonObject(item);
+    const started = row && readMs(row.startedAtMs);
+    if (started === undefined) return undefined;
+    times.push(started);
+  }
+  return times;
+}
+
 /** What one wait knows about its agent: rows above the baseline, the latest status, read blobs. */
 export class WaitSession {
   readonly rows: RowStore;
   status: LiveStatus = IDLE_STATUS;
   readonly #config: WaitSessionConfig;
   readonly #blobReplies = new Map<string, ReplyEntry | null>();
+  /**
+   * `startedAtMs` of the running subagents. Undefined when unknown: the flag is
+   * off, the list was not read, or the read failed.
+   */
+  #subagentStartedAtMs: readonly number[] | undefined;
   #needsBacklog = true;
 
   constructor(config: WaitSessionConfig) {
@@ -108,8 +139,40 @@ export class WaitSession {
       ),
       signal,
     );
-    this.status =
+    const status =
       parseAgentStatusesResponse(raw).get(this.agentId) ?? IDLE_STATUS;
+    await this.recordStatus(status);
+  }
+
+  /**
+   * Stores a live status from a status read or a stream frame. While subagents
+   * run, also reads when each one started. A failed read leaves that list unknown.
+   */
+  async recordStatus(status: LiveStatus): Promise<void> {
+    this.status = status;
+    await this.#readSubagentStarts();
+  }
+
+  async #readSubagentStarts(): Promise<void> {
+    if (!this.status.hasRunningSubagents) {
+      this.#subagentStartedAtMs = undefined;
+      return;
+    }
+    const { server, signal } = this.#config;
+    try {
+      const raw = await abortable(
+        server.call(
+          "ListGrokBotSubagents",
+          { agentId: this.agentId },
+          { signal },
+        ),
+        signal,
+      );
+      this.#subagentStartedAtMs = parseSubagentStartedAtMs(raw);
+    } catch (error) {
+      if (signal.aborted || isFatal(error)) throw error;
+      this.#subagentStartedAtMs = undefined;
+    }
   }
 
   /** Evaluates the Done Rule; a running verdict is reported at once, others only by finish. */
@@ -120,11 +183,15 @@ export class WaitSession {
         e.kind === "blob" ? (this.#blobReplies.get(e.blobHash) ?? e) : e,
       );
     const { sentMessageId, busyAtSend } = this.#config.job;
+    const { status } = this;
+    const subagentStartedAtMs = this.#subagentStartedAtMs;
     const verdict = evaluateDoneRule({
       entries,
       sentMessageId,
-      status: this.status,
+      status,
       ...(busyAtSend && { busyAtSend }),
+      ...(status.hasRunningSubagents &&
+        subagentStartedAtMs !== undefined && { subagentStartedAtMs }),
     });
     if (verdict.status === "running") this.#config.report(verdict);
     return verdict;

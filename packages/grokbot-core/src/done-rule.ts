@@ -6,7 +6,7 @@ import {
   readString,
   type TranscriptEntry,
 } from "./transcript.js";
-import { findTurn } from "./turn-model.js";
+import { findTurn, type Turn } from "./turn-model.js";
 import type { BusyAtSend } from "./turn-sharing.js";
 
 export type { CardEntry } from "./transcript.js";
@@ -57,6 +57,43 @@ export interface DoneRuleInput {
   readonly status: LiveStatus;
   /** Whether the bot was busy when each message we know of was sent; missing means busy. */
   readonly busyAtSend?: BusyAtSend;
+  /**
+   * `startedAtMs` of the bot's running subagents. Omit when the list is unknown
+   * (not read, or the read failed). An empty list means none are running.
+   */
+  readonly subagentStartedAtMs?: readonly number[];
+}
+
+/** Clock slack before the echo. A subagent this close still counts as ours. */
+const SUBAGENT_SLACK_MS = 2_000;
+
+/**
+ * True when `startedAtMs` falls inside the turn. Missing bounds err towards
+ * waiting: no start means we cannot prove the subagent is earlier, and no end
+ * means the turn is still open.
+ */
+function subagentInTurn(
+  startedAtMs: number,
+  turnStartMs: number | undefined,
+  turnEndMs: number | undefined,
+): boolean {
+  if (turnEndMs !== undefined && startedAtMs >= turnEndMs) return false;
+  if (turnStartMs === undefined) return true;
+  return startedAtMs >= turnStartMs - SUBAGENT_SLACK_MS;
+}
+
+/**
+ * `hasRunningSubagents` is per bot. A known list blocks only when some subagent
+ * started during this turn; an unknown list blocks, as before.
+ */
+function subagentsBlockTurn(
+  turn: Turn,
+  startedAtMs: readonly number[] | undefined,
+): boolean {
+  if (startedAtMs === undefined) return true;
+  return startedAtMs.some((start) =>
+    subagentInTurn(start, turn.startMs, turn.endMs),
+  );
 }
 
 const running = (reason: RunningReason): DoneVerdict => ({
@@ -119,13 +156,17 @@ function sharedReplyText(
  * An open card of the turn awaits the owner once the bot stops, even when live.awaiting
  * is unset (question widgets leave it unset), but live.awaiting alone never makes the
  * turn await: it may belong to a later turn.
- * Pure: the caller supplies every transcript row it has and the latest live status.
+ * A running subagent blocks only when it started during this turn (see
+ * subagentsBlockTurn). The caller passes start times when it could read them.
+ * Pure: the caller supplies every transcript row it has, the latest live status,
+ * and, when known, when the bot's running subagents started.
  */
 export function evaluateDoneRule({
   entries,
   sentMessageId,
   status,
   busyAtSend,
+  subagentStartedAtMs,
 }: DoneRuleInput): DoneVerdict {
   const turn = findTurn(entries, sentMessageId, busyAtSend);
   if (!turn) return running("awaiting-echo");
@@ -141,7 +182,11 @@ export function evaluateDoneRule({
   }
   if (status.isRunning || status.isComposing || status.isRetrying)
     return running("target-active");
-  if (status.hasRunningSubagents) return running("subagents-active");
+  if (
+    status.hasRunningSubagents &&
+    subagentsBlockTurn(turn, subagentStartedAtMs)
+  )
+    return running("subagents-active");
   if (turn.hasOpenDelegation) return running("pending-delegation");
   const [card] = cards;
   if (card)
