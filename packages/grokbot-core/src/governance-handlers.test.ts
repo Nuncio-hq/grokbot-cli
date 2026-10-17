@@ -28,6 +28,35 @@ const failure = async (promise: Promise<unknown>) => {
 };
 
 describe("approvals", () => {
+  it("does not list a connector card that a later reply has passed", async () => {
+    const connector = sendMessageRow(4, {
+      type: "connector",
+      connector: "Gmail",
+      variant: "suggested",
+    });
+    const passed = governanceRunner({
+      ListGrokBotAgentStatuses: [{ statuses: [] }],
+      ListGrokBotTranscriptEntries: entries(
+        connector,
+        sendMessageRow(5, { type: "text", content: "Sent the notes." }),
+      ),
+    });
+    const open = governanceRunner({
+      ListGrokBotAgentStatuses: [{ statuses: [] }],
+      ListGrokBotTranscriptEntries: entries(connector),
+    });
+    const [gone, listed] = await Promise.all([
+      passed.run("approvals", { agent: "Primary Test", json: false }),
+      open.run("approvals", { agent: "Primary Test", json: false }),
+    ]);
+    expect([
+      gone.agents,
+      listed.agents.map((row) =>
+        row.cards.map((card) => ("summary" in card ? card.summary : card.type)),
+      ),
+    ]).toEqual([[], [["Connect Gmail"]]]);
+  });
+
   it("lists open cards per agent, skipping rooms and quiet agents", async () => {
     const { run, log } = governanceRunner({
       ListGrokBotAgentStatuses: [

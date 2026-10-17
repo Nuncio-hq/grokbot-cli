@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Agent, AgentId } from "./agents.js";
 import { GrokBotError } from "./contracts.js";
-import { sendMessageRow, textReplyRow } from "./fixtures/wire-entries.js";
+import {
+  sendMessageRow,
+  textReplyRow,
+  wireEntry,
+} from "./fixtures/wire-entries.js";
 import { APPROVABLE, openCards, selectCard } from "./governance-cards.js";
 
 const AGENT: Agent = {
@@ -155,6 +159,29 @@ describe("openCards", () => {
       [],
       1,
     ]);
+  });
+
+  it("omits a connector or repo-connect card once a later bot row exists", () => {
+    const gmail = sendMessageRow(2, {
+      type: "connector",
+      connector: "Gmail",
+      variant: "suggested",
+    });
+    const github = sendMessageRow(2, {
+      type: "scm-connect",
+      provider: "github",
+    });
+    const reply = textReplyRow(3, "Sent.");
+    const tool = wireEntry(4, "tool-call", {
+      kind: "tool-call",
+      name: "shell",
+    });
+    expect([
+      openCards([gmail]).map((card) => [card.type, card.seq]),
+      openCards([gmail, reply]),
+      openCards([github, tool]),
+      openCards([gmail, widget(6)]).map((card) => card.type),
+    ]).toEqual([[["connector", "2"]], [], [], ["widget"]]);
   });
 });
 
