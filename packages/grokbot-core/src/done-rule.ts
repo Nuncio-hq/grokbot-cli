@@ -1,6 +1,12 @@
-import type { BoxHandoff, LiveStatus } from "./agent-status.js";
+import { type BoxHandoff, isActive, type LiveStatus } from "./agent-status.js";
 import { describeBoxHandoff, describeCard } from "./card-descriptions.js";
-import type { BlobEntry, CardEntry, TranscriptEntry } from "./transcript.js";
+import {
+  type BlobEntry,
+  type CardEntry,
+  isPositionalCardType,
+  positionalCardPassed,
+  type TranscriptEntry,
+} from "./transcript.js";
 import { findTurn, type Turn } from "./turn-model.js";
 import type { BusyAtSend } from "./turn-sharing.js";
 
@@ -163,6 +169,22 @@ function blockingHandoff(
 }
 
 /**
+ * `connector` and `scm-connect` have no closed field (see transcript.ts): the app keys
+ * them only by what they ask, and the row never updates when the owner acts. Such a
+ * card blocks only while it can still be blocking. It blocks when it is the last bot
+ * row of this turn (no later reply, tool call or message) and the bot is not running,
+ * and while `live.awaiting` is set on that same last row. A later bot row in the turn
+ * means the card has passed, so the turn can finish on the reply that follows it.
+ */
+function blockingCards(turn: Turn, status: LiveStatus): readonly CardEntry[] {
+  return turn.openCards.filter((card) => {
+    if (!isPositionalCardType(card.cardType)) return true;
+    if (positionalCardPassed(card, turn.rows)) return false;
+    return status.awaiting !== null || !isActive(status);
+  });
+}
+
+/**
  * Decides whether the turn started by `sentMessageId` has finished.
  * The turn is the runs of our message and of any message one run may have answered with
  * it, plus the runs our delegates' replies and the owner's card answers start (see
@@ -170,9 +192,10 @@ function blockingHandoff(
  * that may be shared ends `ambiguous` with every reply, never `done` with one of them.
  * An open card of the turn awaits the owner once the bot stops, even when live.awaiting
  * is unset (question widgets leave it unset), but live.awaiting alone never makes the
- * turn await: it may belong to a later turn. A pending box hand-off awaits the owner once
- * the bot stops (see blockingHandoff): no row marks it, so waiting would only time out.
- * A running subagent blocks only when it started during this turn (see
+ * turn await: it may belong to a later turn. A connector or repo-connect card is the
+ * exception that closes by position (see blockingCards). A pending box hand-off awaits
+ * the owner once the bot stops (see blockingHandoff): no row marks it, so waiting would
+ * only time out. A running subagent blocks only when it started during this turn (see
  * subagentsBlockTurn). The caller passes start times when it could read them.
  * Pure: the caller supplies every transcript row it has, the latest live status,
  * and, when known, when the bot's running subagents started.
@@ -186,7 +209,7 @@ export function evaluateDoneRule({
 }: DoneRuleInput): DoneVerdict {
   const turn = findTurn(entries, sentMessageId, busyAtSend);
   if (!turn) return running("awaiting-echo");
-  const cards = turn.openCards;
+  const cards = blockingCards(turn, status);
   const handoff = blockingHandoff(status, turn);
 
   if (status.awaiting && cards.length > 0) {

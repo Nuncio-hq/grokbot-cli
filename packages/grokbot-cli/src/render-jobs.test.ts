@@ -85,6 +85,26 @@ describe("job commands in human mode", () => {
     });
   });
 
+  it("exits 3 on a connector card and says only the owner can answer it", async () => {
+    const outcome = {
+      status: "awaiting-approval",
+      reason: "Connect Gmail",
+      cards: cards(["connector"]),
+    } as const;
+    const run = await runCli(["wait", "job-6"], {
+      outputs: { wait: { jobId: "job-6", agentId: PRIMARY.agentId, outcome } },
+    });
+    expect(run).toMatchObject({
+      stdout: lines(
+        "Awaiting approval: Connect Gmail",
+        "Open cards: connector (Connect an app)",
+      ),
+      stderr:
+        "To continue, only the owner can answer this in the GrokBot app (connector). Then resume with: grokbot wait job-6\n",
+      code: 3,
+    });
+  });
+
   it("points a widget at grokbot answer", async () => {
     const outcome = {
       status: "awaiting-approval",

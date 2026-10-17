@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { IDLE_STATUS, type LiveStatus } from "./agent-status.js";
+import { describeCard, OWNER_ONLY_NOTE } from "./card-descriptions.js";
 import { summary, verdict } from "./fixtures/done-rule-summary.js";
 import {
+  assistantRow,
   sendMessageRow,
   textReplyRow,
   userRow,
+  wireEntry,
   withEntryId,
 } from "./fixtures/wire-entries.js";
 
@@ -77,6 +80,120 @@ describe("Done Rule on cards only the owner can answer", () => {
         ID,
       ),
     ]).toEqual(["awaiting-approval:3", "running:awaiting-final-reply"]);
+  });
+});
+
+describe("Done Rule on connector and repo-connect cards", () => {
+  const ID = "m-connect";
+  const echo = withEntryId(
+    userRow(1, "Email the notes", { clientNonce: ID, requestId: "r1" }),
+    "t8u",
+  );
+  const gmail = sendMessageRow(
+    3,
+    { type: "connector", connector: "Gmail", variant: "suggested" },
+    "r1",
+  );
+  const github = sendMessageRow(
+    3,
+    {
+      type: "scm-connect",
+      provider: "github",
+      intent: "read",
+      reason: "the repo",
+    },
+    "r1",
+  );
+  const sent = textReplyRow(5, "Sent the notes.", "r1");
+  const note = textReplyRow(2, "I need Gmail first.", "r1");
+
+  it("is done with the later reply in the same turn", () => {
+    expect([
+      summary([echo, gmail, sent], IDLE_STATUS, ID),
+      summary([echo, github, sent], IDLE_STATUS, ID),
+    ]).toEqual(["done:Sent the notes.", "done:Sent the notes."]);
+  });
+
+  it("awaits the owner when the card is the last bot row and the bot is idle", () => {
+    const v = verdict([echo, note, gmail], IDLE_STATUS, ID);
+    const card = v.status === "awaiting-approval" ? v.cards[0] : undefined;
+    expect(
+      v.status === "awaiting-approval" &&
+        card !== undefined && [
+          v.reason,
+          describeCard(card.cardType, card.message),
+          OWNER_ONLY_NOTE,
+        ],
+    ).toEqual([
+      "Connect Gmail",
+      { text: "Connect Gmail", ownerOnly: true },
+      "only the owner can answer this in the GrokBot app",
+    ]);
+    const repo = verdict([echo, github], IDLE_STATUS, ID);
+    expect(
+      repo.status === "awaiting-approval" && [
+        repo.reason,
+        repo.cards.map((c) => c.seq),
+      ],
+    ).toEqual(["Connect a code host (github)", ["3"]]);
+  });
+
+  it("stays awaiting when live.awaiting is set even after the bot goes idle", () => {
+    const awaiting: LiveStatus = {
+      ...IDLE_STATUS,
+      awaiting: { reason: "Connect Gmail" },
+    };
+    const running = { ...awaiting, isRunning: true };
+    expect([
+      summary([echo, gmail], awaiting, ID),
+      summary([echo, gmail], running, ID),
+      summary([echo, gmail], { ...IDLE_STATUS, isRunning: true }, ID),
+    ]).toEqual([
+      "awaiting-approval:3",
+      "awaiting-approval:3",
+      "running:target-active",
+    ]);
+  });
+
+  it("does not block on a passed card when live.awaiting is set", () => {
+    const awaiting: LiveStatus = {
+      ...IDLE_STATUS,
+      awaiting: { reason: "Something else" },
+    };
+    expect(summary([echo, gmail, sent], awaiting, ID)).toBe(
+      "running:target-active",
+    );
+  });
+
+  it("treats a tool call or a later message as the card having passed", () => {
+    const tool = wireEntry(4, "tool-call", {
+      kind: "tool-call",
+      name: "shell",
+    });
+    const message = assistantRow(4, "Checking Gmail.", { requestId: "r1" });
+    expect([
+      summary([echo, gmail, tool], IDLE_STATUS, ID),
+      summary([echo, gmail, message], IDLE_STATUS, ID),
+      summary([echo, gmail, tool, sent], IDLE_STATUS, ID),
+    ]).toEqual([
+      "running:awaiting-final-reply",
+      "running:awaiting-final-reply",
+      "done:Sent the notes.",
+    ]);
+  });
+
+  it("still awaits a connector-grant, which closes by status rather than position", () => {
+    const grant = sendMessageRow(
+      3,
+      {
+        type: "connector-grant",
+        ask: { serverName: "Linear", status: "pending" },
+      },
+      "r1",
+    );
+    expect(summary([echo, grant, sent], IDLE_STATUS, ID)).toBe(
+      "awaiting-approval:3",
+    );
   });
 });
 
