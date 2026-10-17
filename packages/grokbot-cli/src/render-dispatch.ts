@@ -1,4 +1,9 @@
-import type { DispatchCommandName, JobOutcome } from "grokbot-core";
+import {
+  type DispatchCommandName,
+  describeCard,
+  type JobOutcome,
+  OWNER_ONLY_NOTE,
+} from "grokbot-core";
 import {
   type HumanRenderers,
   line,
@@ -24,21 +29,40 @@ function outcomeText(jobId: string, outcome: JobOutcome): Text {
         stdout: `${jobId}\n`,
         note: `Not done yet: ${outcome.reason}\nResume with: grokbot wait ${jobId}\n`,
       };
-    case "awaiting-approval": {
-      const types = [...new Set(outcome.cards.map((c) => c.cardType))];
-      const how = types
-        .map((type) => CARD_ACTION[type] ?? "resolve it in the Grok Bot app")
-        .filter((action, i, all) => all.indexOf(action) === i);
-      const act =
-        how.length > 0 ? how.join("; ") : "resolve it in the Grok Bot app";
-      return {
-        stdout:
-          `Awaiting approval: ${outcome.reason}\n` +
-          (types.length > 0 ? `Open cards: ${types.join(", ")}\n` : ""),
-        note: `To continue, ${act}. Then resume with: grokbot wait ${jobId}\n`,
-      };
-    }
+    case "awaiting-approval":
+      return awaitingText(jobId, outcome);
   }
+}
+
+const unique = (items: readonly string[]) => [...new Set(items)];
+
+/** Names every open card and the box hand-off, then says who can resolve each. */
+function awaitingText(
+  jobId: string,
+  outcome: Extract<JobOutcome, { status: "awaiting-approval" }>,
+): Text {
+  const cards = outcome.cards.map((c) => ({
+    type: c.cardType,
+    ...describeCard(c.cardType, c.message),
+  }));
+  const listed = unique(cards.map((c) => `${c.type} (${c.text})`));
+  const owners = unique([
+    ...(outcome.handoff ? ["box hand-off"] : []),
+    ...cards.filter((c) => c.ownerOnly).map((c) => c.type),
+  ]);
+  const how = unique(
+    cards.flatMap((c) => (c.ownerOnly ? [] : (CARD_ACTION[c.type] ?? []))),
+  );
+  if (owners.length > 0 || how.length === 0) {
+    const which = owners.length > 0 ? ` (${owners.join(", ")})` : "";
+    how.push(`${OWNER_ONLY_NOTE}${which}`);
+  }
+  return {
+    stdout:
+      `Awaiting approval: ${outcome.reason}\n` +
+      (listed.length > 0 ? `Open cards: ${listed.join(", ")}\n` : ""),
+    note: `To continue, ${how.join("; ")}. Then resume with: grokbot wait ${jobId}\n`,
+  };
 }
 
 /** How the owner resolves each card type from the CLI; types missing here are app-only. */

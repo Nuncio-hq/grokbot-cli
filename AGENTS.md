@@ -12,7 +12,7 @@
 | `packages/grokbot-cli/skills/grokbot/SKILL.md` | CEO agent skill shipped in the CLI package; its command table is generated (`bun run gen:skill`) and a test fails on drift |
 | `grokbot` | Legacy Python stdlib CLI prototype (kept for the owner; agents use the TS CLI) |
 | `docs/index.html` | Visual source of truth (decisions, roadmap, verified facts, rules, log) |
-| `docs/grokbot-tools-and-api.json` | Canonical data for 126 bot tools & 309 RPC methods (`python3 docs/build-reference.py` generates `docs/reference.html`) |
+| `docs/grokbot-tools-and-api.json` | Canonical data for 130 bot tools & 313 RPC methods (`python3 docs/build-reference.py` generates `docs/reference.html`) |
 
 ## One-way Dependencies & Verification Gate
 

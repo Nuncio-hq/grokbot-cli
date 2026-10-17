@@ -1,5 +1,5 @@
-import { Buffer } from "node:buffer";
 import type { Agent } from "./agents.js";
+import { describeCard } from "./card-descriptions.js";
 import { GrokBotError, type JsonObject } from "./contracts.js";
 import {
   asJsonObject,
@@ -9,6 +9,12 @@ import {
   readString,
   type Seq,
 } from "./transcript.js";
+
+/** Card kinds grokbot cannot resolve; they carry only a plain summary. */
+export type OwnerOnlyCardType = Exclude<
+  CardType,
+  "widget" | "auto-review-approval" | "local-tool-permission"
+>;
 
 /**
  * One open card from a bot's transcript, typed by kind so handlers and renderers never
@@ -28,6 +34,8 @@ export type GovernanceCard = {
       readonly requestId: string;
       readonly summary: string;
       readonly command: string;
+      /** True for a phone call or a bot share, which the owner decides in the app. */
+      readonly ownerOnly: boolean;
     }
   | {
       readonly type: "local-tool-permission";
@@ -35,7 +43,7 @@ export type GovernanceCard = {
       readonly action: string;
       readonly target: string;
     }
-  | { readonly type: "secret-request" | "connector" | "scm-connect" }
+  | { readonly type: OwnerOnlyCardType; readonly summary: string }
 );
 
 export type GovernanceCardType = GovernanceCard["type"];
@@ -45,40 +53,6 @@ export const APPROVABLE: readonly GovernanceCardType[] = [
   "auto-review-approval",
   "local-tool-permission",
 ];
-
-/**
- * Body-level fields that close a card. The transcript parser keeps only `message`, but an
- * answered widget carries `respondedValue` and a dismissed one `widgetDismissed` or
- * `widgetSkipped` on the row body (live rows on Primary Test, 15 Oct).
- */
-const CLOSED_BY_BODY: Partial<Record<CardType, (body: JsonObject) => boolean>> =
-  {
-    widget: (body) =>
-      (typeof body.respondedValue === "string" && body.respondedValue !== "") ||
-      body.widgetDismissed === true ||
-      body.widgetSkipped === true,
-    "secret-request": (body) => body.secretProvided === true,
-  };
-
-/** Open while its own status (or a direct child's, e.g. approval/ask) is missing or "pending". */
-function statusIsOpen(message: JsonObject): boolean {
-  const holders = [message, ...Object.values(message).map(asJsonObject)];
-  const status = holders
-    .map((holder) => (holder ? readString(holder, "status") : undefined))
-    .find((value) => value !== undefined);
-  return status === undefined || status === "pending";
-}
-
-function decodeBody(row: unknown): JsonObject {
-  const b64 = readString(asJsonObject(row) ?? {}, "body");
-  if (b64 === undefined) return {};
-  try {
-    const text = Buffer.from(b64, "base64").toString("utf8");
-    return asJsonObject(JSON.parse(text)) ?? {};
-  } catch {
-    return {};
-  }
-}
 
 function labels(widget: JsonObject): readonly string[] {
   const options = Array.isArray(widget.options) ? widget.options : [];
@@ -103,11 +77,15 @@ function typed(type: CardType, message: JsonObject): CardBody {
     }
     case "auto-review-approval": {
       const a = child("approval");
+      const described = describeCard(type, message);
       return {
         type,
         requestId: text(a, "requestId"),
-        summary: readString(a, "summary") ?? readString(a, "reason") ?? "",
+        summary: described.ownerOnly
+          ? described.text
+          : (readString(a, "summary") ?? readString(a, "reason") ?? ""),
         command: text(a, "command"),
+        ownerOnly: described.ownerOnly,
       };
     }
     case "local-tool-permission": {
@@ -120,7 +98,7 @@ function typed(type: CardType, message: JsonObject): CardBody {
       };
     }
     default:
-      return { type };
+      return { type, summary: describeCard(type, message).text };
   }
 }
 
@@ -130,8 +108,7 @@ export function openCards(rows: unknown): GovernanceCard[] {
   const cards: GovernanceCard[] = [];
   for (const row of list) {
     const entry = parseTranscriptEntry(row);
-    if (entry.kind !== "card" || !statusIsOpen(entry.message)) continue;
-    if (CLOSED_BY_BODY[entry.cardType]?.(decodeBody(row))) continue;
+    if (entry.kind !== "card" || !entry.open) continue;
     cards.push({
       entryId: entry.entryId,
       seq: entry.seq,

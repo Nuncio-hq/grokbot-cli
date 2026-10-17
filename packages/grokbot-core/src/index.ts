@@ -4,6 +4,7 @@ export const GROKBOT_VERSION = "0.1.5";
 export { type AgentRef, isSameAgent, parseAgentRef } from "./agent-ref.js";
 export {
   type Awaiting,
+  type BoxHandoff,
   IDLE_STATUS,
   isActive,
   type LiveStatus,
@@ -34,6 +35,13 @@ export {
   type SignInInfo,
   type TokenSource,
 } from "./auth-token-source.js";
+export {
+  type CardDescription,
+  CLI_RESOLVABLE,
+  describeBoxHandoff,
+  describeCard,
+  OWNER_ONLY_NOTE,
+} from "./card-descriptions.js";
 export {
   type CliConfig,
   type CliConfigStore,

@@ -78,7 +78,47 @@ describe("parseTranscriptEntry", () => {
       ["card", "local-tool-permission"],
       ["card", "connector"],
       ["card", "scm-connect"],
+      ["card", "connector-grant"],
+      ["card", "user-form"],
+      ["card", "credential-request"],
+      ["card", "virtual-card-approval"],
+      ["card", "cookie-origin-approval"],
+      ["card", "meeting-join-consent"],
+      ["card", "mobile-tool-permission"],
     ]);
+  });
+
+  it("closes a Secure Form and a credential request only by their settling body fields", () => {
+    const form = {
+      type: "user-form",
+      formRequest: { title: "Address", fields: [] },
+    };
+    const login = {
+      type: "credential-request",
+      credentialRequest: { kind: "vault-login" },
+    };
+    const open = (row: ReturnType<typeof sendMessageRow>) => {
+      const e = parseTranscriptEntry(row);
+      return e.kind === "card" && e.open;
+    };
+    expect([
+      open(sendMessageRow(1, form)),
+      open(sendMessageRow(2, form, "r", 2, { formResolution: "submitted" })),
+      open(sendMessageRow(3, form, "r", 3, { widgetDismissed: true })),
+      open(sendMessageRow(4, login)),
+      open(
+        sendMessageRow(5, login, "r", 5, { credentialResolution: "retryable" }),
+      ),
+      open(
+        sendMessageRow(6, login, "r", 6, { credentialResolution: "filling" }),
+      ),
+      open(
+        sendMessageRow(7, login, "r", 7, { credentialResolution: "approved" }),
+      ),
+      open(
+        sendMessageRow(8, login, "r", 8, { credentialResolution: "denied" }),
+      ),
+    ]).toEqual([true, false, false, true, true, true, false, false]);
   });
 
   it("keeps a blob-only row as a placeholder", () => {

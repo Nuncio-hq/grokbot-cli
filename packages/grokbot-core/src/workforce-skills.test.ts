@@ -60,9 +60,16 @@ describe("skills-list", () => {
     );
     const first = await runner.run("skills-list", PUSH);
     const second = await runner.run("skills-list", PUSH);
-    expect([first.skills, second.skills.map((s) => s.id)]).toEqual([
-      [listed(PLUGIN_SKILL)],
-      ["plugin:docs", "add-connector", "gb-phase2-probe-skill"],
+    expect([
+      first.skills,
+      second.skills.map((s) => [s.id, s.managedBy]),
+    ]).toEqual([
+      [{ ...listed(PLUGIN_SKILL), managedBy: "user" }],
+      [
+        ["plugin:docs", "user"],
+        ["add-connector", "grokbot"],
+        ["gb-phase2-probe-skill", "user"],
+      ],
     ]);
     expect(bodyOf(log, "getAgentWorkflows")).toEqual({ id: PROBE });
   });

@@ -59,7 +59,7 @@ function replyMayCome(
 
 /**
  * A message sent now may share a run with earlier work (see turn-sharing.ts): a run or
- * its subagents are still working or awaiting the owner, a delegate's reply is still due
+ * its subagents are still working or awaiting the owner (a card or a box hand-off), a delegate's reply is still due
  * (it starts a new run), a message we just sent has no echo in view yet, or the newest
  * row is a message (ours, the owner's, or another bot's) that no run has answered yet,
  * an open card, or a reply still being written.
@@ -71,7 +71,7 @@ function isBotBusy(
   inFlight: readonly string[],
 ): boolean {
   const status = statuses.get(agentId) ?? IDLE_STATUS;
-  if (isActive(status) || status.awaiting) return true;
+  if (isActive(status) || status.awaiting || status.boxHandoff) return true;
   const echoed = new Set(
     recent.entries.flatMap((e) =>
       e.kind === "user-message" && e.clientNonce ? [e.clientNonce] : [],

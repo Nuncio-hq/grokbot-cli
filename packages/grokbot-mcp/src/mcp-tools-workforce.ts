@@ -10,6 +10,7 @@ type Routine = CommandOutputs["routines-list"]["routines"][number];
 /** Overrides on protected bots and managed skills, and local file paths, are CLI only. */
 const FORCE = "force-protected";
 const MANAGED = "include-managed";
+const TRIGGER_FILE = "trigger-file";
 
 export const WORKFORCE_OVERRIDES: McpOverrides<WorkforceCommandName> = {
   hire: {
@@ -34,6 +35,14 @@ export const WORKFORCE_OVERRIDES: McpOverrides<WorkforceCommandName> = {
   "routines-enable": { hiddenParams: [FORCE] },
   "routines-disable": { hiddenParams: [FORCE] },
   "routines-delete": { hiddenParams: [FORCE] },
+  "routines-create": { hiddenParams: [TRIGGER_FILE, FORCE] },
+  "routines-update": { hiddenParams: [TRIGGER_FILE, FORCE] },
+  // Minting a credential is the owner's call at the terminal, like login.
+  "routines-webhook-key": { cliOnly: true },
+  "routines-fire": {
+    note: "Needs a key the owner minted with the grokbot CLI (routines-webhook-key)",
+    hiddenParams: ["payload-file"],
+  },
 };
 
 const PUSHED: Readonly<
@@ -66,7 +75,10 @@ export const WORKFORCE_SUMMARIES: ToolSummaries<WorkforceCommandName> = {
   "skills-list": ({ agent, skills }) =>
     [
       `The Box-wide (all bots) skill library has ${plural(skills.length, "skill", "skills")} (read through ${agent.name}):`,
-      ...skills.map((s) => `- ${s.name || s.id} (${s.source}, ${s.id})`),
+      ...skills.map(
+        (s) =>
+          `- ${s.name || s.id} (${s.managedBy}-managed, ${s.source}, ${s.id})`,
+      ),
     ].join("\n"),
   "skills-push": ({ agent, skill, result }) =>
     result === "exists"
@@ -89,4 +101,14 @@ export const WORKFORCE_SUMMARIES: ToolSummaries<WorkforceCommandName> = {
     `Deleted ${agent.name}'s routine ${routine.name} (${routine.automationId}); ${plural(remaining, "routine", "routines")} left.`,
   "routines-create": ({ agent, routine, result }) =>
     `${result === "created" ? "Created" : "Found existing"} routine for ${agent.name}: ${routineText(routine)}.`,
+  "routines-update": ({ agent, routine, changed }) =>
+    changed.length === 0
+      ? `${agent.name}'s routine ${routine.name} already had those values; nothing changed.`
+      : `Changed ${changed.join(", ")} of ${agent.name}'s routine ${routineText(routine)}.`,
+  "routines-run": ({ agent, routine }) =>
+    `Started ${agent.name}'s routine ${routine.name} (${routine.automationId}).`,
+  "routines-webhook-key": ({ routine, url, result }) =>
+    `${result === "exists" ? "Already had" : result === "minted" ? "Minted" : "Minted an additional"} webhook key for ${routine.name} in the Keychain${result === "replaced" ? "; earlier keys stay valid until the routine is deleted" : ""}. URL: ${url}`,
+  "routines-fire": ({ agent, routine, status, reply }) =>
+    `Fired ${agent.name}'s routine ${routine.name}: HTTP ${status}${reply === null ? "" : `, reply ${JSON.stringify(reply)}`}.`,
 };

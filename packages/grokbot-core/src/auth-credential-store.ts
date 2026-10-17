@@ -8,6 +8,7 @@ import {
 } from "./auth-security-runner.js";
 import { cliConfigStore, type KeychainAccess } from "./cli-config.js";
 import { GrokBotError } from "./contracts.js";
+import { addItemLine, itemAccessOf } from "./keychain-items.js";
 
 export type { KeychainRunner } from "./auth-security-runner.js";
 
@@ -23,10 +24,6 @@ export type { KeychainRunner } from "./auth-security-runner.js";
  */
 const SERVICE = "grokbot-cli";
 const ACCOUNT = "default";
-const ITEM = `-a ${ACCOUNT} -s ${SERVICE}`;
-const COMMENT_PREFIX = "grokbot-cli-access=";
-/** `security -i` reads about 4096 bytes per line and runs the rest as a new command. */
-const MAX_LINE_BYTES = 4000;
 
 /** What sign-in and refresh need: load, save, clear. */
 export interface TokenPairStore {
@@ -81,13 +78,14 @@ export function credentialStore(
     );
   };
 
-  /** One `security -i` add line; the value rides on stdin, never argv. */
   const addLine = (value: string, mode: KeychainAccess, update: boolean) => {
-    const trust = mode === "prompt" ? ' -T ""' : "";
-    const upsert = update ? " -U" : "";
-    const line = `add-generic-password${upsert} ${ITEM} -j ${COMMENT_PREFIX}${mode}${trust} -w ${value}\n`;
-    // A longer line would be split, storing a truncated value over a good one.
-    if (Buffer.byteLength(line) > MAX_LINE_BYTES) {
+    const line = addItemLine(
+      { account: ACCOUNT, service: SERVICE },
+      value,
+      mode,
+      update,
+    );
+    if (line === undefined) {
       throw new GrokBotError(
         "auth",
         "The GrokBot sign-in is too large for the Keychain helper; nothing was saved.",
@@ -163,12 +161,7 @@ export function credentialStore(
         "-s",
         SERVICE,
       ]);
-      if (code !== 0) return undefined;
-      const label = new RegExp(
-        `"icmt"<blob>="${COMMENT_PREFIX}(silent|prompt)"`,
-      ).exec(stdout);
-      // Items saved before the setting existed carry no label and trust /usr/bin/security.
-      return (label?.[1] as KeychainAccess | undefined) ?? "silent";
+      return code === 0 ? itemAccessOf(stdout) : undefined;
     },
 
     async setAccess(next) {

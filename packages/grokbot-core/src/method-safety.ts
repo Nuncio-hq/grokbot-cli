@@ -22,6 +22,8 @@ export const GATEWAY_METHOD_SAFETY = {
   importAgentWorkflowText: "writes",
   runAgentWorkflowNow: "writes",
   createAgentAutomation: "writes",
+  updateAgentAutomation: "writes",
+  runAgentAutomationNow: "writes",
   // Runs any tool on any connected third-party MCP server with the owner's accounts.
   callMcpAppTool: "sensitive",
   deleteAgentWorkflow: "destructive",
@@ -30,11 +32,20 @@ export const GATEWAY_METHOD_SAFETY = {
   injectChromeCookies: "sensitive",
 } as const satisfies Readonly<Record<string, MethodSafety>>;
 
+/** aiserver.v1.DashboardService methods, on the same backend as GrokBotService. */
+export const DASHBOARD_METHOD_SAFETY = {
+  // Mints a bearer key that lets anyone holding it start one webhook routine.
+  CreateAutomationWebhookApiKey: "sensitive",
+} as const satisfies Readonly<Record<string, MethodSafety>>;
+
 const SERVER_TABLE: ReadonlyMap<string, MethodSafety> = new Map(
   Object.entries(SERVER_METHOD_SAFETY),
 );
 const GATEWAY_TABLE: ReadonlyMap<string, MethodSafety> = new Map(
   Object.entries(GATEWAY_METHOD_SAFETY),
+);
+const DASHBOARD_TABLE: ReadonlyMap<string, MethodSafety> = new Map(
+  Object.entries(DASHBOARD_METHOD_SAFETY),
 );
 const METHOD_NAME = /^[A-Za-z][A-Za-z0-9]*$/;
 
@@ -49,6 +60,14 @@ export function assertGatewayMethodAllowed(
   confirmed: boolean,
 ): void {
   assertAllowed(GATEWAY_TABLE, method, confirmed);
+}
+
+/** Throws unless a DashboardService method is safe to call (fails closed). */
+export function assertDashboardMethodAllowed(
+  method: string,
+  confirmed: boolean,
+): void {
+  assertAllowed(DASHBOARD_TABLE, method, confirmed);
 }
 
 function assertAllowed(

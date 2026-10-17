@@ -35,8 +35,13 @@ describe("governance commands in human mode", () => {
       outputs: {
         approvals: {
           agents: [
-            { agent: PRIMARY, awaiting: null, cards: [WIDGET] },
-            { agent: STAFF, awaiting: "Permission needed", cards: [] },
+            { agent: PRIMARY, awaiting: null, handoff: null, cards: [WIDGET] },
+            {
+              agent: STAFF,
+              awaiting: "Permission needed",
+              handoff: null,
+              cards: [],
+            },
           ],
         },
       },
@@ -45,13 +50,41 @@ describe("governance commands in human mode", () => {
       stdout:
         "AGENT         CARD    ID    DETAIL\n" +
         "Primary Test  widget  t2s0  Pick a color [Red | Blue | Green]\n" +
-        "Staff Test    -       -     awaiting: Permission needed\n",
+        "Staff Test    -       -     awaiting: Permission needed (no open card in the last 50 rows; check the bot in the GrokBot app)\n",
       code: 0,
     });
     const none = await runCli(["approvals"], {
       outputs: { approvals: { agents: [] } },
     });
     expect(none.stdout).toBe("No open approval cards.\n");
+  });
+
+  it("names a box hand-off and the cards only the owner can answer", async () => {
+    const form: Card = {
+      entryId: "t9s0",
+      seq: seq(12),
+      type: "user-form",
+      summary: 'Secure Form "Shipping address" (2 fields)',
+    };
+    const run = await runCli(["approvals"], {
+      outputs: {
+        approvals: {
+          agents: [
+            {
+              agent: PRIMARY,
+              awaiting: null,
+              handoff: { requestId: "h-1", instruction: "Sign in to Xero" },
+              cards: [form],
+            },
+          ],
+        },
+      },
+    });
+    expect(run.stdout).toBe(
+      "AGENT         CARD         ID    DETAIL\n" +
+        "Primary Test  box-handoff  h-1   Take over the bot's computer: Sign in to Xero (only the owner can answer this in the GrokBot app)\n" +
+        'Primary Test  user-form    t9s0  Secure Form "Shipping address" (2 fields) (only the owner can answer this in the GrokBot app)\n',
+    );
   });
 
   it("prints accepted for an answer and passes the value through", async () => {

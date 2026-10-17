@@ -12,15 +12,24 @@ import type {
   RunOptions,
 } from "./command-runner-contract.js";
 import type { JobContext } from "./command-runner-jobs.js";
-import type { GatewayTransport } from "./contracts.js";
+import type { GatewayTransport, ServerTransport } from "./contracts.js";
 import { createGatewayTransport } from "./gateway-transport.js";
 import { jobStore } from "./job-store.js";
+import { createWebhookFirer, type WebhookFirer } from "./routine-webhook.js";
+import {
+  type WebhookKeyStore,
+  webhookKeyStore,
+} from "./routine-webhook-keys.js";
 import { createServerTransport } from "./server-transport.js";
 
 /** What every command group's handlers share. Built once per runner. */
 export interface RunnerContext extends JobContext {
   /** Box Gateway. EnsureSandBox runs on its first call, so commands that never call it never touch the box. */
   readonly gateway: GatewayTransport;
+  /** aiserver.v1.DashboardService, for minting routine webhook keys. */
+  readonly dashboard: Pick<ServerTransport, "call">;
+  readonly webhookKeys: WebhookKeyStore;
+  readonly fireWebhook: WebhookFirer;
   fetchAgents(signal?: AbortSignal): Promise<readonly Agent[]>;
   /** Resolves `--agent`, else the host's default agent, against the live roster. */
   target(flag: string | undefined, signal?: AbortSignal): Promise<Agent>;
@@ -47,9 +56,8 @@ export function createRunnerContext(
 ): RunnerContext {
   // `grokbot login`'s own sign-in first, else the desktop app's token (unchanged default).
   const tokens = createTokenSource();
-  const server =
-    options.server ??
-    createServerTransport({ getToken: () => tokens.getToken() });
+  const getToken = () => tokens.getToken();
+  const server = options.server ?? createServerTransport({ getToken });
 
   const fetchAgents = async (signal?: AbortSignal) =>
     parseListAgentsResponse(
@@ -60,6 +68,11 @@ export function createRunnerContext(
     server,
     jobs: options.jobs ?? jobStore(),
     gateway: options.gateway ?? createGatewayTransport({ server }),
+    dashboard:
+      options.dashboard ??
+      createServerTransport({ getToken, service: "DashboardService" }),
+    webhookKeys: options.webhookKeys ?? webhookKeyStore(),
+    fireWebhook: options.fireWebhook ?? createWebhookFirer(),
     fetchAgents,
     async target(flag, signal) {
       const pick = pickAgentQuery({ flag, env: options.defaultAgent });

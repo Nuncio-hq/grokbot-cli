@@ -4,6 +4,7 @@ import {
   FORCE_PROTECTED,
   LIBRARY_COMMANDS,
 } from "./command-specs-workforce-library.js";
+import { ROUTINE_COMMANDS } from "./command-specs-workforce-routines.js";
 
 const TITLE = {
   type: "string",
@@ -102,6 +103,7 @@ export const WORKFORCE_COMMANDS = {
     },
   },
   ...LIBRARY_COMMANDS,
+  ...ROUTINE_COMMANDS,
 } as const satisfies Record<string, CommandSpec>;
 
 export type WorkforceCommandName = keyof typeof WORKFORCE_COMMANDS;

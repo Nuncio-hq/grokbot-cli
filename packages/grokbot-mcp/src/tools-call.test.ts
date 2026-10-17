@@ -122,7 +122,7 @@ describe("grokbot-mcp tools/call", () => {
         undefined,
       ],
       [
-        'Primary Test is waiting for owner approval (secret-request). Approve it in the Grok Bot app, then call grokbot_wait with {"job":"job-1"}.',
+        'Primary Test is waiting for owner approval (secret-request). Only the owner can answer this in the GrokBot app, then call grokbot_wait with {"job":"job-1"}.',
         undefined,
       ],
     ]);

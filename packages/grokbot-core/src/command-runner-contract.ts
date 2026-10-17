@@ -4,6 +4,8 @@ import type { GovernanceOutputs } from "./command-outputs-governance.js";
 import type { WorkforceOutputs } from "./command-outputs-workforce.js";
 import type { GatewayTransport, ServerTransport } from "./contracts.js";
 import type { JobStore } from "./job-store.js";
+import type { WebhookFirer } from "./routine-webhook.js";
+import type { WebhookKeyStore } from "./routine-webhook-keys.js";
 import type { WaitEvent } from "./wait-for-done.js";
 
 export type {
@@ -18,6 +20,12 @@ export interface CommandRunnerOptions {
   readonly gateway?: GatewayTransport;
   /** Default: jobStore() at ~/.grokbot/jobs. */
   readonly jobs?: JobStore;
+  /** Default: createServerTransport for DashboardService, with the same sign-in as `server`. */
+  readonly dashboard?: Pick<ServerTransport, "call">;
+  /** Default: webhookKeyStore() in the macOS Keychain. */
+  readonly webhookKeys?: WebhookKeyStore;
+  /** Default: createWebhookFirer() over global fetch. */
+  readonly fireWebhook?: WebhookFirer;
   /** Used when a command gets no `agent` input. Hosts pass process.env.GROKBOT_AGENT. */
   readonly defaultAgent?: string;
 }

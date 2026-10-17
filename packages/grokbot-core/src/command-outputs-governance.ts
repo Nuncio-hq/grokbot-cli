@@ -1,3 +1,4 @@
+import type { BoxHandoff } from "./agent-status.js";
 import type { Agent } from "./agents.js";
 import type { GovernanceCard } from "./governance-cards.js";
 import type {
@@ -6,10 +7,14 @@ import type {
   UserComputer,
 } from "./governance-listings.js";
 
-/** One agent's open cards. `awaiting` is the live.awaiting reason, null when not awaiting. */
+/**
+ * One agent's open cards. `awaiting` is the live.awaiting reason, null when not awaiting;
+ * `handoff` is a pending box hand-off, null when there is none.
+ */
 export interface AgentCards {
   readonly agent: Agent;
   readonly awaiting: string | null;
+  readonly handoff: BoxHandoff | null;
   readonly cards: readonly GovernanceCard[];
 }
 

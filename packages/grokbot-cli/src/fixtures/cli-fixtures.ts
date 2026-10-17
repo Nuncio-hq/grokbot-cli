@@ -69,6 +69,7 @@ export function status(overrides: Partial<LiveStatus> = {}): LiveStatus {
     awaiting: null,
     hasRunningSubagents: false,
     activityTool: undefined,
+    boxHandoff: null,
     ...overrides,
   };
 }

@@ -63,13 +63,19 @@ export async function listApprovals(
   );
   const rows: AgentCards[] = [];
   for (const agent of agents) {
+    const status = statuses.get(agent.agentId);
     rows.push({
       agent,
-      awaiting: statuses.get(agent.agentId)?.awaiting?.reason ?? null,
+      awaiting: status?.awaiting?.reason ?? null,
+      handoff: status?.boxHandoff ?? null,
       cards: await cardsOf(ctx, agent, signal),
     });
   }
-  return { agents: rows.filter((row) => row.cards.length > 0 || row.awaiting) };
+  return {
+    agents: rows.filter(
+      (row) => row.cards.length > 0 || row.awaiting || row.handoff,
+    ),
+  };
 }
 
 export async function answerWidget(

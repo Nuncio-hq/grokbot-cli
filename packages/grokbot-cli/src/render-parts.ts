@@ -46,7 +46,7 @@ export function table(
 
 export const shortId = (agentId: string) => agentId.slice(0, 8);
 
-/** First matching row wins; awaiting outranks activity, as in the Done Rule. */
+/** First matching row wins; awaiting outranks activity, and activity a box hand-off, as in the Done Rule. */
 const STATUS_LABELS: readonly ((s: LiveStatus) => string | undefined)[] = [
   (s) => (s.awaiting ? `awaiting ${s.awaiting.reason}`.trim() : undefined),
   (s) => (s.isComposing ? "composing" : undefined),
@@ -56,6 +56,7 @@ const STATUS_LABELS: readonly ((s: LiveStatus) => string | undefined)[] = [
         ? `running (${s.activityTool})`
         : "running"
       : undefined,
+  (s) => (s.boxHandoff ? "awaiting box hand-off" : undefined),
   (s) => (s.hasRunningSubagents ? "subagents" : undefined),
 ];
 

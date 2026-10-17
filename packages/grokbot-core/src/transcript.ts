@@ -7,6 +7,10 @@ export type Seq = string & { readonly __brand: "Seq" };
 /** int64 transcript generation; bumps when a conversation is cleared. */
 export type Generation = string & { readonly __brand: "Generation" };
 
+/**
+ * send-message types that wait on the owner. The first six were seen live (14 Oct); the
+ * rest come from the GrokBot app 0.71.2 renderer, each with the open test it uses.
+ */
 export const CARD_TYPES = [
   "widget",
   "secret-request",
@@ -14,6 +18,13 @@ export const CARD_TYPES = [
   "local-tool-permission",
   "connector",
   "scm-connect",
+  "connector-grant",
+  "user-form",
+  "credential-request",
+  "virtual-card-approval",
+  "cookie-origin-approval",
+  "meeting-join-consent",
+  "mobile-tool-permission",
 ] as const;
 export type CardType = (typeof CARD_TYPES)[number];
 
@@ -186,21 +197,34 @@ function isCardType(type: string | undefined): type is CardType {
   return (CARD_TYPES as readonly (string | undefined)[]).includes(type);
 }
 
+const CREDENTIAL_SETTLED = new Set(["approved", "denied", "failed"]);
+
 /**
  * Row body fields that close a card. An answered widget gains `respondedValue`, a dismissed
- * one `widgetDismissed` (older rows `widgetSkipped`), a filled secret request `secretProvided`.
+ * one `widgetDismissed` (older rows `widgetSkipped`), a filled secret request `secretProvided`,
+ * a submitted or dismissed Secure Form `formResolution` or `widgetDismissed`. A credential
+ * request closes only on approved, denied or failed: "retryable" and "filling" stay open.
  */
-const CLOSED_BY_BODY: Partial<Record<CardType, readonly string[]>> = {
-  widget: ["respondedValue", "widgetDismissed", "widgetSkipped"],
-  "secret-request": ["secretProvided"],
-};
+const CLOSED_BY_BODY: Partial<Record<CardType, (body: JsonObject) => boolean>> =
+  {
+    widget: (body) =>
+      Boolean(body.respondedValue) ||
+      Boolean(body.widgetDismissed) ||
+      Boolean(body.widgetSkipped),
+    "secret-request": (body) => Boolean(body.secretProvided),
+    "user-form": (body) =>
+      (body.formResolution !== undefined && body.formResolution !== null) ||
+      body.widgetDismissed === true,
+    "credential-request": (body) =>
+      CREDENTIAL_SETTLED.has(readString(body, "credentialResolution") ?? ""),
+  };
 
 function isOpenCard(
   cardType: CardType,
   message: JsonObject,
   body: JsonObject,
 ): boolean {
-  if (CLOSED_BY_BODY[cardType]?.some((key) => Boolean(body[key]))) return false;
+  if (CLOSED_BY_BODY[cardType]?.(body)) return false;
   const holders = [message, ...Object.values(message).map(asJsonObject)];
   const status = holders
     .map((holder) => (holder ? readString(holder, "status") : undefined))

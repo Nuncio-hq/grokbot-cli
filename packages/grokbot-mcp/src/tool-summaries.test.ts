@@ -1,4 +1,10 @@
-import { IDLE_STATUS, type Seq, type TranscriptEntry } from "grokbot-core";
+import { Buffer } from "node:buffer";
+import {
+  IDLE_STATUS,
+  parseTranscriptEntries,
+  type Seq,
+  type TranscriptEntry,
+} from "grokbot-core";
 import { describe, expect, it } from "vitest";
 import { PRIMARY_TEST } from "./fixtures/mcp-session.js";
 import { summarize } from "./tool-summaries.js";
@@ -34,6 +40,57 @@ describe("summarize", () => {
       }),
     ).toBe(
       "3 agents:\n- Primary Test: idle\n- Staff Test: running (shell)\n- Test-Dev-1: awaiting owner (secret-request)",
+    );
+  });
+
+  it("shows a team member blocked on a box hand-off", () => {
+    expect(
+      summarize("team", {
+        members: [
+          {
+            agent: PRIMARY_TEST,
+            status: {
+              ...IDLE_STATUS,
+              boxHandoff: { requestId: "h-1", instruction: "Sign in to Xero" },
+            },
+          },
+        ],
+      }),
+    ).toBe(
+      "1 agent:\n- Primary Test: awaiting box hand-off (Take over the bot's computer: Sign in to Xero)",
+    );
+  });
+
+  it("names each blocking card and the hand-off when a job awaits the owner", () => {
+    const body = {
+      kind: "send-message",
+      message: {
+        type: "user-form",
+        formRequest: { title: "Address", fields: [] },
+      },
+    };
+    const row = {
+      seq: "4",
+      entryId: "t4s0",
+      entryKind: "send-message",
+      body: Buffer.from(JSON.stringify(body)).toString("base64"),
+    };
+    const cards = parseTranscriptEntries([row]).filter(
+      (e): e is Extract<TranscriptEntry, { kind: "card" }> => e.kind === "card",
+    );
+    const outcome = {
+      status: "awaiting-approval",
+      reason: "Take over the bot's computer: Sign in to Xero",
+      handoff: { requestId: "h-1", instruction: "Sign in to Xero" },
+      cards,
+    } as const;
+    expect(
+      summarize("ask", { jobId: "job-7", agent: PRIMARY_TEST, outcome }),
+    ).toBe(
+      "Primary Test is waiting for owner approval (Take over the bot's computer: Sign in to Xero).\n" +
+        "- box hand-off: Take over the bot's computer: Sign in to Xero (only the owner can answer this in the GrokBot app)\n" +
+        '- user-form: Secure Form "Address" (0 fields) (only the owner can answer this in the GrokBot app)\n' +
+        'Only the owner can answer this in the GrokBot app, then call grokbot_wait with {"job":"job-7"}.',
     );
   });
 
