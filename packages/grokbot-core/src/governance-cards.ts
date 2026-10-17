@@ -6,6 +6,7 @@ import {
   type CardType,
   compareSeq,
   parseTranscriptEntry,
+  positionalCardPassed,
   readString,
   type Seq,
 } from "./transcript.js";
@@ -102,13 +103,19 @@ function typed(type: CardType, message: JsonObject): CardBody {
   }
 }
 
-/** Open cards in raw ListGrokBotTranscriptEntries rows, oldest first. */
+/**
+ * Open cards in raw ListGrokBotTranscriptEntries rows, oldest first.
+ * A `connector` or `scm-connect` card has no closed field, so one with a later bot
+ * row has passed and is left out (see positionalCardPassed). Callers that want a
+ * still-blocking card of those two kinds see only one that is still the last bot row.
+ */
 export function openCards(rows: unknown): GovernanceCard[] {
   const list = Array.isArray(rows) ? rows : [];
+  const parsed = list.map(parseTranscriptEntry);
   const cards: GovernanceCard[] = [];
-  for (const row of list) {
-    const entry = parseTranscriptEntry(row);
+  for (const entry of parsed) {
     if (entry.kind !== "card" || !entry.open) continue;
+    if (positionalCardPassed(entry, parsed)) continue;
     cards.push({
       entryId: entry.entryId,
       seq: entry.seq,
