@@ -41,7 +41,12 @@ export interface WaitSessionConfig {
   readonly report: (verdict: DoneVerdict) => void;
   /** New rows (or newer versions) for the target arrived. */
   readonly onNewRows: () => void;
+  /** Clock for the subagent-list throttle. Defaults to `Date.now`. */
+  readonly now?: () => number;
 }
+
+/** Reuse a successful subagent list only while it is younger than this. */
+const SUBAGENT_READ_MIN_MS = 5_000;
 
 /** A finite number, or a proto int64 sent as a digit string. */
 function readMs(value: unknown): number | undefined {
@@ -80,6 +85,10 @@ export class WaitSession {
    * off, the list was not read, or the read failed.
    */
   #subagentStartedAtMs: readonly number[] | undefined;
+  /** `now()` of the last successful list. Undefined when there is nothing to reuse. */
+  #subagentListedAtMs: number | undefined;
+  /** Set while the previous status had `hasRunningSubagents`, so a rising edge reads at once. */
+  #subagentsWereRunning = false;
   #needsBacklog = true;
 
   constructor(config: WaitSessionConfig) {
@@ -146,16 +155,35 @@ export class WaitSession {
 
   /**
    * Stores a live status from a status read or a stream frame. While subagents
-   * run, also reads when each one started. A failed read leaves that list unknown.
+   * run, also reads when each one started. A rising edge reads at once; otherwise
+   * a successful list is reused for `SUBAGENT_READ_MIN_MS`. A failed read leaves
+   * that list unknown and is not reused.
    */
   async recordStatus(status: LiveStatus): Promise<void> {
     this.status = status;
     await this.#readSubagentStarts();
   }
 
+  #now(): number {
+    return this.#config.now?.() ?? Date.now();
+  }
+
   async #readSubagentStarts(): Promise<void> {
     if (!this.status.hasRunningSubagents) {
       this.#subagentStartedAtMs = undefined;
+      this.#subagentListedAtMs = undefined;
+      this.#subagentsWereRunning = false;
+      return;
+    }
+    const now = this.#now();
+    const rising = !this.#subagentsWereRunning;
+    this.#subagentsWereRunning = true;
+    const listedAt = this.#subagentListedAtMs;
+    if (
+      !rising &&
+      listedAt !== undefined &&
+      now - listedAt < SUBAGENT_READ_MIN_MS
+    ) {
       return;
     }
     const { server, signal } = this.#config;
@@ -168,10 +196,13 @@ export class WaitSession {
         ),
         signal,
       );
-      this.#subagentStartedAtMs = parseSubagentStartedAtMs(raw);
+      const started = parseSubagentStartedAtMs(raw);
+      this.#subagentStartedAtMs = started;
+      this.#subagentListedAtMs = started === undefined ? undefined : now;
     } catch (error) {
       if (signal.aborted || isFatal(error)) throw error;
       this.#subagentStartedAtMs = undefined;
+      this.#subagentListedAtMs = undefined;
     }
   }
 
