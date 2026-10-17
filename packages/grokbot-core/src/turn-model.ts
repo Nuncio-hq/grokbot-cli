@@ -24,6 +24,13 @@ export interface Turn {
   readonly openCards: readonly CardEntry[];
   /** Rows of the latest run after its last delegate reply or card: where the final reply lives. */
   readonly tail: readonly TranscriptEntry[];
+  /** Our echo's `timestampMs`: when this turn started. */
+  readonly startMs: number | undefined;
+  /**
+   * `timestampMs` of the owner's next message that is not linked to ours.
+   * Absent when no such message is in view, so the turn is still open.
+   */
+  readonly endMs: number | undefined;
   /** Set when one run may have answered our message together with another (see turn-sharing). */
   readonly sharedReason?: string;
 }
@@ -171,11 +178,17 @@ export function findTurn(
     return run === undefined || latestRuns.has(run);
   });
   const reason = sharedReason(shared, echo);
+  const nextOwner = cut < 0 ? undefined : after[cut];
   return {
     rows: turn,
     hasOpenDelegation: open.length > 0,
     openCards: cards.filter((c) => c.open && !resumed.has(c)),
     tail,
+    startMs: echo.timestampMs,
+    endMs:
+      nextOwner && isOwnerMessage(nextOwner)
+        ? nextOwner.timestampMs
+        : undefined,
     ...(reason !== undefined && { sharedReason: reason }),
   };
 }

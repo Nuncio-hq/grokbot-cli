@@ -1734,7 +1734,7 @@
    "notes": "Probe returned an empty object (none running). Related: live.hasRunningSubagents in ListGrokBotAgentStatuses.",
    "domain": "Bots and conversations",
    "rpc": "unary",
-   "used_by_cli": false
+   "used_by_cli": true
   },
   {
    "name": "MarkGrokBotAgentTaskDone",

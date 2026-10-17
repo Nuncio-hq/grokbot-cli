@@ -8,12 +8,14 @@ export function verdict(
   status: LiveStatus,
   sentMessageId = "m-1",
   busyAtSend?: ReadonlyMap<string, boolean>,
+  subagentStartedAtMs?: readonly number[],
 ) {
   return evaluateDoneRule({
     entries: parseTranscriptEntries(rows),
     sentMessageId,
     status,
     ...(busyAtSend && { busyAtSend }),
+    ...(subagentStartedAtMs !== undefined && { subagentStartedAtMs }),
   });
 }
 
@@ -26,8 +28,15 @@ export function summary(
   status: LiveStatus,
   sentMessageId = "m-1",
   busyAtSend?: ReadonlyMap<string, boolean>,
+  subagentStartedAtMs?: readonly number[],
 ): string {
-  const v = verdict(rows, status, sentMessageId, busyAtSend);
+  const v = verdict(
+    rows,
+    status,
+    sentMessageId,
+    busyAtSend,
+    subagentStartedAtMs,
+  );
   if (v.status === "running") return `running:${v.reason}`;
   if (v.status === "awaiting-approval") {
     return `awaiting-approval:${v.cards.map((c) => c.seq).join(",")}`;
