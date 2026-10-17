@@ -155,14 +155,55 @@ describe("Done Rule on connector and repo-connect cards", () => {
     ]);
   });
 
-  it("does not block on a passed card when live.awaiting is set", () => {
+  it("keeps the connector card blocking when a later reply exists and live.awaiting is set", () => {
+    const notion = sendMessageRow(
+      3,
+      { type: "connector", connector: "Notion", variant: "suggested" },
+      "r1",
+    );
+    const reply = textReplyRow(
+      4,
+      "I sent a connect card above; I'll continue once Notion is connected",
+      "r1",
+    );
     const awaiting: LiveStatus = {
       ...IDLE_STATUS,
-      awaiting: { reason: "Something else" },
+      awaiting: { reason: "Connect Notion" },
     };
-    expect(summary([echo, gmail, sent], awaiting, ID)).toBe(
-      "running:target-active",
+    const v = verdict([echo, notion, reply], awaiting, ID);
+    const card = v.status === "awaiting-approval" ? v.cards[0] : undefined;
+    expect(
+      v.status === "awaiting-approval" &&
+        card !== undefined && [
+          v.reason,
+          card.seq,
+          card.cardType,
+          describeCard(card.cardType, card.message),
+        ],
+    ).toEqual([
+      "Connect Notion",
+      "3",
+      "connector",
+      { text: "Connect Notion", ownerOnly: true },
+    ]);
+  });
+
+  it("keeps only the newest positional card while live.awaiting is set", () => {
+    const repo = sendMessageRow(
+      4,
+      { type: "scm-connect", provider: "github" },
+      "r1",
     );
+    const reply = textReplyRow(5, "Waiting on the repo.", "r1");
+    const awaiting: LiveStatus = {
+      ...IDLE_STATUS,
+      awaiting: { reason: "Connect a code host" },
+    };
+    const v = verdict([echo, gmail, repo, reply], awaiting, ID);
+    expect(
+      v.status === "awaiting-approval" &&
+        v.cards.map((c) => [c.seq, c.cardType]),
+    ).toEqual([["4", "scm-connect"]]);
   });
 
   it("treats a tool call or a later message as the card having passed", () => {
