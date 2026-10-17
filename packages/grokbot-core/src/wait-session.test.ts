@@ -221,3 +221,27 @@ describe("WaitSession throttles ListGrokBotSubagents", () => {
     expect(wait.settle()).toMatchObject({ status: "done", finalReply: "PONG" });
   });
 });
+
+describe("review probe: a subagent started for this turn inside the 5s window", () => {
+  it("stays running when a new subagent appears after the reply", async () => {
+    let now = 10_000;
+    let reads = 0;
+    const { server } = fakeServer({
+      calls: {
+        ListGrokBotSubagents: () => {
+          reads += 1;
+          const old = { subagentId: "old", startedAtMs: String(T - 60_000) };
+          const mine = { subagentId: "mine", startedAtMs: String(T + 1_000) };
+          return { subagents: reads === 1 ? [old] : [old, mine] };
+        },
+        ListGrokBotTranscriptEntries: [{ entries: [echo, reply] }],
+      },
+    });
+    const wait = session(server, undefined, () => now);
+    await wait.recordStatus(RUNNING); // flag already on from another turn
+    now += 2_000; // this turn starts a subagent; flag stays on, no rising edge
+    await wait.recordStatus(RUNNING);
+    await wait.readRows();
+    expect(wait.settle()).toMatchObject({ status: "running" });
+  });
+});
