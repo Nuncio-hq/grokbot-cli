@@ -122,7 +122,7 @@ grokbot deny --agent Researcher --yes
 grokbot wait "$job"                        # then resume the job
 ```
 
-Show the owner what the card asks before you approve or deny it. Answer a question widget yourself only with facts the owner gave you or the task settles; otherwise ask the owner. `approve --always` allows that action from then on, so use it only when the owner asks for it. With more than one open card, pass `--card <id>` from `approvals`.
+Show the owner what the card asks before you approve or deny it. Answer a question widget yourself only with facts the owner gave you or the task settles; otherwise ask the owner. `approve --always` allows that action from then on, so use it only when the owner asks for it. With more than one open card, pass `--card <id>` from `approvals`. `approve` refuses a phone call or a bot share, with or without `--yes` and with `--always`, because only the owner can answer those in the GrokBot app; `deny` can still refuse them.
 
 `grokbot` answers question widgets and resolves cloud-computer and Mac approvals. Exit 3 and `grokbot approvals` name every other blocking card and mark it "only the owner can answer this in the GrokBot app": secret requests, connector grants and connections, repo connections, Secure Forms, logins from 1Password or the vault, virtual-card purchases, use of the owner's browser logins, meeting consent, phone permissions, phone calls, bot shares and computer hand-offs. Tell the owner what the card asks and wait for them. macOS Messages access is asked on the owner's Mac and never shows as a card, so a bot stuck on an iMessage step keeps running: ask the owner to check the Mac.
 
