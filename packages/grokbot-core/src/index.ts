@@ -1,5 +1,5 @@
 export const GROKBOT_BACKEND = "https://api2.cursor.sh";
-export const GROKBOT_VERSION = "0.1.3";
+export const GROKBOT_VERSION = "0.1.4";
 
 export { type AgentRef, isSameAgent, parseAgentRef } from "./agent-ref.js";
 export {
