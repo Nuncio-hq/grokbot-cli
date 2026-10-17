@@ -82,11 +82,11 @@ async function until<T>(
 }
 
 /** Applies one event for the target; returns how the stream ends when this event ends it. */
-function apply(
+async function apply(
   session: WaitSession,
   event: StreamEvent,
   candidate: Candidate,
-): StreamEnd | undefined {
+): Promise<StreamEnd | undefined> {
   if (!("agentId" in event) || event.agentId !== session.agentId)
     return undefined;
   switch (event.type) {
@@ -95,7 +95,7 @@ function apply(
       candidate.drop();
       break;
     case "agent-state":
-      session.status = event.status;
+      await session.recordStatus(event.status);
       break;
     case "cleared":
       throw new GrokBotError(
@@ -146,7 +146,7 @@ export async function followStream(
         continue;
       }
       options.onEvent?.(next.value);
-      const end = apply(session, next.value, candidate);
+      const end = await apply(session, next.value, candidate);
       if (end) return end;
     }
   } finally {
