@@ -204,6 +204,12 @@ const CREDENTIAL_SETTLED = new Set(["approved", "denied", "failed"]);
  * one `widgetDismissed` (older rows `widgetSkipped`), a filled secret request `secretProvided`,
  * a submitted or dismissed Secure Form `formResolution` or `widgetDismissed`. A credential
  * request closes only on approved, denied or failed: "retryable" and "filling" stay open.
+ *
+ * `connector` and `scm-connect` are absent here on purpose. The app keys those cards only
+ * by what they ask (`connector:<variant>:<connector>`, `scm-connect:<provider>:<intent>:<reason>`);
+ * unlike approvals they carry no requestId or status that changes when the owner acts, so
+ * the row never records a closed state. They block by position instead (`positionalCardPassed`):
+ * only while the card is still the last bot row of the turn.
  */
 const CLOSED_BY_BODY: Partial<Record<CardType, (body: JsonObject) => boolean>> =
   {
@@ -284,6 +290,51 @@ function parseBody(body: JsonObject, base: EntryBase): TranscriptEntry {
 
 export type BlobEntry = Extract<TranscriptEntry, { kind: "blob" }>;
 export type CardEntry = Extract<TranscriptEntry, { kind: "card" }>;
+
+/**
+ * Cards with no field that ever closes them. The app addresses one by what it asks, not
+ * by a request id, so a later bot row is the only sign the owner is no longer holding
+ * the turn. See `positionalCardPassed`.
+ */
+export const POSITIONAL_CARD_TYPES = ["connector", "scm-connect"] as const;
+
+export function isPositionalCardType(
+  type: CardType,
+): type is (typeof POSITIONAL_CARD_TYPES)[number] {
+  return (POSITIONAL_CARD_TYPES as readonly CardType[]).includes(type);
+}
+
+/**
+ * A row the bot posted: a reply, another card, a message to the owner or to another
+ * bot, a tool call, or a reply stored as a blob. A user row is not one of these.
+ */
+function isBotActivity(entry: TranscriptEntry): boolean {
+  if (
+    entry.kind === "reply" ||
+    entry.kind === "card" ||
+    entry.kind === "assistant-message"
+  )
+    return true;
+  if (entry.kind === "blob" && entry.entryKind === "send-message") return true;
+  if (entry.entryKind === "tool-call") return true;
+  if (entry.kind !== "unknown") return false;
+  const raw = asJsonObject(entry.raw);
+  return raw !== undefined && readString(raw, "kind") === "tool-call";
+}
+
+/**
+ * True when a later bot row means this card has passed. Only `connector` and
+ * `scm-connect` work this way; every other kind closes by a field on its own row.
+ */
+export function positionalCardPassed(
+  card: CardEntry,
+  rows: readonly TranscriptEntry[],
+): boolean {
+  if (!isPositionalCardType(card.cardType)) return false;
+  return rows.some(
+    (row) => compareSeq(row.seq, card.seq) > 0 && isBotActivity(row),
+  );
+}
 
 /** Parses the downloaded body of a blob row as if it had come inline. */
 export function parseBlobBody(blob: BlobEntry, body: unknown): TranscriptEntry {
