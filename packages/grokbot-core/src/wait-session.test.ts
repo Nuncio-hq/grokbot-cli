@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { IDLE_STATUS, type LiveStatus } from "./agent-status.js";
 import type { ServerTransport } from "./contracts.js";
 import { GrokBotError } from "./contracts.js";
 import { fakeServer } from "./fixtures/fake-server.js";
@@ -16,9 +17,12 @@ const job = {
 const echo = userRow(10, "ping", { clientNonce: "m-1", timestampMs: T });
 const reply = textReplyRow(11, "PONG");
 
+const RUNNING: LiveStatus = { ...IDLE_STATUS, hasRunningSubagents: true };
+
 function session(
   server: ServerTransport,
   signal = new AbortController().signal,
+  now?: () => number,
 ) {
   return new WaitSession({
     server,
@@ -27,7 +31,12 @@ function session(
     backlogLimit: 50,
     report: () => {},
     onNewRows: () => {},
+    ...(now && { now }),
   });
+}
+
+function subagentReads(log: readonly { method: string }[]): number {
+  return log.filter((c) => c.method === "ListGrokBotSubagents").length;
 }
 
 describe("WaitSession lists subagents only while they run", () => {
@@ -135,5 +144,104 @@ describe("WaitSession lists subagents only while they run", () => {
       status: "running",
       reason: "subagents-active",
     });
+  });
+});
+
+describe("WaitSession throttles ListGrokBotSubagents", () => {
+  const listed = {
+    subagents: [{ subagentId: "s", startedAtMs: T }],
+  };
+
+  function listedServer() {
+    return fakeServer({ calls: { ListGrokBotSubagents: [listed] } });
+  }
+
+  it("reads once for several statuses within 5s", async () => {
+    let now = 10_000;
+    const { server, log } = listedServer();
+    const wait = session(server, undefined, () => now);
+    await wait.recordStatus(RUNNING);
+    now += 1_000;
+    await wait.recordStatus(RUNNING);
+    now += 3_999;
+    await wait.recordStatus(RUNNING);
+    expect(subagentReads(log)).toBe(1);
+  });
+
+  it("reads again once the last list is 5s old", async () => {
+    let now = 10_000;
+    const { server, log } = listedServer();
+    const wait = session(server, undefined, () => now);
+    await wait.recordStatus(RUNNING);
+    now += 5_000;
+    await wait.recordStatus(RUNNING);
+    expect(subagentReads(log)).toBe(2);
+  });
+
+  it("reads at once when the flag turns off and on again", async () => {
+    let now = 10_000;
+    const { server, log } = listedServer();
+    const wait = session(server, undefined, () => now);
+    await wait.recordStatus(RUNNING);
+    now += 100;
+    await wait.recordStatus(IDLE_STATUS);
+    now += 100;
+    await wait.recordStatus(RUNNING);
+    expect(subagentReads(log)).toBe(2);
+  });
+
+  it("retries a failed read on the next status and stays running while the list is unknown", async () => {
+    let fail = true;
+    const { server, log } = fakeServer({
+      calls: {
+        ListGrokBotSubagents: () => {
+          if (fail) {
+            fail = false;
+            throw new GrokBotError(
+              "http",
+              "ListGrokBotSubagents failed with HTTP 502",
+            );
+          }
+          return {
+            subagents: [{ subagentId: "s", startedAtMs: String(T - 10_000) }],
+          };
+        },
+        ListGrokBotTranscriptEntries: [{ entries: [echo, reply] }],
+      },
+    });
+    const wait = session(server, undefined, () => 10_000);
+    await wait.recordStatus(RUNNING);
+    await wait.readRows();
+    expect(wait.settle()).toMatchObject({
+      status: "running",
+      reason: "subagents-active",
+    });
+    await wait.recordStatus(RUNNING);
+    expect(subagentReads(log)).toBe(2);
+    expect(wait.settle()).toMatchObject({ status: "done", finalReply: "PONG" });
+  });
+});
+
+describe("review probe: a subagent started for this turn inside the 5s window", () => {
+  it("stays running when a new subagent appears after the reply", async () => {
+    let now = 10_000;
+    let reads = 0;
+    const { server } = fakeServer({
+      calls: {
+        ListGrokBotSubagents: () => {
+          reads += 1;
+          const old = { subagentId: "old", startedAtMs: String(T - 60_000) };
+          const mine = { subagentId: "mine", startedAtMs: String(T + 1_000) };
+          return { subagents: reads === 1 ? [old] : [old, mine] };
+        },
+        ListGrokBotTranscriptEntries: [{ entries: [echo, reply] }],
+      },
+    });
+    const wait = session(server, undefined, () => now);
+    await wait.recordStatus(RUNNING); // flag already on from another turn
+    now += 2_000; // this turn starts a subagent; flag stays on, no rising edge
+    await wait.recordStatus(RUNNING);
+    await wait.readRows();
+    expect(wait.settle()).toMatchObject({ status: "running" });
   });
 });

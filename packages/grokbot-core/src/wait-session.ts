@@ -41,7 +41,12 @@ export interface WaitSessionConfig {
   readonly report: (verdict: DoneVerdict) => void;
   /** New rows (or newer versions) for the target arrived. */
   readonly onNewRows: () => void;
+  /** Clock for the subagent-list throttle. Defaults to `Date.now`. */
+  readonly now?: () => number;
 }
+
+/** Reuse a successful subagent list only while it is younger than this. */
+const SUBAGENT_READ_MIN_MS = 5_000;
 
 /** A finite number, or a proto int64 sent as a digit string. */
 function readMs(value: unknown): number | undefined {
@@ -80,6 +85,12 @@ export class WaitSession {
    * off, the list was not read, or the read failed.
    */
   #subagentStartedAtMs: readonly number[] | undefined;
+  /** `now()` of the last successful list. Undefined when there is nothing to reuse. */
+  #subagentListedAtMs: number | undefined;
+  /** Set while the previous status had `hasRunningSubagents`, so a rising edge reads at once. */
+  #subagentsWereRunning = false;
+  /** True when the current status read the list, so a finish does not need another read. */
+  #subagentReadForStatus = false;
   #needsBacklog = true;
 
   constructor(config: WaitSessionConfig) {
@@ -126,7 +137,9 @@ export class WaitSession {
     );
     this.#needsBacklog = false;
     this.rows.generation = page.generation;
-    return this.addRows(page.entries);
+    const added = this.addRows(page.entries);
+    await this.confirmSubagentList();
+    return added;
   }
 
   async refreshStatus(): Promise<void> {
@@ -146,18 +159,46 @@ export class WaitSession {
 
   /**
    * Stores a live status from a status read or a stream frame. While subagents
-   * run, also reads when each one started. A failed read leaves that list unknown.
+   * run, also reads when each one started. A rising edge reads at once; otherwise
+   * a successful list is reused for `SUBAGENT_READ_MIN_MS`. A failed read leaves
+   * that list unknown and is not reused. A reused list is read again before a
+   * verdict other than running.
    */
   async recordStatus(status: LiveStatus): Promise<void> {
     this.status = status;
     await this.#readSubagentStarts();
+    await this.confirmSubagentList();
+  }
+
+  #now(): number {
+    return this.#config.now?.() ?? Date.now();
   }
 
   async #readSubagentStarts(): Promise<void> {
     if (!this.status.hasRunningSubagents) {
       this.#subagentStartedAtMs = undefined;
+      this.#subagentListedAtMs = undefined;
+      this.#subagentsWereRunning = false;
+      this.#subagentReadForStatus = true;
       return;
     }
+    const now = this.#now();
+    const rising = !this.#subagentsWereRunning;
+    this.#subagentsWereRunning = true;
+    const listedAt = this.#subagentListedAtMs;
+    if (
+      !rising &&
+      listedAt !== undefined &&
+      now - listedAt < SUBAGENT_READ_MIN_MS
+    ) {
+      this.#subagentReadForStatus = false;
+      return;
+    }
+    await this.#fetchSubagentStarts(now);
+  }
+
+  /** Reads the list, bypassing the throttle. A failed read stays unknown. */
+  async #fetchSubagentStarts(now: number): Promise<void> {
     const { server, signal } = this.#config;
     try {
       const raw = await abortable(
@@ -168,15 +209,29 @@ export class WaitSession {
         ),
         signal,
       );
-      this.#subagentStartedAtMs = parseSubagentStartedAtMs(raw);
+      const started = parseSubagentStartedAtMs(raw);
+      this.#subagentStartedAtMs = started;
+      this.#subagentListedAtMs = started === undefined ? undefined : now;
     } catch (error) {
       if (signal.aborted || isFatal(error)) throw error;
       this.#subagentStartedAtMs = undefined;
+      this.#subagentListedAtMs = undefined;
     }
+    this.#subagentReadForStatus = true;
   }
 
-  /** Evaluates the Done Rule; a running verdict is reported at once, others only by finish. */
-  settle(): DoneVerdict {
+  /**
+   * A cached list must not end the turn. When the Done Rule would return anything
+   * other than running while subagents are on and this status did not read the
+   * list, read it again and keep that result. Running verdicts stay throttled.
+   */
+  async confirmSubagentList(): Promise<void> {
+    if (!this.status.hasRunningSubagents || this.#subagentReadForStatus) return;
+    if (this.#evaluate().status === "running") return;
+    await this.#fetchSubagentStarts(this.#now());
+  }
+
+  #evaluate(): DoneVerdict {
     const entries = this.rows
       .entries()
       .map((e) =>
@@ -185,7 +240,7 @@ export class WaitSession {
     const { sentMessageId, busyAtSend } = this.#config.job;
     const { status } = this;
     const subagentStartedAtMs = this.#subagentStartedAtMs;
-    const verdict = evaluateDoneRule({
+    return evaluateDoneRule({
       entries,
       sentMessageId,
       status,
@@ -193,6 +248,11 @@ export class WaitSession {
       ...(status.hasRunningSubagents &&
         subagentStartedAtMs !== undefined && { subagentStartedAtMs }),
     });
+  }
+
+  /** Evaluates the Done Rule; a running verdict is reported at once, others only by finish. */
+  settle(): DoneVerdict {
+    const verdict = this.#evaluate();
     if (verdict.status === "running") this.#config.report(verdict);
     return verdict;
   }
@@ -202,9 +262,16 @@ export class WaitSession {
    * may show the blob belongs to another run, so the turn can go back to running.
    */
   async finish(verdict: SettledVerdict): Promise<DoneVerdict> {
+    const stale =
+      this.status.hasRunningSubagents && !this.#subagentReadForStatus;
+    await this.confirmSubagentList();
     const hash = "blobHash" in verdict ? verdict.blobHash : undefined;
-    let final: DoneVerdict = verdict;
-    if (hash !== undefined && !this.#blobReplies.has(hash)) {
+    let final: DoneVerdict = stale ? this.settle() : verdict;
+    if (
+      final.status !== "running" &&
+      hash !== undefined &&
+      !this.#blobReplies.has(hash)
+    ) {
       const blob = this.rows
         .entries()
         .find((e) => e.kind === "blob" && e.blobHash === hash);
