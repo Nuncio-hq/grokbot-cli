@@ -1,4 +1,9 @@
-import type { CommandOutputs } from "grokbot-core";
+import { Buffer } from "node:buffer";
+import {
+  type CommandOutputs,
+  createCommandRunner,
+  type ServerTransport,
+} from "grokbot-core";
 import { describe, expect, it } from "vitest";
 import {
   exchange,
@@ -22,6 +27,75 @@ const call = (id: number, name: string, args: unknown) => ({
   method: "tools/call",
   params: { name, arguments: args },
 });
+
+/** A pending phone-call auto-review row, shaped like the app's transcript. */
+function phoneCallRow() {
+  const body = {
+    kind: "send-message",
+    id: "t8",
+    message: {
+      type: "auto-review-approval",
+      approval: {
+        requestId: "ar-phone",
+        status: "pending",
+        summary: "place_phone_call",
+        summaryCopy: {
+          kind: "phone_call",
+          params: { destination: "+1 555 0100", request: "Book a table for 2" },
+        },
+      },
+    },
+    requestId: "req-phone",
+    timestampMs: 1,
+  };
+  return {
+    seq: "8",
+    updatedSeq: "8",
+    entryId: "entry-8",
+    entryKind: "send-message",
+    body: Buffer.from(JSON.stringify(body), "utf8").toString("base64"),
+  };
+}
+
+/** The real command runner over a fake server, so approve hits the safety check. */
+function phoneCallRunner() {
+  const methods: string[] = [];
+  const server: ServerTransport = {
+    async call(method) {
+      methods.push(method);
+      if (method === "ListGrokBotAgents") {
+        return {
+          agents: [
+            {
+              id: "1",
+              agentId: PRIMARY_TEST.agentId,
+              name: PRIMARY_TEST.name,
+              kind: "GROK_BOT_AGENT_KIND_AGENT",
+            },
+          ],
+        };
+      }
+      if (method === "ListGrokBotTranscriptEntries") {
+        return { entries: [phoneCallRow()] };
+      }
+      throw new Error(`unexpected RPC ${method}`);
+    },
+    stream() {
+      throw new Error("no stream");
+    },
+  };
+  return {
+    runner: createCommandRunner({
+      server,
+      gateway: {
+        async call() {
+          throw new Error("gateway must not be called");
+        },
+      },
+    }),
+    methods,
+  };
+}
 
 describe("governance MCP tools", () => {
   it("exposes hyphenated commands as grokbot_ tools with safety annotations", () => {
@@ -72,6 +146,29 @@ describe("governance MCP tools", () => {
           },
         },
       ],
+    ]);
+  });
+
+  it("returns an error when grokbot_approve is asked to allow a phone call", async () => {
+    const { runner, methods } = phoneCallRunner();
+    const [response] = await exchange(
+      runner,
+      call(1, "grokbot_approve", { agent: "Primary Test", yes: true }),
+    );
+    expect([
+      (response as { result: object }).result,
+      methods.includes("ResolveGrokBotAutoReviewApproval"),
+    ]).toEqual([
+      {
+        content: [
+          {
+            type: "text",
+            text: "Phone call to +1 555 0100: Book a table for 2: only the owner can answer this in the GrokBot app.",
+          },
+        ],
+        isError: true,
+      },
+      false,
     ]);
   });
 
