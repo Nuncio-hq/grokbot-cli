@@ -228,7 +228,7 @@ describe("governance commands in human mode", () => {
   });
 
   it("prints the worker plan, quoting only when needed, and lists registered computers", async () => {
-    const run = await runCli(["worker-plan", "--name", "Oscar's Mac"], {
+    const run = await runCli(["worker-plan", "--name", "Owner's Mac"], {
       outputs: {
         "worker-plan": {
           registered: ["example-mac"],
@@ -237,7 +237,7 @@ describe("governance commands in human mode", () => {
               "/opt/cursor-agent",
               "worker",
               "--name",
-              "Oscar's Mac",
+              "Owner's Mac",
               "start",
             ],
             envNames: ["AGENT_CLI_CREDENTIAL_STORE", "HOME"],
@@ -246,9 +246,9 @@ describe("governance commands in human mode", () => {
       },
     });
     expect([run.stdout, run.stderr, run.calls[0]?.input]).toEqual([
-      "/opt/cursor-agent worker --name 'Oscar'\\''s Mac' start\nenv: AGENT_CLI_CREDENTIAL_STORE HOME\n",
+      "/opt/cursor-agent worker --name 'Owner'\\''s Mac' start\nenv: AGENT_CLI_CREDENTIAL_STORE HOME\n",
       "Nothing started. $RUN_DIR is a fresh 0700 temp dir; token.fifo serves the token without writing it to disk.\nRegistered computers now: example-mac.\n",
-      { name: "Oscar's Mac", json: false },
+      { name: "Owner's Mac", json: false },
     ]);
   });
 });

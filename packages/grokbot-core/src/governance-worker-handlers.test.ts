@@ -21,7 +21,7 @@ describe("worker-plan", () => {
       ],
     });
     expect([
-      await run("worker-plan", { name: "oscar-mac", json: false }),
+      await run("worker-plan", { name: "example-mac", json: false }),
       events,
     ]).toEqual([
       {
@@ -35,7 +35,7 @@ describe("worker-plan", () => {
             "--data-dir",
             "$RUN_DIR/data",
             "--name",
-            "oscar-mac",
+            "example-mac",
             "start",
           ],
           envNames: [

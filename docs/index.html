@@ -134,7 +134,7 @@
           <div class="slab-tier-row">
             <span class="slab-tier-row__num">01</span>
             <span class="slab-tier-row__role">Chairman</span>
-            <div class="slab-tier-row__desc"><b>Oscar (You)</b> · Sets missions &amp; approvals from any host: a terminal, an agent runtime, or an app (such as <code>LilOS</code>) that integrates <code>grokbot</code> from outside.</div>
+            <div class="slab-tier-row__desc"><b>Owner (You)</b> · Sets missions &amp; approvals from any host: a terminal, an agent runtime, or an app (such as <code>LilOS</code>) that integrates <code>grokbot</code> from outside.</div>
           </div>
           <div class="slab-tier-row">
             <span class="slab-tier-row__num">02</span>
@@ -286,7 +286,7 @@
 
         <div class="isolation-item">
           <h4>Shared <code>/workspace</code> Hygiene · Enforced by <code>grokbot hire</code></h4>
-          <p>Default shell <code>pwd</code> is <code>/workspace</code> (holds <code>heardback</code>, <code>hb65</code>, <code>poteto</code>, <code>asc.py</code>). <code>grokbot hire &lt;slug&gt;</code> assigns each employee <code>/workspace/staff/&lt;slug&gt;/</code> + <code>/workspace/shared/</code>.</p>
+          <p>Default shell <code>pwd</code> is <code>/workspace</code> (holds the owner's project checkouts). <code>grokbot hire &lt;slug&gt;</code> assigns each employee <code>/workspace/staff/&lt;slug&gt;/</code> + <code>/workspace/shared/</code>.</p>
         </div>
       </div>
     </div>
@@ -312,7 +312,7 @@
             <span class="evo-tab__title">Playbook A · Grow Traffic &amp; Conversion</span>
             <span class="evo-tab__tag">Growth Loop</span>
           </div>
-          <p class="evo-tab__desc">CEO audits <code>oscarlehuu/heardback</code>, dispatches hook scraping and copy bots alongside a <code>bc-*</code> paywall PR agent, and gates quality before pinging you.</p>
+          <p class="evo-tab__desc">CEO audits <code>example-org/example-app</code>, dispatches hook scraping and copy bots alongside a <code>bc-*</code> paywall PR agent, and gates quality before pinging you.</p>
         </button>
 
         <button type="button" class="evo-tab" role="tab" aria-selected="false" data-evo-tab="venture">
@@ -348,7 +348,7 @@
         <!-- PANEL 1: PLAYBOOK A -->
         <div class="evo-canvas" data-evo-panel="growth">
           <div class="evo-canvas__head">
-            <h3>Playbook A · Grow Traffic &amp; Conversion (<code>heardback</code>)</h3>
+            <h3>Playbook A · Grow Traffic &amp; Conversion (<code>example-app</code>)</h3>
             <span class="tag tag--ok">4-Stage Execution</span>
           </div>
           <div class="arrakis-bars-grid">
@@ -359,7 +359,7 @@
               </div>
               <span class="arrakis-col__step">01 · CHAIRMAN</span>
               <h4>Mission Directive</h4>
-              <p><i>"Hey CEO, grow traffic and conversion for oscarlehuu/heardback."</i></p>
+              <p><i>"Hey CEO, grow traffic and conversion for example-org/example-app."</i></p>
             </div>
 
             <div class="arrakis-col">
@@ -801,7 +801,7 @@ packages/grokbot-mcp    <span class="c"># npm `grokbot-mcp@0.1.0`      · Thin s
           <span>13–14 Oct 2026 · Org Hierarchy</span>
         </div>
         <h3>Chairman (You) → CEO (Opus / Argon) → GrokBot 4.7 Staff &amp; <code>bc-*</code></h3>
-        <p>You give business outcomes ("grow conversion on <code>heardback</code>", "clone niche X + ads"). Your CEO decides <i>Do vs. Delegate</i>, writes tight SOPs for Grok 4.7 employees and <code>bc-*</code> cloud coding agents, and audits their output before reporting to you.</p>
+        <p>You give business outcomes ("grow conversion on <code>example-app</code>", "clone niche X + ads"). Your CEO decides <i>Do vs. Delegate</i>, writes tight SOPs for Grok 4.7 employees and <code>bc-*</code> cloud coding agents, and audits their output before reporting to you.</p>
         <div class="adr-item__not"><b>Not:</b> Chairman micro-managing individual GrokBot bots directly.</div>
       </article>
 
@@ -1065,7 +1065,7 @@ packages/grokbot-mcp    <span class="c"># npm `grokbot-mcp@0.1.0`      · Thin s
         <ol class="gov-list gov-list--questions">
           <li><div><b>Mac permission bug.</b> Execution on Local Computer is set to "Always allow" for now because "Ask every time" fails on Allow in GrokBot itself. Revisit once GrokBot patches it.</div></li>
           <li><div><b>Shared <code>/workspace</code> hygiene.</b> Since all bots run as user <code>box</code> in <code>/workspace</code>, enforcing <code>/workspace/staff/&lt;bot-slug&gt;/</code> in <code>grokbot hire</code> keeps them clean. Confirm if any stronger OS chroot/namespace is ever needed.</div></li>
-          <li><div><b>First Department Roster.</b> Which 3–4 permanent GrokBot specialist bots to hire first for <code>heardback</code> &amp; new app/ad cloning (e.g., <code>Market-Scout</code>, <code>Ad-Cloner</code>, <code>Growth-Copy</code>, <code>Release-QA</code>).</div></li>
+          <li><div><b>First Department Roster.</b> Which 3–4 permanent GrokBot specialist bots to hire first for <code>example-app</code> &amp; new app/ad cloning (e.g., <code>Market-Scout</code>, <code>Ad-Cloner</code>, <code>Growth-Copy</code>, <code>Release-QA</code>).</div></li>
           <li><div><b>Manager routing.</b> Whether the CEO dispatches through the main "Grok Bot" manager or messages specialist bots directly via <code>grokbot send --agent &lt;role&gt;</code>.</div></li>
           <li><div><b>Subscription limits.</b> How many concurrent Temporal bots and <code>bc-*</code> cloud agents the GrokBot subscription includes before extra charges apply.</div></li>
           <li><div><b>Long cloud-agent jobs.</b> Confirm how <code>ListGrokBotAgentStatuses</code> behaves while a <code>bc-*</code> cloud coding agent works for 10+ minutes.</div></li>
@@ -1138,7 +1138,7 @@ packages/grokbot-mcp    <span class="c"># npm `grokbot-mcp@0.1.0`      · Thin s
               <span class="fact-row__num">06</span>
               <div>
                 <div class="fact-row__head"><h4>Cloud Agents &amp; Capabilities</h4><span class="fact-row__proof">GetGrokBotRuntimeCapabilities</span></div>
-                <p>Grok Bot already briefs Cursor Cloud Agents (<code>bc-*</code>; opened PR #65 on HeardBack in 11.5 min). Account has <code>agentMessagingEnabled</code> &amp; <code>serverRoomsEnabled</code> on. <code>ListGrokBotAgentStatuses</code> tracks running/idle/tool accurately; <code>ListGrokBotAgentTasks</code> stays empty.</p>
+                <p>Grok Bot already briefs Cursor Cloud Agents (<code>bc-*</code>; opened a PR on a private app repo in 11.5 min). Account has <code>agentMessagingEnabled</code> &amp; <code>serverRoomsEnabled</code> on. <code>ListGrokBotAgentStatuses</code> tracks running/idle/tool accurately; <code>ListGrokBotAgentTasks</code> stays empty.</p>
               </div>
             </div>
             <div class="fact-row">
@@ -1317,7 +1317,7 @@ packages/grokbot-mcp    <span class="c"># npm `grokbot-mcp@0.1.0`      · Thin s
             <li><time>14 Oct 2026</time><p><b>Installed <code>rea-agents@6.4.0</code> (<code>morluto/rea</code>): global CLI + global skill + project-local MCP.</b> Installed <code>rea</code> CLI globally (<code>/opt/homebrew/bin/rea</code>), installed the <code>reverse-engineer-anything</code> skill across <code>~/.claude/skills</code>, <code>~/.hermes/skills</code>, <code>~/.agents/skills</code>, and Cursor's user store, and registered the MCP server (170 tools, verified with <code>rea mcp doctor</code>) locally in this project (<code>.cursor/mcp.json</code> and <code>.mcp.json</code>) so other projects have zero MCP context bloat.</p></li>
             <li><time>14 Oct 2026</time><p><b>Claimed <code>grokbot-core</code> and <code>grokbot-mcp</code> on npm; renamed CLI package to <code>grokbotagent-cli</code> and inspected <code>ScriptedAlchemy/grok-bot-cli</code> (MIT).</b> <code>grokbot-core@0.1.0</code> and <code>grokbot-mcp@0.1.0</code> are live on npm. Because <code>grok-bot-cli</code> already existed on npm, the CLI package in <code>packages/grokbot-cli</code> was set to <code>grokbotagent-cli</code> (still installing the <code>grokbot</code> binary). Inspecting <code>ScriptedAlchemy/grok-bot-cli</code> revealed that the Cloud Box exposes a direct gateway API (<code>&lt;gatewayUrl&gt;/api/&lt;method&gt;</code> via <code>~/Library/Application Support/Grok Bot/gateway-descriptor.json</code> or <code>EnsureSandBox</code>) supporting <code>updateAgent</code>, <code>setAgentNotifyOnUpdates</code>, <code>setAgentHiddenFromSidebar</code>, and box-wide skill library management (<code>getAgentWorkflows</code>, <code>importAgentWorkflowText</code>, <code>deleteAgentWorkflow</code>) even on private bots.</p></li>
             <li><time>14 Oct 2026</time><p><b>Re-organised the repo into an open-source Bun monorepo (MIT, <code>Nuncio-hq/grokbot-cli</code>) with 3 publish-ready npm packages.</b> Set up <code>package.json</code> (Bun workspaces + <code>bun run verify</code> gate), <code>.bun-version</code> (1.4.2), <code>biome.json</code>, <code>tsconfig.base.json</code>, <code>LICENSE</code> (MIT), <code>.gitignore</code>, <code>.github/workflows/verify.yml</code>, and <code>packages/{grokbot-core,grokbot-cli,grokbot-mcp}</code>. Verified zero warnings on <code>bun run verify</code> and <code>npm publish --dry-run</code> for all three packages.</p></li>
-            <li><time>14 Oct 2026</time><p><b>Aligned on the AI Company Factory architecture (LilOS + Grokbot-cli + Paperclip).</b> Inspected <code>Nuncio-hq/LilOS</code> and <code>paperclipai/paperclip</code> (plus <code>hermes-paperclip-adapter</code>). Agreed with the owner to: (1) build <code>grokbot-core</code> + <code>grokbot</code> CLI/Skill + thin <code>grokbot-mcp</code> from one tool catalog in Phase 1; (2) use <b>LilOS</b> as the Superapp UI instead of building a duplicate web/desktop/mobile app from scratch; (3) adopt Paperclip's Goal Ancestry &amp; Factory Playbooks for missions like growing <code>oscarlehuu/heardback</code> or cloning niches/ads. <i>Later the same day the owner narrowed (2): this repo stays standalone and LilOS integrates from its own repo (see ADR 01).</i></p></li>
+            <li><time>14 Oct 2026</time><p><b>Aligned on the AI Company Factory architecture (LilOS + Grokbot-cli + Paperclip).</b> Inspected <code>Nuncio-hq/LilOS</code> and <code>paperclipai/paperclip</code> (plus <code>hermes-paperclip-adapter</code>). Agreed with the owner to: (1) build <code>grokbot-core</code> + <code>grokbot</code> CLI/Skill + thin <code>grokbot-mcp</code> from one tool catalog in Phase 1; (2) use <b>LilOS</b> as the Superapp UI instead of building a duplicate web/desktop/mobile app from scratch; (3) adopt Paperclip's Goal Ancestry &amp; Factory Playbooks for missions like growing <code>example-org/example-app</code> or cloning niches/ads. <i>Later the same day the owner narrowed (2): this repo stays standalone and LilOS integrates from its own repo (see ADR 01).</i></p></li>
             <li><time>14 Oct 2026</time><p><b>Checked how bots share the cloud computer, on Primary Test and Staff Test (read-only).</b> Both run as user <code>box</code> (uid 1000) with default <code>pwd</code> <code>/workspace</code> and <code>HOME=/home/box</code>. Each bot has its own X11 display slot in <code>/home/box/.sand-window-assignments.json</code> (up to <code>SAND_BOX_MAX_WINDOWS=100</code>; Grok Bot is <code>:2</code>, Primary Test <code>:3</code>, Staff Test <code>:4</code>), which confirms <code>EnsureSandBoxWindow</code>, and its own folder at <code>/home/box/agent-data/agents/&lt;agentId&gt;/</code> (<code>assets</code>, <code>attachments</code>, <code>automations</code>, <code>profile.json</code>, <code>settings.json</code>, <code>store.db</code>).</p></li>
             <li><time>14 Oct 2026</time><p><b>Tested approval cards, with the owner's OK to switch permissions off and back on.</b> Removed the Auto-review allow rule (restored exactly after, checked by re-reading). Cloud-computer cards: deny, approve and always all work from the CLI. The owner set the Mac to "Ask every time"; Mac cards: deny works, allow fails in GrokBot (the owner's own click in the app failed the same way). Found the Mac setting in <code>~/.grokbot/settings.json</code>; set it back to <code>always</code> at the owner's request and restarted the GrokBot app (all bots idle) so it took effect; verified with an <code>echo</code>. This corrects the earlier reading that a saved "always" rule explained the 44 ms run: Auto-review simply let that command through.</p></li>
             <li><time>14 Oct 2026</time><p><b>Tested the app actions the CLI could take over</b>, on Primary Test and Staff Test only; results in <a href="#cli-tests">the Capabilities Matrix</a>. Works: live stream, question cards, secret cards (dummy value), routines pause/resume/delete, bot-to-bot messages, rooms, bot delete, interrupt, read/unread/mute. Refused: skill API on private bots (on <code>api2.cursor.sh</code>), start fresh and roll back on healthy chats. Not proven: connector cards and drafts. Found that all bots share one cloud computer and that bots ran a flagged <code>sudo rm -rf</code> (harmless path) and a command on this Mac with no card. Everything created was removed (a test routine, a test skill, a room, a throwaway bot); one dummy environment variable, <code>TEST_DUMMY_TOKEN</code>, stays on the cloud computer. 27 methods updated in the JSON.</p></li>
