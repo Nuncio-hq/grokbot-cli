@@ -13,7 +13,7 @@
   var cliOutEl = document.querySelector("[data-cli-out]");
   var cliExamples = {
     ask: {
-      cmd: 'grokbot ask "Grow conversion for oscarlehuu/heardback" --timeout 600',
+      cmd: 'grokbot ask "Grow conversion for example-org/example-app" --timeout 600',
       out: "→ Dispatched via WatchGrokBotTranscripts (0 token wait) · Done Rule verified in 16.8s"
     },
     hire: {

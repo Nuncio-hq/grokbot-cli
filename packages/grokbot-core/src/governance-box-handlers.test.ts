@@ -20,7 +20,7 @@ describe("computers", () => {
               machineId: "m-1",
               lastSeenAtMs: "1791948600000",
               hello: {
-                label: "Oscar's Mac",
+                label: "Owner's Mac",
                 kind: "desktop",
                 capabilities: {
                   messagesOp: true,
@@ -37,7 +37,7 @@ describe("computers", () => {
       computers: [
         {
           machineId: "m-1",
-          label: "Oscar's Mac",
+          label: "Owner's Mac",
           kind: "desktop",
           lastSeenAtMs: "1791948600000",
           capabilities: ["aiToolSetup", "messagesOp"],
