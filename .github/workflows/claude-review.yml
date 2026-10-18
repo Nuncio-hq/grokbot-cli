@@ -1,0 +1,47 @@
+name: Claude review
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    # Same-repo, non-draft PRs only: forks get no secrets, and drafts are not ready.
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            Review this pull request to grokbot-cli. The PR branch is checked out.
+            Read AGENTS.md first and check the change against its hard rules: public repo,
+            so no secrets, private names or URLs; no Markdown files except the shipped
+            SKILL.md; a dated entry in the docs/index.html log; conventional commits.
+
+            Look for correctness problems first: races, a Done Rule verdict that can finish
+            too early or wait forever, error paths, and behaviour the PR claims but no test
+            covers. Then safety tags and security. Skip style points Biome already checks.
+
+            For each real problem give a concrete failing scenario, as an inline comment on
+            the line. Then post one top-level summary with gh pr comment that ends with
+            "Verdict: approve" or "Verdict: changes requested". Post only GitHub comments.
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
