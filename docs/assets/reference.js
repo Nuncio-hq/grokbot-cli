@@ -57,9 +57,9 @@
     "2": {
       title: "Grok Bot (Primary Manager)",
       port: "DISPLAY :2",
-      uuid: "00000000-0000-4000-8000-000000000000",
+      uuid: "<main bot agentId>",
       state: "IDLE · READY",
-      datadir: "/home/box/agent-data/agents/00000000-…/",
+      datadir: "/home/box/agent-data/agents/<id>/",
       workdir: "/workspace/staff/grok-manager/",
       desc: "Primary account manager bot with dedicated X11 GUI desktop, browser, and mouse. Coordinates specialist bots via SendToAgent and spawns bc-* Cursor Cloud Agents on GitHub repos.",
       led: 1

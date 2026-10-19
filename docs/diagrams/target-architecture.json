@@ -5,12 +5,12 @@
  "boundaries": [
   {"id": "consumers", "label": "Any consumer (outside this repo)", "role": "trust-boundary", "components": ["owner", "runtime", "hostapp"]},
   {"id": "repo", "label": "This repo (npm packages)", "role": "trust-boundary", "components": ["cli", "mcp", "core"]},
-  {"id": "grok", "label": "GrokBot cloud (owner's subscription)", "role": "cloud", "components": ["api", "box", "employees", "cloudagents"]}
+  {"id": "grok", "label": "GrokBot cloud (your account)", "role": "cloud", "components": ["api", "box", "employees", "cloudagents"]}
  ],
  "components": [
   {"id": "owner", "label": "Owner terminal", "description": "Human at a shell", "role": "frontend", "layer": 0},
-  {"id": "runtime", "label": "Agent runtime", "description": "Claude Code / Hermes / Codex", "role": "worker", "layer": 0},
-  {"id": "hostapp", "label": "Host apps", "description": "e.g. LilOS, scripts", "role": "frontend", "layer": 0},
+  {"id": "runtime", "label": "Agent runtime", "description": "Any runtime, CLI or MCP", "role": "worker", "layer": 0},
+  {"id": "hostapp", "label": "Host apps", "description": "apps, scripts, CI", "role": "frontend", "layer": 0},
   {"id": "cli", "label": "grokbot CLI", "description": "grokbotagent-cli + SKILL.md", "role": "gateway", "layer": 1},
   {"id": "mcp", "label": "grokbot-mcp", "description": "stdio MCP server", "role": "gateway", "layer": 1},
   {"id": "core", "label": "grokbot-core", "description": "auth, RPC, Done Rule, jobs", "role": "auth", "layer": 2},

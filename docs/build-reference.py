@@ -201,7 +201,7 @@ PAGE = f"""<!DOCTYPE html>
 <span class="c"># recent transcript, or stop the current run</span>
 <span class="p">$ </span>grokbot tail -n 20 --agent &lt;agentId&gt;
 <span class="p">$ </span>grokbot interrupt --agent &lt;agentId&gt;</code></pre></div>
-    <p class="small muted" style="margin-top: var(--space-3);"><code>ask</code> and <code>wait</code> return once the Done Rule settles, delegations included. Exit 3 means a card awaits the owner (<code>grokbot approvals</code>); exit 4 means the wait timed out and <code>grokbot wait &lt;job&gt;</code> resumes it. For Claude Code, Hermes, Codex, or Cursor, copy <code>skills/grokbot/SKILL.md</code> from the installed package (<code>$(npm root -g)/grokbotagent-cli</code>) into the agent's skills folder. The legacy Python <code>./grokbot</code> stays in the repo; the request lifecycle below describes it.</p>
+    <p class="small muted" style="margin-top: var(--space-3);"><code>ask</code> and <code>wait</code> return once the Done Rule settles, delegations included. Exit 3 means a card awaits the owner (<code>grokbot approvals</code>); exit 4 means the wait timed out and <code>grokbot wait &lt;job&gt;</code> resumes it. For any agent runtime that loads skills (Claude Code, Codex, Cursor, Hermes and others), copy <code>skills/grokbot/SKILL.md</code> from the installed package (<code>$(npm root -g)/grokbotagent-cli</code>) into the agent's skills folder. The legacy Python <code>./grokbot</code> stays in the repo; the request lifecycle below describes it.</p>
   </section>
 
   <section class="block" id="how" aria-labelledby="how-title">
