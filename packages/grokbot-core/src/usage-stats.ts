@@ -1,6 +1,7 @@
 import { parseListAgentsResponse } from "./agents.js";
 import type { ServerTransport } from "./contracts.js";
 import type { JobStore } from "./job-store.js";
+import { mapBounded } from "./map-bounded.js";
 import { parseEntriesResponse } from "./transcript.js";
 import { isOwnerMessage } from "./turn-sharing.js";
 import type { UsageEvent } from "./usage-log.js";
@@ -77,6 +78,9 @@ export interface BotMessageCount {
 /** Rows read per bot: enough for recent weeks without paging. */
 const ROWS_PER_BOT = 200;
 
+/** Bots whose transcripts are read at once. */
+const PARALLEL_READS = 6;
+
 /**
  * How many owner messages each bot got since `sinceMs`, split by where they came from.
  * A message sent through grokbot carries the job's id as its clientNonce. The rest were
@@ -99,8 +103,7 @@ export async function ownerMessageCounts({
     await server.call("ListGrokBotAgents", {}, { signal }),
   );
   const ours = new Set((await jobs.list()).map((j) => j.sentMessageId));
-  const counts: BotMessageCount[] = [];
-  for (const agent of agents) {
+  return mapBounded(agents, PARALLEL_READS, async (agent) => {
     const page = parseEntriesResponse(
       await server.call(
         "ListGrokBotTranscriptEntries",
@@ -115,7 +118,6 @@ export async function ownerMessageCounts({
       if (e.clientNonce !== undefined && ours.has(e.clientNonce)) viaGrokbot++;
       else other++;
     }
-    counts.push({ bot: agent.name, viaGrokbot, other });
-  }
-  return counts;
+    return { bot: agent.name, viaGrokbot, other };
+  });
 }

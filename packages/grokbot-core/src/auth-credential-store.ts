@@ -78,6 +78,10 @@ export function credentialStore(
     );
   };
 
+  // Attributes only (no -w): never shows a dialog, never reads the token.
+  const readAttributes = () =>
+    run(["find-generic-password", "-a", ACCOUNT, "-s", SERVICE]);
+
   const addLine = (value: string, mode: KeychainAccess, update: boolean) => {
     const line = addItemLine(
       { account: ACCOUNT, service: SERVICE },
@@ -98,17 +102,17 @@ export function credentialStore(
     async load() {
       if (!onMac) return undefined;
       if (cached) return cached;
-      const mode = (await store.itemAccess()) ?? "silent";
+      const attributes = await readAttributes();
+      // No item, or no `security` at all: nobody ran grokbot login, so use the app.
+      if (isAbsent(attributes.code)) return undefined;
+      const mode = itemAccessIn(attributes) ?? "silent";
       const { code, stdout } = await readValue(mode);
       if (code === 0) {
         const pair = decode(stdout.trim());
         if (mode === "prompt") cached = pair;
         return pair;
       }
-      // Not found, or no `security` at all: nobody ran grokbot login, so use the app.
-      if (code === SECURITY_NOT_FOUND || code === SECURITY_NOT_RUNNABLE) {
-        return undefined;
-      }
+      if (isAbsent(code)) return undefined;
       // Denied, timed out, or locked is not "signed out": falling back would switch account.
       throw new GrokBotError(
         "auth",
@@ -153,15 +157,7 @@ export function credentialStore(
 
     async itemAccess() {
       if (!onMac) return undefined;
-      // Attributes only (no -w): never shows a dialog, never reads the token.
-      const { code, stdout } = await run([
-        "find-generic-password",
-        "-a",
-        ACCOUNT,
-        "-s",
-        SERVICE,
-      ]);
-      return code === 0 ? itemAccessOf(stdout) : undefined;
+      return itemAccessIn(await readAttributes());
     },
 
     async setAccess(next) {
@@ -221,3 +217,14 @@ function decode(value: string): TokenPair | undefined {
     return undefined;
   }
 }
+
+const isAbsent = (code: number | null) =>
+  code === SECURITY_NOT_FOUND || code === SECURITY_NOT_RUNNABLE;
+
+const itemAccessIn = ({
+  code,
+  stdout,
+}: {
+  readonly code: number | null;
+  readonly stdout: string;
+}) => (code === 0 ? itemAccessOf(stdout) : undefined);

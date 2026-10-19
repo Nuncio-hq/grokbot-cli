@@ -26,10 +26,13 @@ import {
   readAcceptance,
   readResolve,
 } from "./governance-resolutions.js";
+import { mapBounded } from "./map-bounded.js";
 import { asJsonObject } from "./transcript.js";
 
 /** Recent rows read per agent: enough to reach a card left open a few turns back. */
 const CARD_WINDOW = 50;
+/** Agents whose transcripts are read at once. */
+const PARALLEL_READS = 6;
 
 async function cardsOf(
   ctx: RunnerContext,
@@ -49,10 +52,11 @@ export async function listApprovals(
   agentFlag: string | undefined,
   signal?: AbortSignal,
 ): Promise<GovernanceOutputs["approvals"]> {
-  const all = await ctx.fetchAgents(signal);
   const agents =
     agentFlag === undefined
-      ? all.filter((agent) => agent.kind === "agent")
+      ? (await ctx.fetchAgents(signal)).filter(
+          (agent) => agent.kind === "agent",
+        )
       : [await ctx.target(agentFlag, signal)];
   if (agents.length === 0) return { agents: [] };
   const statuses = parseAgentStatusesResponse(
@@ -62,16 +66,19 @@ export async function listApprovals(
       { signal },
     ),
   );
-  const rows: AgentCards[] = [];
-  for (const agent of agents) {
-    const status = statuses.get(agent.agentId);
-    rows.push({
-      agent,
-      awaiting: status?.awaiting?.reason ?? null,
-      handoff: status?.boxHandoff ?? null,
-      cards: await cardsOf(ctx, agent, signal),
-    });
-  }
+  const rows: AgentCards[] = await mapBounded(
+    agents,
+    PARALLEL_READS,
+    async (agent) => {
+      const status = statuses.get(agent.agentId);
+      return {
+        agent,
+        awaiting: status?.awaiting?.reason ?? null,
+        handoff: status?.boxHandoff ?? null,
+        cards: await cardsOf(ctx, agent, signal),
+      };
+    },
+  );
   return {
     agents: rows.filter(
       (row) => row.cards.length > 0 || row.awaiting || row.handoff,

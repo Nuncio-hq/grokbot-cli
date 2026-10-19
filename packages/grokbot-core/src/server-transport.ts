@@ -8,6 +8,7 @@ import {
   type JsonObject,
   type ServerTransport,
 } from "./contracts.js";
+import { createHttp2Fetch } from "./http2-fetch.js";
 import {
   assertDashboardMethodAllowed,
   assertMethodAllowed,
@@ -20,6 +21,15 @@ export const BACKEND_URL = "https://api2.cursor.sh";
 export type BackendService = "GrokBotService" | "DashboardService";
 
 export type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
+
+let backendFetch: FetchLike | undefined;
+
+/** Backend calls share one HTTP/2 connection per process; other hosts use global fetch. */
+const defaultFetch: FetchLike = (url, init) => {
+  if (!url.startsWith(`${BACKEND_URL}/`)) return globalThis.fetch(url, init);
+  backendFetch ??= createHttp2Fetch();
+  return backendFetch(url, init);
+};
 
 export interface ServerTransportOptions {
   /** Called before every request. The transport never keeps the token. */
@@ -50,7 +60,7 @@ const MAX_ERROR_BODY_CHARS = 300;
 
 export function createServerTransport({
   getToken,
-  fetch = (url, init) => globalThis.fetch(url, init),
+  fetch = defaultFetch,
   baseUrl = BACKEND_URL,
   userAgent = "grokbot-core",
   service = "GrokBotService",
