@@ -24,7 +24,10 @@ export type SignInInfo =
   | { readonly source: "none" };
 
 export interface TokenSource {
-  /** A valid access token, refreshed when near expiry. Read fresh per call; never cached by callers. */
+  /**
+   * A valid access token, refreshed when near expiry. Kept in memory for up to
+   * TOKEN_REUSE_MS so a burst of calls reads the Keychain once; never written anywhere.
+   */
   getToken(): Promise<string>;
   describe(): Promise<SignInInfo>;
 }
@@ -38,6 +41,12 @@ export interface TokenSourceOptions {
   readonly refresh?: (refreshToken: string) => Promise<TokenPair>;
   readonly now?: () => number;
 }
+
+/**
+ * How long one resolved token serves later calls. Short, so a long-lived host (the MCP
+ * server) sees a login, logout, or app account switch within a minute.
+ */
+export const TOKEN_REUSE_MS = 60_000;
 
 /**
  * Order: the CLI's own `grokbot login` sign-in (refreshed when near expiry), else the
@@ -62,6 +71,7 @@ export function createTokenSource(
     now = Date.now,
   } = options;
   let inFlight: Promise<string> | undefined;
+  let reused: { readonly token: string; readonly until: number } | undefined;
 
   const stillValid = (accessToken: string) => {
     const expiresAt = tokenExpiresAt(accessToken);
@@ -116,9 +126,17 @@ export function createTokenSource(
 
   return {
     getToken() {
-      inFlight ??= resolve().finally(() => {
-        inFlight = undefined;
-      });
+      if (reused && now() < reused.until && !needsRefresh(reused.token, now))
+        return Promise.resolve(reused.token);
+      reused = undefined;
+      inFlight ??= resolve()
+        .then((token) => {
+          reused = { token, until: now() + TOKEN_REUSE_MS };
+          return token;
+        })
+        .finally(() => {
+          inFlight = undefined;
+        });
       return inFlight;
     },
     async describe() {
