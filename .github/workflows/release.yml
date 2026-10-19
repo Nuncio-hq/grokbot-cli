@@ -1,0 +1,134 @@
+name: Release
+
+# Runs only when started by hand on main: Actions > Release > Run workflow, or
+# gh workflow run release.yml -f bump=patch [-f dry_run=true]
+# Publishes through npm trusted publishing (OIDC), so no npm token is stored anywhere.
+# Each package's trusted publisher on npmjs.com must name this file: release.yml.
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version bump. none = release the version already on main (retry after a failed publish)."
+        type: choice
+        options: [patch, minor, major, none]
+        default: patch
+      dry_run:
+        description: "Bump, verify and pack only: no push, no npm publish, no GitHub release."
+        type: boolean
+        default: false
+
+permissions:
+  contents: write # push the release commit and tag, create the GitHub release
+  id-token: write # npm trusted publishing and provenance
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Use npm 11.5.1 or later (needed for trusted publishing)
+        run: npm install -g npm@^11.5.1
+      - run: bun install --frozen-lockfile
+
+      - name: Set the version
+        id: version
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: bun packages/grokbot-core/scripts/set-release-version.ts "$BUMP" >> "$GITHUB_OUTPUT"
+      - name: Stop if a new version is already on npm
+        if: ${{ inputs.bump != 'none' }}
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          for name in grokbot-core grokbotagent-cli grokbot-mcp; do
+            if npm view "$name@$VERSION" version >/dev/null 2>&1; then
+              echo "::error::$name@$VERSION is already on npm. Pick another bump."; exit 1
+            fi
+          done
+      - name: Update bun.lock
+        run: bun install
+      - run: bun run verify
+
+      - name: Commit and tag
+        id: tag
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          unexpected=$(git status --porcelain | grep -vE '^ M (packages/grokbot-(core|cli|mcp)/package\.json|packages/grokbot-core/src/index\.ts|bun\.lock)$' || true)
+          if [ -n "$unexpected" ]; then
+            echo "::error::The version bump changed unexpected files:"; echo "$unexpected"; exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet; then git commit -am "chore(release): version packages $VERSION"; fi
+          if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null; then
+            # A retry (bump none) must publish exactly the commit that was tagged.
+            git fetch --quiet --depth=1 origin "refs/tags/v$VERSION:refs/tags/v$VERSION"
+            if [ "$(git rev-parse "v$VERSION^{commit}")" != "$(git rev-parse HEAD)" ]; then
+              echo "::error::v$VERSION is already tagged on another commit."; exit 1
+            fi
+            echo "new_tag=false" >> "$GITHUB_OUTPUT"
+          else
+            git tag -a "v$VERSION" -m "v$VERSION"
+            echo "new_tag=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Push the release commit and tag
+        if: ${{ !inputs.dry_run }}
+        # Atomic: if main moved during the run, nothing is pushed and nothing is published.
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          NEW_TAG: ${{ steps.tag.outputs.new_tag }}
+        run: |
+          refs=(HEAD:main)
+          if [ "$NEW_TAG" = "true" ]; then refs+=("refs/tags/v$VERSION"); fi
+          git push --atomic origin "${refs[@]}"
+
+      - name: Publish to npm
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          for dir in grokbot-core grokbot-cli grokbot-mcp; do
+            name=$(node -p "require('./packages/$dir/package.json').name")
+            if npm view "$name@$VERSION" version >/dev/null 2>&1; then
+              echo "$name@$VERSION is already on npm; skipping."
+              continue
+            fi
+            if [ "$DRY_RUN" = "true" ]; then
+              (cd "packages/$dir" && npm publish --access public --dry-run)
+            else
+              (cd "packages/$dir" && npm publish --access public)
+            fi
+          done
+
+      - name: Create the GitHub release
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release view "v$VERSION" >/dev/null 2>&1 ||
+            gh release create "v$VERSION" --title "v$VERSION" --generate-notes --verify-tag
+
+      - name: Summary
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "Dry run of v$VERSION: verified and packed; nothing pushed or published." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Released v$VERSION: grokbot-core, grokbotagent-cli and grokbot-mcp on npm." >> "$GITHUB_STEP_SUMMARY"
+          fi
