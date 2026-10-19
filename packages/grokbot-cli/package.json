@@ -1,6 +1,6 @@
 {
   "name": "grokbotagent-cli",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Standalone CLI for orchestrating a GrokBot AI workforce from any terminal or agent runtime (Claude Code, Hermes, Codex).",
   "license": "MIT",
   "type": "module",
@@ -20,7 +20,7 @@
     "skills/"
   ],
   "dependencies": {
-    "grokbot-core": "^0.1.5",
+    "grokbot-core": "^0.1.6",
     "uqr": "0.1.3"
   },
   "repository": {
