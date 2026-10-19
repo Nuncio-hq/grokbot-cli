@@ -9,7 +9,7 @@
  "participants": [
   {
    "id": "cto",
-   "label": "Claude (CLI)",
+   "label": "Caller (CLI)",
    "role": "client"
   },
   {

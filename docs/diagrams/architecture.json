@@ -19,7 +19,7 @@
   },
   {
    "id": "grokcloud",
-   "label": "GrokBot cloud (owner's subscription)",
+   "label": "GrokBot cloud (your account)",
    "role": "cloud",
    "components": [
     "api",
