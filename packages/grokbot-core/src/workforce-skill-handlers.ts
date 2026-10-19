@@ -119,7 +119,12 @@ export function skillHandlers(ctx: RunnerContext): CommandHandlers<Names> {
 
     "skills-remove": async (input, { signal, confirmed }) => {
       const agent = await agentOf(input.agent, signal);
-      assertMayTouch(agent, input["force-protected"], "skills-remove");
+      assertMayTouch(
+        agent,
+        input["force-protected"],
+        "skills-remove",
+        await ctx.protectedBots(),
+      );
       const skill = findSkill(
         await libraryOf(agent.agentId, signal),
         input.skill,

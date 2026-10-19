@@ -84,7 +84,12 @@ export function routineHandlers(ctx: RunnerContext): CommandHandlers<Names> {
       { signal }: { readonly signal?: AbortSignal },
     ) => {
       const agent = await agentOf(input.agent, signal);
-      assertMayTouch(agent, input["force-protected"], command);
+      assertMayTouch(
+        agent,
+        input["force-protected"],
+        command,
+        await ctx.protectedBots(),
+      );
       const { automationId } = findRoutine(
         await routinesOf(agent.agentId, signal),
         input.routine,
@@ -110,7 +115,12 @@ export function routineHandlers(ctx: RunnerContext): CommandHandlers<Names> {
 
     "routines-delete": async (input, { signal, confirmed }) => {
       const agent = await agentOf(input.agent, signal);
-      assertMayTouch(agent, input["force-protected"], "routines-delete");
+      assertMayTouch(
+        agent,
+        input["force-protected"],
+        "routines-delete",
+        await ctx.protectedBots(),
+      );
       const routine = findRoutine(
         await routinesOf(agent.agentId, signal),
         input.routine,
@@ -149,7 +159,12 @@ export function routineHandlers(ctx: RunnerContext): CommandHandlers<Names> {
     "routines-create": async (input, run) => {
       const { signal } = run;
       const agent = await agentOf(input.agent, signal);
-      assertMayTouch(agent, input["force-protected"], "routines-create");
+      assertMayTouch(
+        agent,
+        input["force-protected"],
+        "routines-create",
+        await ctx.protectedBots(),
+      );
       const trigger = await triggerFromFlags(input);
       if (trigger === undefined)
         throw new GrokBotError("not-found", NO_TRIGGER);
@@ -193,7 +208,12 @@ export function routineHandlers(ctx: RunnerContext): CommandHandlers<Names> {
     "routines-update": async (input, run) => {
       const { signal } = run;
       const agent = await agentOf(input.agent, signal);
-      assertMayTouch(agent, input["force-protected"], "routines-update");
+      assertMayTouch(
+        agent,
+        input["force-protected"],
+        "routines-update",
+        await ctx.protectedBots(),
+      );
       const trigger = await triggerFromFlags(input);
       const name = input.name?.trim();
       if (name === undefined && input.prompt === undefined && !trigger) {

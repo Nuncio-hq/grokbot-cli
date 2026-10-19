@@ -15,6 +15,10 @@ import type { JobContext } from "./command-runner-jobs.js";
 import type { GatewayTransport, ServerTransport } from "./contracts.js";
 import { createGatewayTransport } from "./gateway-transport.js";
 import { jobStore } from "./job-store.js";
+import {
+  type ProtectedBots,
+  protectedBotsStore,
+} from "./protected-bots-store.js";
 import { createWebhookFirer, type WebhookFirer } from "./routine-webhook.js";
 import {
   type WebhookKeyStore,
@@ -31,6 +35,8 @@ export interface RunnerContext extends JobContext {
   readonly webhookKeys: WebhookKeyStore;
   readonly fireWebhook: WebhookFirer;
   fetchAgents(signal?: AbortSignal): Promise<readonly Agent[]>;
+  /** The bots the user marked on this computer; throws if that list is unreadable. */
+  protectedBots(): Promise<ProtectedBots>;
   /** Resolves `--agent`, else the host's default agent, against the live roster. */
   target(flag: string | undefined, signal?: AbortSignal): Promise<Agent>;
 }
@@ -74,6 +80,7 @@ export function createRunnerContext(
     webhookKeys: options.webhookKeys ?? webhookKeyStore(),
     fireWebhook: options.fireWebhook ?? createWebhookFirer(),
     fetchAgents,
+    protectedBots: options.protectedBots ?? (() => protectedBotsStore().read()),
     async target(flag, signal) {
       const pick = pickAgentQuery({ flag, env: options.defaultAgent });
       if (!pick.ok) throw pick.error;
