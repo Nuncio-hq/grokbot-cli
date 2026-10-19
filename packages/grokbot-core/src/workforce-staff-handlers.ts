@@ -158,7 +158,12 @@ export function staffHandlers(ctx: RunnerContext): CommandHandlers<Names> {
 
     fire: async (input, { signal, confirmed }) => {
       const agent = resolveAgent(input.agent, await ctx.fetchAgents(signal));
-      assertMayTouch(agent, input["force-protected"], "fire");
+      assertMayTouch(
+        agent,
+        input["force-protected"],
+        "fire",
+        await ctx.protectedBots(),
+      );
       await server.call(
         "DeleteGrokBotAgent",
         { id: agent.agentId },

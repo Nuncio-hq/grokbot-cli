@@ -9,7 +9,7 @@ import {
 
 /** Redacted replay of the 13 Oct 16.8 s delegation test (docs/index.html drawer 04), in the live wire shape. */
 export const TRACE_MESSAGE_ID = "04365d83-0000-4000-8000-000000000000";
-export const TRACE_AGENT_ID = "00000000-0000-4000-8000-000000000000";
+export const TRACE_AGENT_ID = "0a1b2c3d-0000-4000-8000-000000000000";
 export const TRACE_BASELINE_SEQ = "141";
 const TEST_DEV_1: WireAgent = {
   id: "202b7c6b-0000-4000-8000-000000000000",

@@ -4,6 +4,7 @@ import type { GovernanceOutputs } from "./command-outputs-governance.js";
 import type { WorkforceOutputs } from "./command-outputs-workforce.js";
 import type { GatewayTransport, ServerTransport } from "./contracts.js";
 import type { JobStore } from "./job-store.js";
+import type { ProtectedBots } from "./protected-bots-store.js";
 import type { WebhookFirer } from "./routine-webhook.js";
 import type { WebhookKeyStore } from "./routine-webhook-keys.js";
 import type { WaitEvent } from "./wait-for-done.js";
@@ -28,6 +29,8 @@ export interface CommandRunnerOptions {
   readonly fireWebhook?: WebhookFirer;
   /** Used when a command gets no `agent` input. Hosts pass process.env.GROKBOT_AGENT. */
   readonly defaultAgent?: string;
+  /** Default: protectedBotsStore().read(), read again on every call so edits apply at once. */
+  readonly protectedBots?: () => Promise<ProtectedBots>;
 }
 
 /** Typed result of each catalog command. Renderers (CLI, MCP) format these; they never call RPCs. */

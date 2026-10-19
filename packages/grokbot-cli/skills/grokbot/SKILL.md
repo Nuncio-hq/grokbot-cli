@@ -10,8 +10,8 @@ GrokBot bots are always-on assistants, each with its own cloud computer, memory 
 ## Rules
 
 1. Never pass `--yes` unless the owner approved that exact action in this conversation. The Safety column in the command table marks every command that needs it.
-2. Run experiments, smoke tests, and anything you are unsure of on a test bot. On the owner's account those are `Primary Test` and `Staff Test`. If the account has neither, ask the owner which bot you may use. Never experiment on `Grok Bot`, the owner's main bot.
-3. `grokbot` refuses to fire `Grok Bot`, `Primary Test`, or `Staff Test`, or to change their skills and routines, unless the command carries `--force-protected <full agentId>`. Never add that flag on your own.
+2. Run experiments, smoke tests, and anything you are unsure of on a test bot: `grokbot config` lists the bots the owner marked `test` on this computer. If none is marked, ask the owner which bot you may use. Never experiment on a bot marked `main`.
+3. `grokbot` refuses to fire a protected bot (any bot `grokbot config` lists), or to change its skills and routines, unless the command carries `--force-protected <full agentId>`. Never add that flag on your own, and never run `grokbot config unprotect` without the owner's OK. The owner marks bots with `grokbot config protect <agentId> <main|test>`.
 4. Never print, log, or paste a token, Keychain output, or the link `grokbot vnc --print-url` returns. Do not read `sand-secrets.json` or run `security find-generic-password`. `grokbot` never prints a token, so nothing you need is there.
 5. The skill library is Box-wide. `skills-push` and `skills-remove` change what every bot sees, whichever bot you name.
 

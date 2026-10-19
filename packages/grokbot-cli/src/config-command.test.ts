@@ -1,45 +1,6 @@
-import type { KeychainAccess, UsageSetting } from "grokbot-core";
 import { describe, expect, it } from "vitest";
-import type { ConfigDeps } from "./config-command.js";
+import { fakeConfig } from "./fixtures/fake-config.js";
 import { runCli } from "./fixtures/run-cli.js";
-
-function fakeConfig(
-  initial: KeychainAccess = "silent",
-  item: KeychainAccess | undefined = undefined,
-): ConfigDeps & {
-  state: {
-    access: KeychainAccess;
-    usage: UsageSetting;
-    item?: KeychainAccess;
-    switched: KeychainAccess[];
-    writes: number;
-  };
-} {
-  const state = {
-    access: initial,
-    usage: "on" as UsageSetting,
-    item,
-    switched: [] as KeychainAccess[],
-    writes: 0,
-  };
-  return {
-    state,
-    path: "/home/me/.grokbot/grokbot-cli.json",
-    read: async () => ({ keychainAccess: state.access, usage: state.usage }),
-    write: async (config) => {
-      state.access = config.keychainAccess;
-      state.usage = config.usage;
-      state.writes++;
-    },
-    itemAccess: async () => state.item,
-    setItemAccess: async (next) => {
-      if (state.item === undefined) return { migrated: false };
-      state.item = next;
-      state.switched.push(next);
-      return { migrated: true };
-    },
-  };
-}
 
 describe("grokbot config", () => {
   it("shows the settings and where they live", async () => {
@@ -51,7 +12,9 @@ describe("grokbot config", () => {
       [
         "keychain-access  silent  (saved sign-in: silent)",
         "usage            on  (local only; see grokbot stats)",
+        "protected        none (mark one with grokbot config protect <agentId> <main|test>)",
         "",
+        "Protected bots file: /home/me/.grokbot/grokbot-cli-protected-bots.json",
         "Settings file: /home/me/.grokbot/grokbot-cli.json",
         "",
       ].join("\n"),
@@ -126,7 +89,7 @@ describe("grokbot config", () => {
     ],
     [
       ["config", "colour", "red"],
-      'grokbot: config: unknown setting "colour" (known: keychain-access, usage)',
+      'grokbot: config: unknown setting "colour" (known: keychain-access, usage, protect, unprotect)',
     ],
     [
       ["config", "usage", "maybe"],
@@ -165,13 +128,15 @@ describe("grokbot config", () => {
       usage: "on",
       savedSignIn: "prompt",
       path: "/home/me/.grokbot/grokbot-cli.json",
+      protectedBots: {},
+      protectedPath: "/home/me/.grokbot/grokbot-cli-protected-bots.json",
     });
   });
 
   it("has help, and is listed under Settings in general help", async () => {
     const help = await runCli(["config", "--help"]);
     expect(help.stdout).toContain(
-      "Usage: grokbot config [keychain-access [silent|prompt] | usage [on|off]] [--json]",
+      "Usage: grokbot config [keychain-access [silent|prompt] | usage [on|off] | protect <agentId> <main|test> | unprotect <agentId>] [--json]",
     );
     const general = await runCli(["--help"]);
     expect(general.stdout).toMatch(/Settings:\n {2}config\s+/);

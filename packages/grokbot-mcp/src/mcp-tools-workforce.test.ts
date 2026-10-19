@@ -124,7 +124,7 @@ describe("workforce tools hide CLI-only and file-path params", () => {
       {
         agent: "Grok Bot",
         yes: true,
-        "force-protected": "00000000-0000-4000-8000-000000000000",
+        "force-protected": "0a1b2c3d-1111-4111-8111-111111111111",
       },
       "grokbot_fire: force-protected cannot be set over MCP; use the grokbot CLI.",
     ],

@@ -120,6 +120,15 @@ export {
   type MethodSafety,
 } from "./method-safety.js";
 export {
+  isProtectedRole,
+  normalizeAgentId,
+  PROTECTED_ROLES,
+  type ProtectedBots,
+  type ProtectedBotsStore,
+  type ProtectedRole,
+  protectedBotsStore,
+} from "./protected-bots-store.js";
+export {
   createServerTransport,
   type FetchLike,
   type ServerTransportOptions,
