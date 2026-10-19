@@ -137,8 +137,7 @@ export const GOVERNANCE_COMMANDS = {
     params: {
       window: {
         type: "integer",
-        description:
-          "Desktop window on the box; it selects the bot, e.g. 3 for Primary Test, 4 for Staff Test",
+        description: "Desktop window on the box; it selects the bot (e.g. 3)",
         required: true,
         minimum: 1,
       },

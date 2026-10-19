@@ -31,7 +31,7 @@ If `grokbot` is missing, install it with `npm install -g grokbotagent-cli` (Node
 A task that finishes within a few minutes:
 
 ```bash
-grokbot ask --agent "Primary Test" "Summarise yesterday's merged PRs" --timeout 600
+grokbot ask --agent Researcher "Summarise yesterday's merged PRs" --timeout 600
 ```
 
 A long task, so your shell stays free:
@@ -148,11 +148,11 @@ Skills live in one Box-wide library. The bot you name only routes the call, and 
 To steer a bot, name the skill in your message: "Follow your routines skill." `skills-remove` and `skills-run` act on imported (`workflow`) skills only; `--include-managed` widens them to every other skill, so leave that flag to the owner. `skills-push` never overwrites a grokbot-managed or plugin skill.
 
 ```bash
-grokbot skills-list "Primary Test"
-grokbot skills-push "Primary Test" ./weekly-report/SKILL.md
-grokbot skills-run "Primary Test" weekly-report
-grokbot skills-push "Primary Test" ./weekly-report/SKILL.md --replace --yes   # owner OK first
-grokbot skills-remove "Primary Test" weekly-report --yes                       # owner OK first
+grokbot skills-list Researcher
+grokbot skills-push Researcher ./weekly-report/SKILL.md
+grokbot skills-run Researcher weekly-report
+grokbot skills-push Researcher ./weekly-report/SKILL.md --replace --yes   # owner OK first
+grokbot skills-remove Researcher weekly-report --yes                       # owner OK first
 ```
 
 Pushing a skill whose name and content already match changes nothing.
@@ -174,7 +174,7 @@ grokbot routines-delete Researcher "Monday digest" --yes   # owner OK first
 
 - Bots on GrokBot's servers (harness `temporal`, which most accounts use) can only save a routine themselves. So `routines-create` and `routines-update` send the bot one exact instruction, wait for its turn like `ask`, then read the routine back, and fail if what the bot saved differs. If the bot raises a card (for example to approve saving the routine) or the wait times out, the command exits 1 and names the job: resolve the card, then run `grokbot wait <job>` and `routines-list`. Do not send the same create again, because the first instruction may still be carried out.
 - Triggers without their own flags go in `--trigger '<json>'`, for example `{"type":"slack","channel":"C123","match":{"kind":"mention"}}`. `--email <inbox>` takes `--from` senders; `name+tag@` addresses let each service wake its own routine.
-- A routine cannot be started on demand on these bots (`routines-run` refuses). To start one from a script, CI or Claude, give it a webhook trigger and fire it:
+- A routine cannot be started on demand on these bots (`routines-run` refuses). To start one from a script, CI or another agent, give it a webhook trigger and fire it:
 
 ```bash
 grokbot routines-create Researcher --name "Deploy check" --webhook --prompt "Check the deploy named in the input and email me the result"
@@ -256,7 +256,7 @@ grokbot worker-plan                        # prints the worker command; starts n
 
 ## Usage log
 
-`grokbot` keeps a usage log on this computer only (`~/.grokbot/usage`, about 90 days). Each run records the command, who ran it (a person, Claude Code, Codex, Cursor, Hermes, a script), how it ended and how long it took. It never records messages, replies, bot names or ids. `grokbot stats` reads it. Claude Code is recognised by itself; if your runtime is not, set `GROKBOT_CLIENT` (for example `codex` or `hermes`) so your runs are counted as yours. The owner can turn the log off with `grokbot config usage off` or `GROKBOT_USAGE=off`.
+`grokbot` keeps a usage log on this computer only (`~/.grokbot/usage`, about 90 days). Each run records the command, who ran it (a person, an agent runtime such as Claude Code, Codex, Cursor or Hermes, or a script), how it ended and how long it took. It never records messages, replies, bot names or ids. `grokbot stats` reads it. grokbot recognises a runtime from its MCP client name, `AI_AGENT`, or environment markers it knows (today only Claude Code's); if your runs show up as `other-agent` or `script`, set `GROKBOT_CLIENT` (for example `codex` or `hermes`) so your runs are counted as yours. The owner can turn the log off with `grokbot config usage off` or `GROKBOT_USAGE=off`.
 
 ## When to use MCP instead
 
