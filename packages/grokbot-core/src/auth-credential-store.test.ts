@@ -54,6 +54,12 @@ describe("credentialStore", () => {
     expect(await credentialStore(opts(kc.run)).load()).toBeUndefined();
   });
 
+  it("asks the Keychain once when nothing is saved (no value read)", async () => {
+    const kc = fakeKeychain();
+    await credentialStore(opts(kc.run)).load();
+    expect(kc.calls.map((c) => c.args.includes("-w"))).toStrictEqual([false]);
+  });
+
   it("saves a pair and loads it back", async () => {
     const kc = fakeKeychain();
     const store = credentialStore(opts(kc.run));
