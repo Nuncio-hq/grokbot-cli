@@ -34,9 +34,10 @@ export const STATS_HELP = [
   "           typed in the Grok Bot app (phone or desktop) or sent by a tool that keeps",
   "           no grokbot job here. Reads GrokBot; counts only, no text.",
   "",
-  "The log is ~/.grokbot/usage. It holds the command, who ran it (you, Claude Code,",
-  "a script...), how it ended and how long it took; never messages, replies, bot",
-  "names or ids. Turn it off with grokbot config usage off.",
+  "The log is ~/.grokbot/usage. It holds the command, who ran it (you, an agent",
+  "runtime such as Claude Code or Codex, a script...), how it ended and how long it",
+  "took; never messages, replies, bot names or ids. Turn it off with grokbot config",
+  "usage off.",
   "",
 ].join("\n");
 
