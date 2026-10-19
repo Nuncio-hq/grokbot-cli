@@ -29,4 +29,5 @@
 - **Safety tags.** Check `docs/grokbot-tools-and-api.json` before calling a new RPC method. Never call methods tagged `destructive`, `sensitive`, or `staff-only` without the owner's OK.
 - **Test only on test bots** (`Primary Test` `f882ec52-17b1-4639-b0fc-07fed7526b09` or `Staff Test` `201a8cb2-e34a-4dd6-858c-c8601d5c2aa5`), never on the main "Grok Bot".
 - **Language & git.** Reply to the owner in the language they write in; code, comments, and docs in English. Conventional commits, no AI references, commit only when asked.
+- **Releases.** Only through the on-demand `Release` workflow on `main` (`gh workflow run release.yml -f bump=patch`, `-f dry_run=true` to rehearse), and only when the owner asks. Never bump versions by hand with a global replace.
 - **Docs sync.** After editing `docs/grokbot-tools-and-api.json`, always run `python3 docs/build-reference.py`.
