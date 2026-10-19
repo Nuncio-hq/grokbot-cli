@@ -84,6 +84,43 @@ describe("fire on a protected bot", () => {
   });
 });
 
+describe("the protected list is the user's", () => {
+  it("leaves a bot alone that the list does not name", async () => {
+    const { runner, log } = workforceRunner(
+      { ListGrokBotAgents: ROSTER, DeleteGrokBotAgent: [{}] },
+      {},
+      undefined,
+      { protectedBots: async () => new Map() },
+    );
+    await runner.run("fire", { agent: "Grok Bot", yes: true, json: false });
+    expect(methods(log)).toEqual([
+      "server:ListGrokBotAgents",
+      "server:DeleteGrokBotAgent",
+    ]);
+  });
+
+  it("refuses to fire anything when the list cannot be read", async () => {
+    const broken = new GrokBotError("safety", "list is not valid JSON");
+    const { runner, log } = workforceRunner(
+      { ListGrokBotAgents: ROSTER, DeleteGrokBotAgent: [{}] },
+      {},
+      undefined,
+      {
+        protectedBots: async () => {
+          throw broken;
+        },
+      },
+    );
+    const error = await runner
+      .run("fire", { agent: "Staff Test", yes: true, json: false })
+      .catch((e: unknown) => e);
+    expect([error, methods(log)]).toEqual([
+      broken,
+      ["server:ListGrokBotAgents"],
+    ]);
+  });
+});
+
 describe("skills-remove and routine writes on a protected bot", () => {
   it.each([
     [

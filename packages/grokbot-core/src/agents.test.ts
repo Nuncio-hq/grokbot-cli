@@ -12,7 +12,7 @@ import {
   type ServerTransport,
 } from "./contracts.js";
 
-const GROK = "9823898c-841c-4085-85bd-10d51e5e2a1d";
+const GROK = "0a1b2c3d-1111-4111-8111-111111111111";
 const PRIMARY = "f882ec52-17b1-4639-b0fc-07fed7526b09";
 const STAFF = "201a8cb2-e34a-4dd6-858c-c8601d5c2aa5";
 const ROOM = "5ca1ab1e-0000-4000-8000-000000000001";

@@ -14,15 +14,23 @@ import {
   assertGatewayMethodAllowed,
   assertMethodAllowed,
 } from "../method-safety.js";
+import type { ProtectedBots } from "../protected-bots-store.js";
 import type { WebhookFirer } from "../routine-webhook.js";
 import {
   WEBHOOK_KEY_SERVICE,
   type WebhookKeyStore,
 } from "../routine-webhook-keys.js";
 
-export const MAIN = "9823898c-841c-4085-85bd-10d51e5e2a1d";
+/** Placeholder main bot; the protected list below marks it "main". */
+export const MAIN = "0a1b2c3d-1111-4111-8111-111111111111";
 export const PRIMARY = "f882ec52-17b1-4639-b0fc-07fed7526b09";
 export const STAFF = "201a8cb2-e34a-4dd6-858c-c8601d5c2aa5";
+/** The user's protected list in these tests: the main bot and both test bots. */
+export const PROTECTED_BOTS: ProtectedBots = new Map([
+  [MAIN, "main"],
+  [PRIMARY, "test"],
+  [STAFF, "test"],
+]);
 export const PROBE = "5ca1ab1e-0000-4000-8000-0000000000aa";
 export const ROOM = "5ca1ab1e-0000-4000-8000-0000000000bb";
 export const PROBE_BRIEF =
@@ -166,6 +174,8 @@ export interface FakeExtras {
     key: string,
     body: JsonObject,
   ) => { readonly status: number; readonly reply: unknown };
+  /** Default: PROTECTED_BOTS. */
+  readonly protectedBots?: () => Promise<ProtectedBots>;
 }
 
 /**
@@ -237,6 +247,7 @@ export function workforceRunner(
     dashboard,
     webhookKeys: extras.webhookKeys ?? memoryKeyStore(),
     fireWebhook,
+    protectedBots: extras.protectedBots ?? (async () => PROTECTED_BOTS),
   });
   return { runner, log, stateDir };
 }

@@ -8,7 +8,7 @@ import { type UsageLog, usageLog } from "./usage-log.js";
 import { usageEnabled, withUsageLog } from "./usage-runner.js";
 
 const PRIMARY = "f882ec52-17b1-4639-b0fc-07fed7526b09";
-const MAIN = "9823898c-841c-4085-85bd-10d51e5e2a1d";
+const MAIN = "0a1b2c3d-1111-4111-8111-111111111111";
 const T0 = new Date(2026, 9, 16, 22, 5).getTime();
 
 let dir: string;
@@ -36,6 +36,11 @@ function wrap(result: () => unknown, enabled = true) {
     enabled: async () => enabled,
     log,
     now: () => clock,
+    protectedBots: async () =>
+      new Map([
+        [MAIN, "main"],
+        [PRIMARY, "test"],
+      ]),
   });
 }
 

@@ -3,6 +3,10 @@ import { cliConfigStore } from "./cli-config.js";
 import type { CommandName } from "./command-catalog.js";
 import type { CommandRunner } from "./command-runner-contract.js";
 import { GrokBotError } from "./contracts.js";
+import {
+  type ProtectedBots,
+  protectedBotsStore,
+} from "./protected-bots-store.js";
 import type { ClientLabel } from "./usage-client.js";
 import {
   durationBucket,
@@ -12,9 +16,6 @@ import {
   type UsageStatus,
   usageLog,
 } from "./usage-log.js";
-import { PROTECTED_AGENT_IDS } from "./workforce-protected-agents.js";
-
-const MAIN_BOT_ID = [...PROTECTED_AGENT_IDS][0];
 
 /** Values GROKBOT_USAGE may take to turn the log off for one process. */
 const OFF_VALUES = new Set(["off", "0", "false", "no"]);
@@ -43,12 +44,12 @@ function statusOf(name: CommandName, output: unknown): UsageStatus {
   return "ok";
 }
 
-function botOf(output: unknown): UsageEvent["bot"] {
+/** The bot's kind from the user's protected list: its role there, else "other". */
+function botOf(output: unknown, bots: ProtectedBots): UsageEvent["bot"] {
   const id =
     fieldOf(fieldOf(output, "agent"), "agentId") ?? fieldOf(output, "agentId");
   if (typeof id !== "string") return undefined;
-  if (id === MAIN_BOT_ID) return "main";
-  return PROTECTED_AGENT_IDS.has(id) ? "test" : "other";
+  return bots.get(id.toLowerCase()) ?? "other";
 }
 
 /** Names of the inputs given a value; the values themselves are never kept. */
@@ -69,6 +70,8 @@ export interface UsageRunnerOptions {
   readonly enabled: () => Promise<boolean>;
   readonly log?: UsageLog;
   readonly now?: () => number;
+  /** Default: protectedBotsStore().read(). Only the role is recorded, never the id. */
+  readonly protectedBots?: () => Promise<ProtectedBots>;
 }
 
 /**
@@ -85,6 +88,7 @@ export function withUsageLog(
     enabled,
     log = usageLog(),
     now = Date.now,
+    protectedBots = () => protectedBotsStore().read(),
   }: UsageRunnerOptions,
 ): CommandRunner {
   const record = async (
@@ -96,7 +100,9 @@ export function withUsageLog(
   ) => {
     try {
       if (!(await enabled())) return;
-      const bot = error === undefined ? botOf(output) : undefined;
+      // An unreadable list only costs the bot kind here; commands that act on bots refuse.
+      const bots = await protectedBots().catch(() => new Map());
+      const bot = error === undefined ? botOf(output, bots) : undefined;
       const event: UsageEvent = {
         v: 1,
         hour: localHour(startedMs),

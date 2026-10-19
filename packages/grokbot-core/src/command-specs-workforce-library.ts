@@ -10,7 +10,7 @@ export const AGENT = {
 export const FORCE_PROTECTED = {
   type: "string",
   description:
-    "Act on a protected bot (Grok Bot, Primary Test, Staff Test): its full agentId (CLI only)",
+    "Act on a bot you protected with grokbot config protect: its full agentId (CLI only)",
 } as const;
 const INCLUDE_MANAGED = {
   type: "boolean",

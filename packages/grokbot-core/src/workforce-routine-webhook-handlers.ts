@@ -65,7 +65,12 @@ export function routineWebhookHandlers(
   return {
     "routines-webhook-key": async (input, { signal, confirmed }) => {
       const agent = await agentOf(input.agent, signal);
-      assertMayTouch(agent, input["force-protected"], "routines-webhook-key");
+      assertMayTouch(
+        agent,
+        input["force-protected"],
+        "routines-webhook-key",
+        await ctx.protectedBots(),
+      );
       const routine = findRoutine(
         await routinesOf(agent.agentId, signal),
         input.routine,
