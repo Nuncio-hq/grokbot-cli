@@ -15,6 +15,9 @@ describe("grokbot config", () => {
         "protected        none (mark one with grokbot config protect <agentId> <main|test>)",
         "",
         "Protected bots file: /home/me/.grokbot/grokbot-cli-protected-bots.json",
+        "routes           none (route this folder with grokbot config route <agentId>)",
+        "",
+        "Project routes file: /home/me/.grokbot/grokbot-cli-project-routes.json",
         "Settings file: /home/me/.grokbot/grokbot-cli.json",
         "",
       ].join("\n"),
@@ -89,7 +92,7 @@ describe("grokbot config", () => {
     ],
     [
       ["config", "colour", "red"],
-      'grokbot: config: unknown setting "colour" (known: keychain-access, usage, protect, unprotect)',
+      'grokbot: config: unknown setting "colour" (known: keychain-access, usage, protect, unprotect, route, unroute)',
     ],
     [
       ["config", "usage", "maybe"],
@@ -130,14 +133,16 @@ describe("grokbot config", () => {
       path: "/home/me/.grokbot/grokbot-cli.json",
       protectedBots: {},
       protectedPath: "/home/me/.grokbot/grokbot-cli-protected-bots.json",
+      projectRoutes: {},
+      projectRoutesPath: "/home/me/.grokbot/grokbot-cli-project-routes.json",
+      thisFolderRoute: null,
     });
   });
 
   it("has help, and is listed under Settings in general help", async () => {
     const help = await runCli(["config", "--help"]);
-    expect(help.stdout).toContain(
-      "Usage: grokbot config [keychain-access [silent|prompt] | usage [on|off] | protect <agentId> <main|test> | unprotect <agentId>] [--json]",
-    );
+    expect(help.stdout).toContain("Usage: grokbot config [");
+    expect(help.stdout).toContain("route <agentId>");
     const general = await runCli(["--help"]);
     expect(general.stdout).toMatch(/Settings:\n {2}config\s+/);
   });

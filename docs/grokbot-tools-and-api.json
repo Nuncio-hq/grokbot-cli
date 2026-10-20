@@ -218,7 +218,7 @@
    "needs_approval": "unknown",
    "evidence": "schema",
    "confidence": "low",
-   "notes": "Matched by name to the app's task record (title, note, state working, needs input or done). Behind the tasks flag. Which kind of task is not confirmed. No dedicated status label; the app falls back to the generic 'Working' label.",
+   "notes": "Matched by name to the app's task record (title, note, state working, needs input or done). Behind the client gate sand_tasks (default off). Which kind of task is not confirmed. No dedicated status label; the app falls back to the generic 'Working' label. Live 19 Oct 2026 on Primary Test, with sand_tasks off for the account: the bot had no CreateTask, UpdateTask or ReadTask tool.",
    "in_tool_registry": true
   },
   {
@@ -988,7 +988,7 @@
    "needs_approval": "no",
    "evidence": "schema",
    "confidence": "high",
-   "notes": "Seen in a live test: the manager bot's live activity showed tool:SendToAgent. Shown as 'Messaging <bot name>' with that bot's icon, or 'Messaging another assistant' when the name is unknown. Its message types sit in the agent.v1 package with GetAgentStatus, which reports each worker's bc id, lifecycle, turn state and pull request link. The app's delivery outcomes include delivered, duplicate, target not found, forbidden and computer unreachable. No approval surface for bot-to-bot messages was found.",
+   "notes": "Seen in a live test: the manager bot's live activity showed tool:SendToAgent. Shown as 'Messaging <bot name>' with that bot's icon, or 'Messaging another assistant' when the name is unknown. Its message types sit in the agent.v1 package with GetAgentStatus, which reports each worker's bc id, lifecycle, turn state and pull request link. The app's delivery outcomes include delivered, duplicate, target not found, forbidden and computer unreachable. No approval surface for bot-to-bot messages was found. Live 19 Oct 2026 (Primary Test to Staff Test, delivered to wake at once): the sender's transcript gets a row agent-outbound-<hash> with toAgent, under the requestId of the run that sent it. The receiver's new user row has clientNonce equal to that hash, and fromAgent. The receiver's reply is its own agent-outbound row under the requestId of the turn that message opened, and reaches the sender as a new user turn whose clientNonce is the reply's hash. So a delegation chain can be followed by ids alone. The reply arrived after the sender had ended its turn and started a new turn there.",
    "in_tool_registry": true
   },
   {
@@ -1761,7 +1761,7 @@
    "evidence": "app-code",
    "confidence": "high",
    "safety": "read-only",
-   "notes": "Probe returned an empty object, so the owner's bot had no tasks. This is the agent-scoped task system. It is different from the session task list (ListGrokBotTasks, KeepGrokBotTaskList, DismissGrokBotTask, MarkGrokBotTasksSeen). Tasks appear to have their own thread: SendGrokBotUserMessage takes an optional taskId and the app opens a task thread from a deep link (likely, not confirmed).",
+   "notes": "This is the agent-scoped task system. It is different from the session task list (ListGrokBotTasks, KeepGrokBotTaskList, DismissGrokBotTask, MarkGrokBotTasksSeen). From the 0.71.2 app code: a task has its own thread, session task:<10-hex id> (or task:<id>:<parent session>), whose rows have entry ids task-<id>-t<turn>s<seq>, and the app shows tasks only when the client gate sand_tasks is on (default off). No method creates a task, so tasks probably come from the bot's CreateTask tool. Live 19 Oct 2026 with sand_tasks off: the list was empty on both test bots; a message with an unknown taskId landed in the main chat; sessionId task:<id> answered 404 'Grok Bot agent not found'.",
    "domain": "Bots and conversations",
    "rpc": "unary",
    "used_by_cli": false
@@ -2349,7 +2349,7 @@
    "evidence": "app-code",
    "confidence": "high",
    "safety": "writes",
-   "notes": "Confirmed in live tests: it dispatches the message and the bot replies via transcript rows. source is the client surface (DESKTOP, MOBILE, GLASS), not a content source. sendSource is CHAT, PUSH, APP_INTENT or ACTION_BUTTON_DICTATION. initiator is USER, TEMPLATE_IMPORT, TEMPLATE_SHARE, CARD_ACTION, PLUGIN_SETUP or TEACH_RECORDING. The app also counts DUPLICATE as accepted, which suggests the server de-duplicates on messageId (unconfirmed). If the call fails with Unavailable and no retry-after, the app checks GetGrokBotSendStatus and re-sends only if the result is NOT_FOUND. int64 fields are JSON strings.",
+   "notes": "Confirmed in live tests: it dispatches the message and the bot replies via transcript rows. source is the client surface (DESKTOP, MOBILE, GLASS), not a content source. sendSource is CHAT, PUSH, APP_INTENT or ACTION_BUTTON_DICTATION. initiator is USER, TEMPLATE_IMPORT, TEMPLATE_SHARE, CARD_ACTION, PLUGIN_SETUP or TEACH_RECORDING. The app also counts DUPLICATE as accepted, which suggests the server de-duplicates on messageId (unconfirmed). If the call fails with Unavailable and no retry-after, the app checks GetGrokBotSendStatus and re-sends only if the result is NOT_FOUND. int64 fields are JSON strings. A taskId that names no task is ignored without an error: the message lands in the main chat with no task id (19 Oct 2026). replyToId takes a transcript entry id: live 19 Oct 2026 on Staff Test, replyToId t41s1 gave the new user row a field replyTo: \"t41s1\", and the bot, asked what the message replied to, quoted the first words of that entry correctly. The bot's answer carries no replyTo; it shares the user row's requestId.",
    "domain": "Bots and conversations",
    "rpc": "unary",
    "used_by_cli": true
@@ -2573,7 +2573,7 @@
    "evidence": "probed",
    "confidence": "high",
    "safety": "writes",
-   "notes": "Tested live 14 Oct 2026 on the test bots: fromAgentId Primary Test, toAgentId Staff Test: delivery DELIVERED_TEMPORAL with targetAgentId (numeric row id) and targetName. Re-sending the same messageId gave DUPLICATE, so it de-duplicates. The target saw a user message with fromAgent {id, name} and answered with an assistant row carrying toAgent; that reply landed in the sender's chat as a user message with fromAgent and did not start a turn there. So the CLI can message one bot as another bot.",
+   "notes": "Tested live 14 Oct 2026 on the test bots: fromAgentId Primary Test, toAgentId Staff Test: delivery DELIVERED_TEMPORAL with targetAgentId (numeric row id) and targetName. Re-sending the same messageId gave DUPLICATE, so it de-duplicates. The target saw a user message with fromAgent {id, name} and answered with an assistant row carrying toAgent; that reply landed in the sender's chat as a user message with fromAgent and did not start a turn there. So the CLI can message one bot as another bot. Re-tested 19 Oct 2026 (same bots): the message sent this way leaves no row in the sender's own chat (only the target shows it, with clientNonce = messageId); the target's reply now did start a run on the sender (a requestId on the row, live isRunning for a few seconds, nothing posted); when the target asked the sender a question, the sender bot answered it by itself within about 6 s, before any caller could; replyToId given here is dropped (the target's row has no replyTo). So a bot used as a caller's mailbox is still a running bot that acts on what it receives.",
    "domain": "Actions inside a chat",
    "rpc": "unary",
    "used_by_cli": false

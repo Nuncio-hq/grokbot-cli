@@ -43,6 +43,8 @@ export interface JobRecord {
   readonly text?: string;
   /** When the message joined the bot's queue; queued jobs go out oldest first. */
   readonly queuedAtMs?: number;
+  /** The transcript entry this message replies to (`grokbot reply`); absent on a plain send. */
+  readonly replyToId?: string;
   readonly sentMessageId: string;
   /** When the message was sent; while queued, when it was queued. */
   readonly sentAtMs: number;
@@ -105,6 +107,7 @@ function pickRecord(job: JobRecord): JobRecord {
     ...(job.agentName !== undefined && { agentName: job.agentName }),
     ...(job.text !== undefined && { text: job.text }),
     ...(job.queuedAtMs !== undefined && { queuedAtMs: job.queuedAtMs }),
+    ...(job.replyToId !== undefined && { replyToId: job.replyToId }),
     sentMessageId: job.sentMessageId,
     sentAtMs: job.sentAtMs,
     baselineUpdatedSeq: job.baselineUpdatedSeq,
@@ -169,12 +172,14 @@ export function parseJobRecord(raw: unknown): JobRecord {
   }
   const [agentName, text] = [str("agentName"), str("text")];
   const { botBusyAtSend: busy, queuedAtMs } = o;
+  const replyToId = str("replyToId");
   return {
     jobId,
     agentId,
     ...(agentName !== undefined && { agentName }),
     ...(text !== undefined && { text }),
     ...(typeof queuedAtMs === "number" && { queuedAtMs }),
+    ...(replyToId !== undefined && { replyToId }),
     sentMessageId,
     sentAtMs,
     baselineUpdatedSeq,

@@ -96,18 +96,25 @@ export async function listAgents(
 }
 
 const NO_AGENT_SELECTED =
-  "No agent selected. Pass --agent <name|agentId> or set GROKBOT_AGENT.";
+  "No agent selected. Pass --agent <name|agentId>, set GROKBOT_AGENT, or run grokbot config route <agentId> in the project folder.";
 
-/** Picks the agent query from the --agent flag, then GROKBOT_AGENT. There is no default agent. */
+/** The error when nothing selects an agent and the account has no primary Bot. */
+export const noAgentError = () =>
+  new GrokBotError(
+    "not-found",
+    "No agent selected and the account has no primary Bot. Pass --agent <name|agentId>, set GROKBOT_AGENT, or run grokbot config route <agentId> in the project folder.",
+  );
+
+/**
+ * The agent query from the --agent flag, else GROKBOT_AGENT; undefined when neither is
+ * set. The later steps (project route, the account's primary Bot) need I/O and live in
+ * the runner context.
+ */
 export function pickAgentQuery(source: {
   readonly flag?: string;
   readonly env?: string;
-}):
-  | { readonly ok: true; readonly query: string }
-  | { readonly ok: false; readonly error: GrokBotError } {
-  const query = source.flag?.trim() || source.env?.trim();
-  if (query) return { ok: true, query };
-  return { ok: false, error: new GrokBotError("not-found", NO_AGENT_SELECTED) };
+}): string | undefined {
+  return source.flag?.trim() || source.env?.trim() || undefined;
 }
 
 /** "Nhân Viên Đức" -> "nhan-vien-duc". */

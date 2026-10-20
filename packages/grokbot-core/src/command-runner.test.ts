@@ -3,7 +3,6 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createCommandRunner } from "./command-runner.js";
 import type { CommandRunnerOptions } from "./command-runner-contract.js";
-import { GrokBotError } from "./contracts.js";
 import { fakeServer } from "./fixtures/fake-server.js";
 import {
   sendMessageRow,
@@ -37,7 +36,15 @@ function runnerWith(calls: Calls, options: CommandRunnerOptions = {}) {
     calls: { ListGrokBotAgents: [ROSTER], ...calls },
   });
   const jobs = jobStore(join(tmpdir(), "grokbot-runner-never-written"));
-  return { runner: createCommandRunner({ server, jobs, ...options }), log };
+  return {
+    runner: createCommandRunner({
+      server,
+      jobs,
+      projectRoutes: async () => new Map(),
+      ...options,
+    }),
+    log,
+  };
 }
 
 describe("read commands", () => {
@@ -151,32 +158,6 @@ describe("read commands", () => {
 });
 
 describe("agent selection", () => {
-  it("fails before any RPC when neither --agent nor GROKBOT_AGENT names an agent", async () => {
-    const { runner, log } = runnerWith({});
-    const errors = await Promise.all([
-      runner.run("tail", { limit: 5, json: false }).catch((e: unknown) => e),
-      runner
-        .run("send", { text: "ping", json: false })
-        .catch((e: unknown) => e),
-    ]);
-    expect(
-      errors.map((e) => [
-        e instanceof GrokBotError && e.code,
-        (e as Error).message,
-      ]),
-    ).toEqual([
-      [
-        "not-found",
-        "No agent selected. Pass --agent <name|agentId> or set GROKBOT_AGENT.",
-      ],
-      [
-        "not-found",
-        "No agent selected. Pass --agent <name|agentId> or set GROKBOT_AGENT.",
-      ],
-    ]);
-    expect(log).toEqual([]);
-  });
-
   it("falls back to defaultAgent, lets --agent win, and accepts a room", async () => {
     const { runner, log } = runnerWith(
       { ListGrokBotTranscriptEntries: [{ entries: [] }] },

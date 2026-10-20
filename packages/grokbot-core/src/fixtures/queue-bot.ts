@@ -74,5 +74,8 @@ export function queueBot(options: QueueBotOptions = {}) {
     log
       .filter((c) => c.method === "SendGrokBotUserMessage")
       .map((c) => c.body.text);
-  return { server, finish, sends };
+  /** The bodies of every send attempt, in order (replyToId included). */
+  const sentBodies = () =>
+    log.filter((c) => c.method === "SendGrokBotUserMessage").map((c) => c.body);
+  return { server, finish, sends, sentBodies };
 }

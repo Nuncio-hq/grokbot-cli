@@ -126,9 +126,13 @@ describe("ask", () => {
       calls: { ListGrokBotAgentStatuses: [RUNNING] },
       streams: [() => hangUntilAborted([], controller.signal)],
     });
-    setTimeout(() => controller.abort(new Error("ctrl-c")), 20);
     const error = await createCommandRunner({ server, jobs })
-      .run("ask", ASK, { signal: controller.signal })
+      .run("ask", ASK, {
+        signal: controller.signal,
+        onEvent: (e) => {
+          if (e.type === "dispatched") controller.abort(new Error("ctrl-c"));
+        },
+      })
       .catch((e: unknown) => e);
     expect([(error as Error).message, (await onlyJob(jobs)).state]).toEqual([
       "ctrl-c",

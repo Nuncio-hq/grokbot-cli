@@ -7,6 +7,7 @@ import type {
 import type { AuthDeps } from "../auth-command.js";
 import type { ConfigDeps } from "../config-command.js";
 import { main } from "../main.js";
+import type { SetupPromptDeps } from "../setup-prompt-command.js";
 import type { StatsDeps } from "../stats-command.js";
 
 export interface RunCall {
@@ -42,6 +43,8 @@ export interface CliSetup {
   readonly config?: ConfigDeps;
   /** Fake usage log and GrokBot reads for `grokbot stats`. */
   readonly stats?: StatsDeps;
+  /** Where `grokbot setup-prompt` looks for the skill. */
+  readonly setupPrompt?: SetupPromptDeps;
 }
 
 function collector() {
@@ -90,6 +93,7 @@ export async function runCli(
     ...(setup.auth && { auth: setup.auth }),
     ...(setup.config && { config: setup.config }),
     ...(setup.stats && { stats: setup.stats }),
+    ...(setup.setupPrompt && { setupPrompt: setup.setupPrompt }),
   });
   return {
     stdout: stdout.text(),

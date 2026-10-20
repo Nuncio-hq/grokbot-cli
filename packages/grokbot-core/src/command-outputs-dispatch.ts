@@ -28,6 +28,13 @@ export interface DispatchOutputs {
     readonly agent: Agent;
     readonly outcome: JobOutcome;
   };
+  readonly reply: {
+    readonly jobId: string;
+    readonly agent: Agent;
+    /** The transcript entry the message answered. */
+    readonly replyToId: string;
+    readonly outcome: JobOutcome;
+  };
   readonly send: {
     readonly jobId: string;
     readonly agent: Agent;

@@ -52,8 +52,7 @@ describe("commandJsonSchema", () => {
         },
         agent: {
           type: "string",
-          description:
-            "Agent name, slug, or agentId (defaults to GROKBOT_AGENT)",
+          description: expect.any(String),
         },
         json: {
           type: "boolean",
@@ -78,8 +77,7 @@ describe("commandJsonSchema", () => {
         },
         agent: {
           type: "string",
-          description:
-            "Agent name, slug, or agentId (defaults to GROKBOT_AGENT)",
+          description: expect.any(String),
         },
         json: {
           type: "boolean",

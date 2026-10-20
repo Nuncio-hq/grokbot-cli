@@ -13,6 +13,7 @@ export {
   type Agent,
   type AgentId,
   listAgents,
+  noAgentError,
   parseListAgentsResponse,
   pickAgentQuery,
   resolveAgent,
@@ -119,6 +120,21 @@ export {
   GATEWAY_METHOD_SAFETY,
   type MethodSafety,
 } from "./method-safety.js";
+export { readPrimaryAgentId } from "./primary-agent.js";
+export {
+  type MatchedRoute,
+  normalizeRemote,
+  projectKeys,
+  routeForFolder,
+  withProjectLabel,
+} from "./project-routes.js";
+export {
+  isPathKey,
+  type ProjectRoute,
+  type ProjectRoutes,
+  type ProjectRoutesStore,
+  projectRoutesStore,
+} from "./project-routes-store.js";
 export {
   isProtectedRole,
   normalizeAgentId,

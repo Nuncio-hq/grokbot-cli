@@ -30,6 +30,10 @@ export const DISPATCH_OVERRIDES: McpOverrides<DispatchCommandName> = {
     note: `Waits ${MCP_WAIT_TIMEOUT_SECONDS} s unless timeout is set; a still-running result carries a job id, and grokbot_wait resumes it. ${OUTCOMES}`,
     defaults: { timeout: MCP_WAIT_TIMEOUT_SECONDS },
   },
+  reply: {
+    note: `Answers one bot message like Reply in the app: pass job (the bot's last message in that job is answered) or to (an entryId from grokbot_tail) with agent. Waits ${MCP_WAIT_TIMEOUT_SECONDS} s unless timeout is set; a still-running result carries a job id, and grokbot_wait resumes it. ${OUTCOMES}`,
+    defaults: { timeout: MCP_WAIT_TIMEOUT_SECONDS },
+  },
   wait: {
     note: `Waits ${MCP_WAIT_TIMEOUT_SECONDS} s unless timeout is set, to stay under MCP host time limits; a still-running result carries the job id, so call grokbot_wait again with it. ${OUTCOMES}`,
     defaults: { timeout: MCP_WAIT_TIMEOUT_SECONDS },
@@ -126,6 +130,7 @@ export const DISPATCH_SUMMARIES: ToolSummaries<DispatchCommandName> = {
       ...members.map(memberText),
     ].join("\n"),
   ask: ({ jobId, agent, outcome }) => outcomeText(agent.name, jobId, outcome),
+  reply: ({ jobId, agent, outcome }) => outcomeText(agent.name, jobId, outcome),
   send: ({ jobId, agent, queued }) =>
     queued
       ? `Queued for ${agent.name}: it is busy, so the message goes out once it is free. Job ${jobId} is saved; ${waitHint(jobId)} to send it and get the reply.`
@@ -135,7 +140,7 @@ export const DISPATCH_SUMMARIES: ToolSummaries<DispatchCommandName> = {
   tail: ({ agent, entries }) =>
     [
       `${agent.name}, last ${plural(entries.length, "entry", "entries")}:`,
-      ...entries.map((e) => `#${e.seq} ${entryText(e)}`),
+      ...entries.map((e) => `#${e.seq} [${e.entryId}] ${entryText(e)}`),
     ].join("\n"),
   interrupt: ({ agent, hadActiveRun }) =>
     hadActiveRun

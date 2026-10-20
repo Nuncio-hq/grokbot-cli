@@ -4,6 +4,7 @@ import type { GovernanceOutputs } from "./command-outputs-governance.js";
 import type { WorkforceOutputs } from "./command-outputs-workforce.js";
 import type { GatewayTransport, ServerTransport } from "./contracts.js";
 import type { JobStore } from "./job-store.js";
+import type { ProjectRoutes } from "./project-routes-store.js";
 import type { ProtectedBots } from "./protected-bots-store.js";
 import type { WebhookFirer } from "./routine-webhook.js";
 import type { WebhookKeyStore } from "./routine-webhook-keys.js";
@@ -27,8 +28,15 @@ export interface CommandRunnerOptions {
   readonly webhookKeys?: WebhookKeyStore;
   /** Default: createWebhookFirer() over global fetch. */
   readonly fireWebhook?: WebhookFirer;
-  /** Used when a command gets no `agent` input. Hosts pass process.env.GROKBOT_AGENT. */
+  /**
+   * Used when a command gets no `agent` input. Hosts pass process.env.GROKBOT_AGENT.
+   * Resolution order: `agent` input, this, the project route for `cwd`, the account's primary Bot.
+   */
   readonly defaultAgent?: string;
+  /** The folder whose project route applies. Default: process.cwd(). */
+  readonly cwd?: string;
+  /** Default: projectRoutesStore().read(), read again on every call so edits apply at once. */
+  readonly projectRoutes?: () => Promise<ProjectRoutes>;
   /** Default: protectedBotsStore().read(), read again on every call so edits apply at once. */
   readonly protectedBots?: () => Promise<ProtectedBots>;
 }

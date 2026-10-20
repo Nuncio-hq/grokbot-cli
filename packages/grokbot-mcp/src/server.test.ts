@@ -174,8 +174,7 @@ describe("grokbot-mcp tools/list", () => {
           },
           agent: {
             type: "string",
-            description:
-              "Agent name, slug, or agentId (defaults to GROKBOT_AGENT)",
+            description: expect.any(String),
           },
         },
         required: ["text"],

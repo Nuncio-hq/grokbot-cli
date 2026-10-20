@@ -116,11 +116,13 @@ function partsOf<K extends TranscriptEntry["kind"]>(
   return render(entry);
 }
 
-/** `[seq] kind: text`, one line, text cut to 300 characters. */
+/**
+ * `[seq entryId] kind: text`, one line, text cut to 300 characters. The entryId is what
+ * `grokbot reply --to` takes.
+ */
 export function tailLine(entry: TranscriptEntry): string {
   const { label, text } = partsOf(entry);
   const body = text === undefined ? "" : oneLine(text);
-  return body === ""
-    ? `[${entry.seq}] ${label}`
-    : `[${entry.seq}] ${label}: ${body}`;
+  const at = `[${entry.seq} ${entry.entryId}]`;
+  return body === "" ? `${at} ${label}` : `${at} ${label}: ${body}`;
 }

@@ -66,6 +66,9 @@ class Candidate {
 
 const DEADLINE = Symbol("deadline");
 
+const earliest = (a: number | undefined, b: number | undefined) =>
+  a === undefined || b === undefined ? (a ?? b) : Math.min(a, b);
+
 async function until<T>(
   pending: Promise<T>,
   deadline: number | undefined,
@@ -107,6 +110,7 @@ async function apply(
     case "turn-failed":
       return { type: "turn-failed", raw: event.raw };
   }
+  await session.syncDelegates();
   await session.confirmSubagentList();
   candidate.consider(session.settle());
   return undefined;
@@ -137,8 +141,16 @@ export async function followStream(
         candidate.consider(verdict);
         continue;
       }
+      if (session.delegatesDue()) {
+        await session.syncDelegates(true);
+        candidate.consider(session.settle());
+        continue;
+      }
       pending ??= abortable(events.next(), signal);
-      const next = await until(pending, candidate.deadline);
+      const next = await until(
+        pending,
+        earliest(candidate.deadline, session.delegatesDueAtMs),
+      );
       if (next === DEADLINE) continue;
       pending = undefined;
       if (next.done) {

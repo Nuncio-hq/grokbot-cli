@@ -40,8 +40,15 @@ export function assertDispatched(raw: unknown): void {
   throw new GrokBotError("protocol", `SendGrokBotUserMessage ${detail}`);
 }
 
-/** A job for `text` that waits its turn; the snapshot fields are filled when it is sent. */
-export function newQueuedJob(agent: Agent, text: string): JobRecord {
+/**
+ * A job for `text` that waits its turn; the snapshot fields are filled when it is sent.
+ * `replyToId` makes it a reply to that transcript entry, and goes out with the message.
+ */
+export function newQueuedJob(
+  agent: Agent,
+  text: string,
+  replyToId?: string,
+): JobRecord {
   const now = Date.now();
   return {
     jobId: randomUUID(),
@@ -49,6 +56,7 @@ export function newQueuedJob(agent: Agent, text: string): JobRecord {
     agentName: agent.name,
     text,
     queuedAtMs: now,
+    ...(replyToId !== undefined && { replyToId }),
     sentMessageId: randomUUID(),
     sentAtMs: now,
     baselineUpdatedSeq: "0",
@@ -119,6 +127,7 @@ async function sendQueued(
       agentId: head.agentId,
       messageId: head.sentMessageId,
       text,
+      ...(head.replyToId !== undefined && { replyToId: head.replyToId }),
       sentAtMs: String(sentAtMs),
       sessionId: "",
     },

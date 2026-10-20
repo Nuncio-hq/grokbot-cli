@@ -39,7 +39,8 @@ export type ParamSpec = {
 
 export const AGENT_PARAM = {
   type: "string",
-  description: "Agent name, slug, or agentId (defaults to GROKBOT_AGENT)",
+  description:
+    "Agent name, slug, or agentId (default: GROKBOT_AGENT, else this folder's project route, else the primary Bot)",
 } as const;
 export const JSON_PARAM = {
   type: "boolean",

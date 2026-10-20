@@ -124,12 +124,21 @@ export function createHttp2Fetch({
       });
       // Before the response this rejects the call; after it, the body stream reports the error.
       stream.on("error", reject);
-      stream.setTimeout(silenceTimeoutMs, () =>
-        stream.destroy(
-          new Error(`${target.pathname} was silent for ${silenceTimeoutMs} ms`),
-        ),
+      // A timer of our own: Bun routes Http2Stream.setTimeout to the shared session, which
+      // adds a never-removed "timeout" listener per call (MaxListenersExceededWarning) and
+      // times the whole connection, not this stream.
+      const silence = setTimeout(
+        () =>
+          stream.destroy(
+            new Error(
+              `${target.pathname} was silent for ${silenceTimeoutMs} ms`,
+            ),
+          ),
+        silenceTimeoutMs,
       );
+      stream.once("close", () => clearTimeout(silence));
       stream.once("response", (raw) => {
+        silence.refresh();
         const status = Number(raw[":status"]);
         const headers = responseHeaders(raw);
         if (NULL_BODY_STATUSES.has(status)) {
@@ -142,6 +151,8 @@ export function createHttp2Fetch({
         const decoded = decoder ? pipeline(stream, decoder, () => {}) : stream;
         // node:stream/web and the global ReadableStream typings differ; same runtime class.
         const web = Readable.toWeb(decoded) as unknown as ReadableStream;
+        // After the body is wired up, so this listener never starts the flow on its own.
+        stream.on("data", () => silence.refresh());
         resolve(new Response(web, { status, headers }));
       });
       stream.end(body);

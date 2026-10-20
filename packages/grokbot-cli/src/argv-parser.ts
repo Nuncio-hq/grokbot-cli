@@ -151,8 +151,15 @@ function collect(
   }
   for (const [key, items] of lists) raw[key] = items;
   const slots = positionalParams(command);
+  // A short argv fills the required slots first, so an optional slot ahead of them is
+  // skipped: `reply "text"` has no job, `reply <job> "text"` has both.
+  let optionalLeft = Math.max(
+    0,
+    rest.length - slots.filter(([, spec]) => spec.required).length,
+  );
+  const used = slots.filter(([, spec]) => spec.required || optionalLeft-- > 0);
   rest.forEach((value, i) => {
-    const slot = slots[i];
+    const slot = used[i];
     if (slot) raw[slot[0]] = value;
     else errors.push(`unexpected argument ${JSON.stringify(value)}`);
   });

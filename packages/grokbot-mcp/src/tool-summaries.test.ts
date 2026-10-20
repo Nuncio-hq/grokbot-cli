@@ -172,13 +172,14 @@ describe("summarize", () => {
   });
 
   it("renders tail entries by kind with their seq", () => {
-    const base = { updatedSeq: "0" as Seq, entryId: "", entryKind: "" };
+    const base = { updatedSeq: "0" as Seq, entryKind: "" };
     const stamp = { requestId: undefined, timestampMs: undefined };
     const entries: TranscriptEntry[] = [
       {
         ...base,
         ...stamp,
         seq: "144" as Seq,
+        entryId: "t9s144",
         kind: "assistant-message",
         content: "Messaging Test-Dev-1 now.",
         toAgent: { id: DEV_1_ID, name: "Test-Dev-1" },
@@ -187,6 +188,7 @@ describe("summarize", () => {
         ...base,
         ...stamp,
         seq: "146" as Seq,
+        entryId: "t10u",
         kind: "user-message",
         content: "PONG",
         clientNonce: undefined,
@@ -196,14 +198,22 @@ describe("summarize", () => {
         ...base,
         ...stamp,
         seq: "147" as Seq,
+        entryId: "t10s147",
         kind: "reply",
         reply: { type: "text", content: "RESULT: PONG" },
       },
-      { ...base, seq: "148" as Seq, kind: "blob", blobHash: "ab12" },
+      {
+        ...base,
+        seq: "148" as Seq,
+        entryId: "e148",
+        kind: "blob",
+        blobHash: "ab12",
+      },
       {
         ...base,
         ...stamp,
         seq: "149" as Seq,
+        entryId: "t10s149",
         kind: "reply",
         reply: {
           type: "attachment",
@@ -215,11 +225,11 @@ describe("summarize", () => {
     expect(summarize("tail", { agent: PRIMARY_TEST, entries })).toBe(
       [
         "Primary Test, last 5 entries:",
-        "#144 assistant (to Test-Dev-1): Messaging Test-Dev-1 now.",
-        "#146 user (from Test-Dev-1): PONG",
-        "#147 reply: RESULT: PONG",
-        "#148 blob ab12",
-        "#149 reply: report.pdf [attachment]",
+        "#144 [t9s144] assistant (to Test-Dev-1): Messaging Test-Dev-1 now.",
+        "#146 [t10u] user (from Test-Dev-1): PONG",
+        "#147 [t10s147] reply: RESULT: PONG",
+        "#148 [e148] blob ab12",
+        "#149 [t10s149] reply: report.pdf [attachment]",
       ].join("\n"),
     );
   });
