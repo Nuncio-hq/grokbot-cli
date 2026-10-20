@@ -69,7 +69,7 @@ describe("listing commands in human mode", () => {
     );
   });
 
-  it("prints tail entries as [seq] kind: text, one line each, cut at 300 chars", async () => {
+  it("prints tail entries as [seq entryId] kind: text, one line each, cut at 300 chars", async () => {
     const tail = entries([
       row(141, "message", {
         kind: "message",
@@ -115,16 +115,16 @@ describe("listing commands in human mode", () => {
     });
     expect(run.stdout).toBe(
       lines(
-        "[141] user: Ask Test-Dev-1 for PONG",
-        "[143] reply: Messaging Test-Dev-1 now.",
-        "[144] assistant to Test-Dev-1: say PONG",
-        "[146] user from Test-Dev-1: PONG",
-        `[147] reply: ${"x".repeat(299)}…`,
-        "[148] reply: report.pdf [attachment]",
-        "[149] card: widget",
-        "[150] blob: abc123",
-        "[151] tool-call",
-        "[152] reply: [attachment]",
+        "[141 e141] user: Ask Test-Dev-1 for PONG",
+        "[143 e143] reply: Messaging Test-Dev-1 now.",
+        "[144 e144] assistant to Test-Dev-1: say PONG",
+        "[146 e146] user from Test-Dev-1: PONG",
+        `[147 e147] reply: ${"x".repeat(299)}…`,
+        "[148 e148] reply: report.pdf [attachment]",
+        "[149 e149] card: widget",
+        "[150 e150] blob: abc123",
+        "[151 e151] tool-call",
+        "[152 e152] reply: [attachment]",
       ),
     );
   });

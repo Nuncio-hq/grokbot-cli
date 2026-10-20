@@ -78,13 +78,19 @@ export function status(overrides: Partial<LiveStatus> = {}): LiveStatus {
 export function row(seq: number, entryKind: string, body: object): object {
   return {
     seq: String(seq),
+    entryId: `e${seq}`,
     entryKind,
     body: Buffer.from(JSON.stringify(body)).toString("base64"),
   };
 }
 
 export function blobRow(seq: number, blobHash: string): object {
-  return { seq: String(seq), entryKind: "send-message", blobHash };
+  return {
+    seq: String(seq),
+    entryId: `e${seq}`,
+    entryKind: "send-message",
+    blobHash,
+  };
 }
 
 export function entries(rows: readonly object[]): TranscriptEntry[] {

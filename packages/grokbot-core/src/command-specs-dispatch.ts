@@ -6,13 +6,32 @@ const TEXT = {
   required: true,
   position: 0,
 } as const;
+const REPLY_JOB = {
+  type: "string",
+  description:
+    "Job id (from send or ask) whose bot you answer, and whose last bot message is the one answered; omit it with --to",
+  position: 0,
+} as const;
+const REPLY_TEXT = {
+  type: "string",
+  description: "Your reply, sent to the bot",
+  required: true,
+  position: 1,
+} as const;
+const REPLY_TO = {
+  type: "string",
+  description:
+    "Entry id of the bot message to answer, from tail --json (default: the job's last bot message). Without a job, --agent or routing names the bot",
+} as const;
 const TIMEOUT = {
   type: "integer",
   description: "Seconds to wait before giving up",
   default: 600,
   minimum: 1,
 } as const;
-const RESOLVE = "ListGrokBotAgents";
+const ROSTER = "ListGrokBotAgents";
+/** Where the primary Bot comes from when nothing else selects an agent. */
+const PRIMARY = "GetGrokBotUserRuntimeSettings";
 const SEND = "SendGrokBotUserMessage";
 const STATUSES = "ListGrokBotAgentStatuses";
 const ENTRIES = "ListGrokBotTranscriptEntries";
@@ -23,19 +42,19 @@ export const DISPATCH_COMMANDS = {
   agents: {
     summary: "List GrokBot agents on the account",
     safety: "read-only",
-    methods: [RESOLVE],
+    methods: [ROSTER],
     params: { json: JSON_PARAM },
   },
   team: {
     summary: "List agents with live running/idle/awaiting status",
     safety: "read-only",
-    methods: [RESOLVE, STATUSES],
+    methods: [ROSTER, STATUSES],
     params: { json: JSON_PARAM },
   },
   ask: {
     summary: "Send a prompt and wait until the Done Rule settles",
     safety: "writes",
-    methods: [RESOLVE, SEND, ...WATCH],
+    methods: [ROSTER, PRIMARY, SEND, ...WATCH],
     params: {
       text: TEXT,
       timeout: TIMEOUT,
@@ -47,7 +66,7 @@ export const DISPATCH_COMMANDS = {
     summary:
       "Dispatch a message, or queue it while the bot is busy, and return a resumable job id",
     safety: "writes",
-    methods: [RESOLVE, ENTRIES, SEND],
+    methods: [ROSTER, PRIMARY, ENTRIES, SEND],
     params: { text: TEXT, agent: AGENT_PARAM, json: JSON_PARAM },
   },
   wait: {
@@ -68,7 +87,7 @@ export const DISPATCH_COMMANDS = {
   tail: {
     summary: "Read recent decoded transcript entries",
     safety: "read-only",
-    methods: [RESOLVE, ENTRIES],
+    methods: [ROSTER, PRIMARY, ENTRIES],
     params: {
       limit: {
         type: "integer",
@@ -84,8 +103,22 @@ export const DISPATCH_COMMANDS = {
   interrupt: {
     summary: "Interrupt the active run on an agent",
     safety: "writes",
-    methods: [RESOLVE, "InterruptGrokBotAgentRun"],
+    methods: [ROSTER, PRIMARY, "InterruptGrokBotAgentRun"],
     params: { agent: AGENT_PARAM, json: JSON_PARAM },
+  },
+  reply: {
+    summary:
+      "Reply to one of a bot's messages, like Reply in the app, and wait until the Done Rule settles",
+    safety: "writes",
+    methods: [ROSTER, PRIMARY, SEND, ...WATCH],
+    params: {
+      job: REPLY_JOB,
+      text: REPLY_TEXT,
+      to: REPLY_TO,
+      timeout: TIMEOUT,
+      agent: AGENT_PARAM,
+      json: JSON_PARAM,
+    },
   },
 } as const satisfies Record<string, CommandSpec>;
 

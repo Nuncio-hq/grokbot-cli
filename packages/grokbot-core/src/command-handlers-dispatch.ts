@@ -6,6 +6,8 @@ import type {
 import { dispatchMessage, followJob } from "./command-runner-jobs.js";
 import type { DispatchCommandName } from "./command-specs-dispatch.js";
 import { GrokBotError } from "./contracts.js";
+import { withProjectLabel } from "./project-routes.js";
+import { resolveReplyTarget } from "./reply-target.js";
 import { asJsonObject, parseEntriesResponse } from "./transcript.js";
 
 export function dispatchHandlers(
@@ -37,7 +39,8 @@ export function dispatchHandlers(
 
     send: async (input, { signal }) => {
       const agent = await target(input.agent, signal);
-      const job = await dispatchMessage(ctx, agent, input.text, signal);
+      const text = withProjectLabel(input.text, await ctx.projectLabel());
+      const job = await dispatchMessage(ctx, agent, text, signal);
       const { jobId, sentMessageId } = job;
       const queued = job.state.status === "queued";
       return { jobId, agent, sentMessageId, queued };
@@ -45,11 +48,32 @@ export function dispatchHandlers(
 
     ask: async (input, run) => {
       const agent = await target(input.agent, run.signal);
-      const job = await dispatchMessage(ctx, agent, input.text, run.signal);
+      const text = withProjectLabel(input.text, await ctx.projectLabel());
+      const job = await dispatchMessage(ctx, agent, text, run.signal);
       const { jobId, agentId } = job;
       run.onEvent?.({ type: "dispatched", jobId, agentId });
       const outcome = await followJob(ctx, job, input.timeout, run);
       return { jobId, agent, outcome };
+    },
+
+    reply: async (input, run) => {
+      const { agent, replyToId } = await resolveReplyTarget(
+        ctx,
+        input,
+        run.signal,
+      );
+      const text = withProjectLabel(input.text, await ctx.projectLabel());
+      const job = await dispatchMessage(
+        ctx,
+        agent,
+        text,
+        run.signal,
+        replyToId,
+      );
+      const { jobId, agentId } = job;
+      run.onEvent?.({ type: "dispatched", jobId, agentId });
+      const outcome = await followJob(ctx, job, input.timeout, run);
+      return { jobId, agent, replyToId, outcome };
     },
 
     wait: async (input, run) => {

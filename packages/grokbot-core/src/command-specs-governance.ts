@@ -6,6 +6,7 @@ import {
 } from "./command-spec.js";
 
 const AGENTS = "ListGrokBotAgents";
+const PRIMARY = "GetGrokBotUserRuntimeSettings";
 const ENTRIES = "ListGrokBotTranscriptEntries";
 const STATUSES = "ListGrokBotAgentStatuses";
 
@@ -29,13 +30,19 @@ export const GOVERNANCE_COMMANDS = {
   approvals: {
     summary: "List open approval cards for one agent or every agent",
     safety: "read-only",
-    methods: [AGENTS, ENTRIES, STATUSES],
+    methods: [AGENTS, PRIMARY, ENTRIES, STATUSES],
     params: { agent: AGENT_PARAM, json: JSON_PARAM },
   },
   answer: {
     summary: "Answer or dismiss a bot's question widget",
     safety: "writes",
-    methods: [AGENTS, ENTRIES, "RespondGrokBotWidget", "DismissGrokBotWidget"],
+    methods: [
+      AGENTS,
+      PRIMARY,
+      ENTRIES,
+      "RespondGrokBotWidget",
+      "DismissGrokBotWidget",
+    ],
     params: {
       value: {
         type: "string",
@@ -57,6 +64,7 @@ export const GOVERNANCE_COMMANDS = {
     safety: "sensitive",
     methods: [
       AGENTS,
+      PRIMARY,
       ENTRIES,
       "ResolveGrokBotAutoReviewApproval",
       "ResolveGrokBotLocalToolPermission",
@@ -78,6 +86,7 @@ export const GOVERNANCE_COMMANDS = {
     safety: "sensitive",
     methods: [
       AGENTS,
+      PRIMARY,
       ENTRIES,
       "ResolveGrokBotAutoReviewApproval",
       "ResolveGrokBotLocalToolPermission",

@@ -16,6 +16,7 @@ import { localInvocation, runLocal } from "./local-commands.js";
 import { cliError, parseArgv } from "./parse-argv.js";
 import { progressLine } from "./progress.js";
 import { renderOutput } from "./render.js";
+import type { SetupPromptDeps } from "./setup-prompt-command.js";
 import type { StatsDeps } from "./stats-command.js";
 
 export interface TextSink {
@@ -38,6 +39,8 @@ export interface MainContext {
   readonly config?: ConfigDeps;
   /** Backend of `grokbot stats`; built lazily like `auth`. */
   readonly stats?: StatsDeps;
+  /** Where `grokbot setup-prompt` finds the shipped skill; built lazily like `auth`. */
+  readonly setupPrompt?: SetupPromptDeps;
 }
 
 const INTERRUPTED = Symbol("interrupted");

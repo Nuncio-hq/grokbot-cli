@@ -24,7 +24,7 @@ grokbot agents   # the roster; this call proves auth and the backend work
 
 If `grokbot` is missing, install it with `npm install -g grokbotagent-cli` (Node 20.3 or later, macOS). If `whoami` exits 1, ask the owner to run `grokbot login`. It opens a sign-in page only the owner can finish. The Grok Bot desktop app's login also works.
 
-`--agent` takes a bot's name, slug, or agentId. `GROKBOT_AGENT` sets the default bot. Workforce commands take the bot as their first argument instead.
+`--agent` takes a bot's name, slug, or agentId. Without it, `grokbot` picks the bot in this order: `GROKBOT_AGENT`, then the project route for the current folder (see "First-time setup"), then the account's primary Bot. Workforce commands take the bot as their first argument instead.
 
 ## Dispatch work
 
@@ -64,6 +64,46 @@ Read the exit code:
 Add `--json` when you parse output. stdout is then one JSON document, and job ids and errors stay on stderr. Put `--` before text that starts with a dash: `grokbot ask -- "-5 is my answer"`.
 
 `grokbot team` shows who is running, idle, or waiting on the owner. `grokbot tail -n 20 --agent X` shows a bot's recent transcript. `grokbot interrupt --agent X` stops its current run.
+
+## Reply to a bot
+
+Use `grokbot reply <job> "..."` to answer a bot's question or to give feedback on one result. It works like Reply in the app: the bot sees which of its messages you answer, so a short "yes, the second option" or "shorter, please" is understood. It waits like `ask` (same exit codes, `job <id>` on stderr) and answers the last message the bot posted for that job. The reply gets its own job id, so `wait` on that one next.
+
+```bash
+grokbot reply "$job" "Yes, use the second option"
+grokbot tail --json -n 30 --agent Researcher      # each row has an entryId
+grokbot reply "$job" "Same fix for this one" --to <entryId>
+grokbot reply "Looks good, ship it" --to <entryId> --agent Researcher   # no job
+```
+
+`--to <entryId>` answers an older message instead; take the id from `grokbot tail --json`, and it must be a row of that bot's chat. With no job, give the text alone and let `--agent`, `GROKBOT_AGENT` or the folder's project route name the bot. `reply` refuses a job that is unknown or still queued (run `grokbot wait <job>` first), and an entry that is not in that bot's chat.
+
+## First-time setup
+
+Do this with the owner when `grokbot setup-prompt` sent you here, or when nothing is set up yet: no bots marked in `grokbot config`, no routes. Go one step at a time, tell the owner what you found, and wait for their answer before the next step. Setup sends no bot any message except the one question in step 4, and it hires, pushes, deletes and changes nothing on any bot.
+
+1. Run `grokbot whoami`. If it exits 1 there is no sign-in: ask the owner to run `grokbot login`, which opens a sign-in page only they can finish. Go on once `whoami` succeeds.
+2. Run `grokbot agents` and `grokbot team`. Tell the owner which bots exist and which one is the primary Bot, the account's main point of contact. A `grokbot` command with no `--agent` goes to it, unless `GROKBOT_AGENT` or a project route names another bot. To see which bot it is, run `grokbot tail -n 1 --json` with no `--agent` from a folder with no route: the `agent` in the result is the primary Bot. That call only reads.
+3. Ask the owner which bots are main and which are test. With their OK, run `grokbot config protect <agentId> <main|test>` for each. Rules 2 and 3 above rely on these marks.
+4. With the owner's OK, ask the primary Bot one read-only question, and take no action on the answer:
+
+   ```bash
+   grokbot ask --agent <primary agentId> "Read-only question, please take no action: how is this account organised? Which bot owns which project or job, and what should go through you first?" --timeout 300
+   ```
+
+   If it does not finish, handle the exit code as in "Dispatch work" and do not send the question again.
+5. Talk it through with the owner: their projects, which bot should get each one's messages, and what the primary Bot said. For each project folder the owner names, with their OK, run this from inside that folder:
+
+   ```bash
+   grokbot config route <agentId> --label <Name>
+   ```
+
+   - After that, `send` and `ask` in that folder go to that bot with no `--agent`, and the message starts with `[Name]` so the bot knows which project it is about.
+   - A route is keyed by the folder's git remote (`origin`), so every clone shares it, or by the folder's path when it has no remote or with `--path`.
+   - A broken routes file stops `send` and `ask` with a fix hint instead of falling back, so a message never goes to the wrong bot.
+   - `grokbot` sends one message at a time per bot, so two sessions that use the same bot wait for each other. A message also waits while that bot still has a hand-off to another bot running.
+6. Ask the owner where to keep what you agreed: their own project instructions (the file their agent runtime reads, such as AGENTS.md, CLAUDE.md or GEMINI.md), or nowhere. Write it there only with their OK. Never put it in grokbot's own files.
+7. Tell the owner what was set and how to change it later: `grokbot config` lists the main and test marks and the routes, `grokbot config protect` and `grokbot config unprotect <agentId>` change a mark, and `grokbot config route` and `grokbot config unroute` change this folder's route.
 
 ## Brief a bot
 
@@ -220,6 +260,7 @@ grokbot worker-plan                        # prints the worker command; starts n
 | `grokbot wait <job> [--timeout <integer>]` | read-only | Wait for a dispatched job id to finish |
 | `grokbot tail [-n <integer>] [--agent <string>]` | read-only | Read recent decoded transcript entries |
 | `grokbot interrupt [--agent <string>]` | writes | Interrupt the active run on an agent |
+| `grokbot reply [job] <text> [--to <string>] [--timeout <integer>] [--agent <string>]` | writes | Reply to one of a bot's messages, like Reply in the app, and wait until the Done Rule settles |
 | `grokbot hire <name> --title <string> --description <string> [--instructions <string>] [--instructions-file <string>]` | writes | Create a bot with a role and its own /workspace/staff folder |
 | `grokbot update <agent> [--title <string>] [--description <string>] [--instructions <string>] [--instructions-file <string>]` | writes | Change a bot's title, description, or instructions |
 | `grokbot fire <agent> [--force-protected <string>] [--yes]` | destructive, needs --yes | Delete a bot or room |

@@ -1,5 +1,6 @@
 import { type BoxHandoff, isActive, type LiveStatus } from "./agent-status.js";
 import { describeBoxHandoff, describeCard } from "./card-descriptions.js";
+import type { DelegationContext } from "./delegations.js";
 import {
   type BlobEntry,
   type CardEntry,
@@ -66,6 +67,11 @@ export interface DoneRuleInput {
    * (not read, or the read failed). An empty list means none are running.
    */
   readonly subagentStartedAtMs?: readonly number[];
+  /**
+   * Reads of the bots our bot delegated to (see delegations.ts). Omit them and every
+   * delegation stays open until its bot sends a message back, paired by agent.
+   */
+  readonly delegations?: DelegationContext;
 }
 
 /** Clock slack before the echo. A subagent this close still counts as ours. */
@@ -206,7 +212,9 @@ function blockingCards(turn: Turn, status: LiveStatus): readonly CardEntry[] {
  * is unset (question widgets leave it unset), but live.awaiting alone never makes the
  * turn await: it may belong to a later turn. A connector or repo-connect card closes by
  * position once the bot has moved on (see blockingCards), and still blocks while
- * live.awaiting is set even after a later reply. A pending box hand-off awaits
+ * live.awaiting is set even after a later reply. A delegation is pending until its bot
+ * sends the message that answers it, unless that bot's own rows show it never will (held
+ * or handled without an answer, see delegations.ts). A pending box hand-off awaits
  * the owner once the bot stops (see blockingHandoff): no row marks it, so waiting would
  * only time out. A running subagent blocks only when it started during this turn (see
  * subagentsBlockTurn). The caller passes start times when it could read them.
@@ -219,8 +227,9 @@ export function evaluateDoneRule({
   status,
   busyAtSend,
   subagentStartedAtMs,
+  delegations,
 }: DoneRuleInput): DoneVerdict {
-  const turn = findTurn(entries, sentMessageId, busyAtSend);
+  const turn = findTurn(entries, sentMessageId, busyAtSend, delegations);
   if (!turn) return running("awaiting-echo");
   const cards = blockingCards(turn, status);
   const handoff = blockingHandoff(status, turn);

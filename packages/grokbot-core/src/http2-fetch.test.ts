@@ -1,3 +1,4 @@
+import { execFile } from "node:child_process";
 import {
   constants,
   createServer,
@@ -6,8 +7,11 @@ import {
   type ServerHttp2Stream,
 } from "node:http2";
 import type { AddressInfo } from "node:net";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { brotliCompressSync, gzipSync } from "node:zlib";
 import { afterEach, describe, expect, it } from "vitest";
+import { type Http2Probe, probeHttp2 } from "./fixtures/http2-probe.js";
 import { createHttp2Fetch } from "./http2-fetch.js";
 
 type Handler = (
@@ -192,5 +196,51 @@ describe("createHttp2Fetch", () => {
       post(""),
     );
     await expect(response.text()).rejects.toThrow("silent for 30 ms");
+  });
+
+  // Real timers on a real socket: the silence timer is what is under test, and a response
+  // that trickles over several silence windows needs real elapsed time (8 x 15 ms > 50 ms).
+  it("keeps a response alive while chunks keep arriving", async () => {
+    const { origin } = await h2Server((stream) => {
+      stream.respond({ ":status": 200 });
+      let sent = 0;
+      const tick = setInterval(() => {
+        stream.write("x");
+        if (++sent === 8) {
+          clearInterval(tick);
+          stream.end();
+        }
+      }, 15);
+      stream.once("close", () => clearInterval(tick));
+    });
+    const response = await createHttp2Fetch({ silenceTimeoutMs: 50 })(
+      origin,
+      post(""),
+    );
+    expect(await response.text()).toBe("xxxxxxxx");
+  });
+});
+
+/** Calls over one connection must leave nothing behind on it, and silence must still fail. */
+const expectNoLingeringListeners = (probe: Http2Probe) => {
+  expect(probe.connections).toBe(1);
+  expect(probe.afterAllCalls).toStrictEqual(probe.afterFirstCall);
+  expect(probe.warnings).toStrictEqual([]);
+  expect(probe.stalledError).toBe("/stall was silent for 30 ms");
+};
+
+describe("createHttp2Fetch listeners on the shared connection", () => {
+  it("adds none per call, in this runtime", async () => {
+    expectNoLingeringListeners(await probeHttp2(20));
+  });
+
+  // Bun's Http2Stream.setTimeout arms a "timeout" listener on the shared session that is
+  // never removed, and the published CLI runs under either runtime: probe Bun from Node too.
+  it("adds none per call, in Bun", async () => {
+    const { stdout } = await promisify(execFile)(
+      process.versions.bun ? process.execPath : "bun",
+      [fileURLToPath(new URL("./fixtures/http2-probe.ts", import.meta.url))],
+    );
+    expectNoLingeringListeners(JSON.parse(stdout) as Http2Probe);
   });
 });

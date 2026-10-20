@@ -32,8 +32,8 @@
  "components": [
   {
    "id": "cto",
-   "label": "Claude Code / Cursor",
-   "description": "CTO: sets goals, reviews results",
+   "label": "Agent runtime",
+   "description": "Caller: sets goals, reviews results",
    "role": "frontend",
    "layer": 0
   },

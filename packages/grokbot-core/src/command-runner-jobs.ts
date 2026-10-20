@@ -23,15 +23,17 @@ export { assertDispatched, type JobContext } from "./job-queue.js";
  * only ever has one of our messages in hand (job-queue.ts). The job comes back pending
  * when it went out now, queued when it waits behind earlier work. A refused message
  * leaves no job, and so does an error before the send. Any other send error keeps the sending record: the message may have
- * landed, and `wait` finds its echo.
+ * landed, and `wait` finds its echo. `replyToId` sends it as a reply to that transcript
+ * entry, also when it waits in the queue first.
  */
 export async function dispatchMessage(
   ctx: JobContext,
   agent: Agent,
   text: string,
   signal?: AbortSignal,
+  replyToId?: string,
 ): Promise<JobRecord> {
-  const queued = newQueuedJob(agent, text);
+  const queued = newQueuedJob(agent, text, replyToId);
   await ctx.jobs.save(queued);
   try {
     await advanceQueue(ctx, agent.agentId, queued.jobId, signal);
@@ -81,7 +83,7 @@ function savedOutcome(state: JobState): JobOutcome | undefined {
  * What the saved jobs on this agent recorded about the bot at send, ours included.
  * An unreadable store gives no records, which only makes attribution stricter.
  */
-async function busyRecords(jobs: JobStore, job: JobRecord) {
+export async function busyRecords(jobs: JobStore, job: JobRecord) {
   const saved = await jobs.list().catch(() => []);
   const busy = new Map<string, boolean>();
   for (const j of [...saved, job]) {

@@ -1,5 +1,6 @@
 import {
   type Agent,
+  noAgentError,
   parseListAgentsResponse,
   pickAgentQuery,
   resolveAgent,
@@ -12,9 +13,16 @@ import type {
   RunOptions,
 } from "./command-runner-contract.js";
 import type { JobContext } from "./command-runner-jobs.js";
-import type { GatewayTransport, ServerTransport } from "./contracts.js";
+import {
+  type GatewayTransport,
+  GrokBotError,
+  type ServerTransport,
+} from "./contracts.js";
 import { createGatewayTransport } from "./gateway-transport.js";
 import { jobStore } from "./job-store.js";
+import { readPrimaryAgentId } from "./primary-agent.js";
+import { type MatchedRoute, routeForFolder } from "./project-routes.js";
+import { projectRoutesStore } from "./project-routes-store.js";
 import {
   type ProtectedBots,
   protectedBotsStore,
@@ -37,8 +45,13 @@ export interface RunnerContext extends JobContext {
   fetchAgents(signal?: AbortSignal): Promise<readonly Agent[]>;
   /** The bots the user marked on this computer; throws if that list is unreadable. */
   protectedBots(): Promise<ProtectedBots>;
-  /** Resolves `--agent`, else the host's default agent, against the live roster. */
+  /**
+   * Resolves the agent against the live roster: `--agent`, else the host's default agent,
+   * else the working directory's project route, else the account's primary Bot.
+   */
   target(flag: string | undefined, signal?: AbortSignal): Promise<Agent>;
+  /** The `[label] ` tag of the working directory's project route, if it has one. */
+  projectLabel(): Promise<string | undefined>;
 }
 
 /** A handler's run options. Pass `confirmed` to every transport call. */
@@ -70,6 +83,36 @@ export function createRunnerContext(
       await server.call("ListGrokBotAgents", {}, { signal }),
     );
 
+  const routeHere = async (): Promise<MatchedRoute | undefined> =>
+    routeForFolder(
+      await (options.projectRoutes ?? (() => projectRoutesStore().read()))(),
+      options.cwd ?? process.cwd(),
+    );
+
+  const byAgentId = (
+    agents: readonly Agent[],
+    agentId: string,
+    what: string,
+  ) => {
+    const agent = agents.find((a) => a.agentId === agentId);
+    if (agent) return agent;
+    throw new GrokBotError(
+      "not-found",
+      `${what} points at agent ${agentId}, which is not on this account. Check grokbot agents.`,
+    );
+  };
+
+  /** The account's primary Bot, from the user's runtime settings. */
+  const primaryAgent = async (signal?: AbortSignal) => {
+    const id = await readPrimaryAgentId(server, signal);
+    if (id === undefined) throw noAgentError();
+    return byAgentId(
+      await fetchAgents(signal),
+      id,
+      "The account's primary Bot",
+    );
+  };
+
   return {
     server,
     jobs: options.jobs ?? jobStore(),
@@ -83,8 +126,19 @@ export function createRunnerContext(
     protectedBots: options.protectedBots ?? (() => protectedBotsStore().read()),
     async target(flag, signal) {
       const pick = pickAgentQuery({ flag, env: options.defaultAgent });
-      if (!pick.ok) throw pick.error;
-      return resolveAgent(pick.query, await fetchAgents(signal));
+      if (pick) return resolveAgent(pick, await fetchAgents(signal));
+      const route = await routeHere();
+      if (route) {
+        return byAgentId(
+          await fetchAgents(signal),
+          route.agentId,
+          `The project route ${route.match}`,
+        );
+      }
+      return primaryAgent(signal);
+    },
+    async projectLabel() {
+      return (await routeHere())?.label;
     },
   };
 }

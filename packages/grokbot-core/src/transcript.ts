@@ -64,6 +64,8 @@ export type TranscriptEntry =
         readonly kind: "assistant-message";
         readonly content: string;
         readonly toAgent: AgentRef | undefined;
+        /** The `kind` the wire gives `toAgent` (`agent`, `cloud-agent`); absent on legacy rows. */
+        readonly toAgentKind?: string;
       })
   | (EntryBase &
       Stamped & {
@@ -170,13 +172,18 @@ const ROLE_PARSERS: Record<string, BodyParser> = {
     clientNonce: readString(body, "clientNonce"),
     fromAgent: parseAgentRef(body.fromAgent),
   }),
-  assistant: (body, base) => ({
-    ...base,
-    ...stamped(body),
-    kind: "assistant-message",
-    content: readString(body, "content") ?? "",
-    toAgent: parseAgentRef(body.toAgent),
-  }),
+  assistant: (body, base) => {
+    const toAgent = asJsonObject(body.toAgent);
+    const toAgentKind = toAgent && readString(toAgent, "kind");
+    return {
+      ...base,
+      ...stamped(body),
+      kind: "assistant-message",
+      content: readString(body, "content") ?? "",
+      toAgent: parseAgentRef(body.toAgent),
+      ...(toAgentKind !== undefined && { toAgentKind }),
+    };
+  },
 };
 
 function parseReply(message: JsonObject): Reply | undefined {

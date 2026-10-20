@@ -4,6 +4,12 @@ import {
   parseAgentStatusesResponse,
 } from "./agent-status.js";
 import type { JsonObject, ServerTransport } from "./contracts.js";
+import { readDelegationTargets } from "./delegation-reads.js";
+import type {
+  DelegationContext,
+  DelegationReport,
+  DelegationTarget,
+} from "./delegations.js";
 import {
   type DoneVerdict,
   evaluateDoneRule,
@@ -15,6 +21,7 @@ import {
   readTranscriptSince,
   type TranscriptCursor,
 } from "./transcript-stream.js";
+import { findTurn } from "./turn-model.js";
 import type { BusyAtSend } from "./turn-sharing.js";
 import { readBlobReply } from "./wait-blob.js";
 import { abortable, isFatal } from "./wait-reconnect.js";
@@ -47,6 +54,9 @@ export interface WaitSessionConfig {
 
 /** Reuse a successful subagent list only while it is younger than this. */
 const SUBAGENT_READ_MIN_MS = 5_000;
+
+/** While a delegation to another bot is open, read that bot again this often. */
+const DELEGATE_POLL_MS = 5_000;
 
 /** A finite number, or a proto int64 sent as a digit string. */
 function readMs(value: unknown): number | undefined {
@@ -91,6 +101,16 @@ export class WaitSession {
   #subagentsWereRunning = false;
   /** True when the current status read the list, so a finish does not need another read. */
   #subagentReadForStatus = false;
+  /** Reads of the bots our bot delegated to (see delegations.ts); empty when none are followed. */
+  #delegateTargets: ReadonlyMap<string, DelegationTarget> = new Map();
+  /** The delegates and the contested ones the last read covered, to notice a change. */
+  #delegateKey = "";
+  /** `now()` when the delegates are due for the next read; undefined when none wait. */
+  #delegatesNextAtMs: number | undefined;
+  /** Counts changes of our bot's rows and status, so a delegate read can tell it is the newer. */
+  #changes = 0;
+  /** The `#changes` value the last delegate read started at. */
+  #delegatesAtChange = -1;
   #needsBacklog = true;
 
   constructor(config: WaitSessionConfig) {
@@ -122,7 +142,10 @@ export class WaitSession {
 
   addRows(entries: readonly TranscriptEntry[]): boolean {
     const added = this.rows.add(entries);
-    if (added) this.#config.onNewRows();
+    if (added) {
+      this.#changes++;
+      this.#config.onNewRows();
+    }
     return added;
   }
 
@@ -138,6 +161,7 @@ export class WaitSession {
     this.#needsBacklog = false;
     this.rows.generation = page.generation;
     const added = this.addRows(page.entries);
+    await this.syncDelegates();
     await this.confirmSubagentList();
     return added;
   }
@@ -166,6 +190,7 @@ export class WaitSession {
    */
   async recordStatus(status: LiveStatus): Promise<void> {
     this.status = status;
+    this.#changes++;
     await this.#readSubagentStarts();
     await this.confirmSubagentList();
   }
@@ -231,23 +256,131 @@ export class WaitSession {
     await this.#fetchSubagentStarts(this.#now());
   }
 
-  #evaluate(): DoneVerdict {
-    const entries = this.rows
+  #entries(): TranscriptEntry[] {
+    return this.rows
       .entries()
       .map((e) =>
         e.kind === "blob" ? (this.#blobReplies.get(e.blobHash) ?? e) : e,
       );
+  }
+
+  #evaluate(): DoneVerdict {
     const { sentMessageId, busyAtSend } = this.#config.job;
     const { status } = this;
     const subagentStartedAtMs = this.#subagentStartedAtMs;
+    const delegations = this.#delegationContext();
     return evaluateDoneRule({
-      entries,
+      entries: this.#entries(),
       sentMessageId,
       status,
       ...(busyAtSend && { busyAtSend }),
       ...(status.hasRunningSubagents &&
         subagentStartedAtMs !== undefined && { subagentStartedAtMs }),
+      ...(delegations && { delegations }),
     });
+  }
+
+  /** The turn's delegations, paired with the delegates' reads when `ctx` holds them. */
+  #delegations(ctx?: DelegationContext): DelegationReport | undefined {
+    const { sentMessageId, busyAtSend } = this.#config.job;
+    return findTurn(this.#entries(), sentMessageId, busyAtSend, ctx)
+      ?.delegations;
+  }
+
+  /**
+   * Keeps the reads of the bots our bot delegated to in step with its rows (see
+   * delegations.ts). Nothing is read while no open delegation has an id to follow, so a
+   * wait without tracked delegations costs no extra call. Otherwise the delegates are read
+   * (live status of all, then recent rows of the idle ones and of those several
+   * delegations went to) when the set changed, when `force` is set, or when the poll or a
+   * grace came due. A failed read leaves those delegations paired by agent, as before,
+   * and is tried again at the next poll.
+   */
+  async syncDelegates(force = false): Promise<void> {
+    const plan = this.#delegations();
+    const ids = plan?.targets ?? [];
+    if (plan === undefined || ids.length === 0) {
+      this.#delegateTargets = new Map();
+      this.#delegateKey = "";
+      this.#delegatesNextAtMs = undefined;
+      this.#delegatesAtChange = this.#changes;
+      return;
+    }
+    const key = `${[...ids].sort()}|${[...plan.contested].sort()}`;
+    const now = this.#now();
+    const due =
+      this.#delegatesNextAtMs !== undefined && now >= this.#delegatesNextAtMs;
+    if (!force && key === this.#delegateKey && !due) return;
+    const { server, signal } = this.#config;
+    const changes = this.#changes;
+    try {
+      const raw = await abortable(
+        server.call("ListGrokBotAgentStatuses", { agentIds: ids }, { signal }),
+        signal,
+      );
+      this.#delegateTargets = await readDelegationTargets(
+        server,
+        ids,
+        parseAgentStatusesResponse(raw),
+        now,
+        signal,
+        plan.contested,
+      );
+    } catch (error) {
+      if (signal.aborted || isFatal(error)) throw error;
+      this.#delegateTargets = new Map();
+    }
+    this.#delegateKey = key;
+    this.#delegatesAtChange = changes;
+    this.#delegatesNextAtMs = this.#nextDelegatePoll(now);
+  }
+
+  /** When to read the delegates next: a poll after `readAtMs`, or sooner when a grace ends. */
+  #nextDelegatePoll(readAtMs: number): number | undefined {
+    const waiting = (
+      this.#delegations(this.#delegationContext())?.open ?? []
+    ).filter((d) => d.targetId !== undefined && d.state.kind !== "released");
+    if (waiting.length === 0) return undefined;
+    const graces = waiting.flatMap((d) =>
+      d.state.kind === "grace" ? [d.state.atMs] : [],
+    );
+    return Math.min(readAtMs + DELEGATE_POLL_MS, ...graces);
+  }
+
+  #delegationContext(): DelegationContext | undefined {
+    return this.#delegateTargets.size === 0
+      ? undefined
+      : { selfId: this.agentId, targets: this.#delegateTargets };
+  }
+
+  /** True when delegates were read and our bot's rows or status changed since. */
+  #delegatesStale(): boolean {
+    return (
+      this.#delegateTargets.size > 0 &&
+      this.#delegatesAtChange !== this.#changes
+    );
+  }
+
+  /** `now()` when the delegates are due for another read; undefined when none wait. */
+  get delegatesDueAtMs(): number | undefined {
+    return this.#delegatesNextAtMs;
+  }
+
+  /** The delegates' poll, or the grace of one, has come due. */
+  delegatesDue(): boolean {
+    const due = this.#delegatesNextAtMs;
+    return due !== undefined && this.#now() >= due;
+  }
+
+  /**
+   * A delegate read older than our bot's newest rows or status must not end the turn: a
+   * delegation released on it may since have been answered. When the Done Rule would
+   * return anything other than running on such a read, read the delegates again.
+   */
+  async confirmDelegates(): Promise<void> {
+    if (!this.#delegatesStale()) return;
+    if (this.#evaluate().status === "running") return;
+    await this.syncDelegates(true);
   }
 
   /** Evaluates the Done Rule; a running verdict is reported at once, others only by finish. */
@@ -262,9 +395,12 @@ export class WaitSession {
    * may show the blob belongs to another run, so the turn can go back to running.
    */
   async finish(verdict: SettledVerdict): Promise<DoneVerdict> {
+    const staleDelegates = this.#delegatesStale();
     const stale =
-      this.status.hasRunningSubagents && !this.#subagentReadForStatus;
+      (this.status.hasRunningSubagents && !this.#subagentReadForStatus) ||
+      staleDelegates;
     await this.confirmSubagentList();
+    await this.confirmDelegates();
     const hash = "blobHash" in verdict ? verdict.blobHash : undefined;
     let final: DoneVerdict = stale ? this.settle() : verdict;
     if (

@@ -5,6 +5,7 @@ import {
   isKeychainAccess,
   isUsageSetting,
   type KeychainAccess,
+  projectRoutesStore,
   protectedBotsStore,
 } from "grokbot-core";
 import {
@@ -16,6 +17,15 @@ import {
   runProtectCommand,
   UNPROTECT,
 } from "./config-protect-command.js";
+import {
+  describeRoutes,
+  ROUTE,
+  ROUTE_HELP,
+  type RouteDeps,
+  routesJson,
+  runRouteCommand,
+  UNROUTE,
+} from "./config-route-command.js";
 import { EXIT_CODE } from "./exit-codes.js";
 import type { TextSink } from "./main.js";
 
@@ -25,12 +35,12 @@ import type { TextSink } from "./main.js";
  * keeps its local usage log, and which bots are protected on this computer.
  */
 export const CONFIG_SUMMARY =
-  "Show or change grokbot's local settings (keychain-access, usage, protected bots)";
+  "Show or change grokbot's local settings (keychain-access, usage, protected bots, project routes)";
 
 export const CONFIG_HELP = [
   CONFIG_SUMMARY,
   "",
-  "Usage: grokbot config [keychain-access [silent|prompt] | usage [on|off] | protect <agentId> <main|test> | unprotect <agentId>] [--json]",
+  "Usage: grokbot config [keychain-access [silent|prompt] | usage [on|off] | protect <agentId> <main|test> | unprotect <agentId> | route <agentId> [--label <text>] [--path] | unroute [--path]] [--json]",
   "",
   "keychain-access decides who may read grokbot login's sign-in from the macOS Keychain:",
   "  silent  Any program running as you, without a dialog (default). Needed for",
@@ -48,8 +58,11 @@ export const CONFIG_HELP = [
   "",
   ...PROTECT_HELP,
   "",
-  "Settings live in ~/.grokbot/grokbot-cli.json and protected bots in",
-  "~/.grokbot/grokbot-cli-protected-bots.json. Neither ever holds a token.",
+  ...ROUTE_HELP,
+  "",
+  "Settings live in ~/.grokbot/grokbot-cli.json, protected bots in",
+  "~/.grokbot/grokbot-cli-protected-bots.json and project routes in",
+  "~/.grokbot/grokbot-cli-project-routes.json. None ever holds a token.",
   "",
 ].join("\n");
 
@@ -57,7 +70,7 @@ const SETTING = "keychain-access";
 const USAGE = "usage";
 
 /** Side effects of `grokbot config`, injectable so tests never touch the Keychain. */
-export interface ConfigDeps extends ProtectDeps {
+export interface ConfigDeps extends ProtectDeps, RouteDeps {
   readonly path: string;
   read(): Promise<CliConfig>;
   write(config: CliConfig): Promise<void>;
@@ -72,7 +85,12 @@ export function defaultConfigDeps(): ConfigDeps {
   const config = cliConfigStore();
   const store = credentialStore();
   const protectedBots = protectedBotsStore();
+  const routes = projectRoutesStore();
   return {
+    routesPath: routes.path,
+    cwd: process.cwd(),
+    readRoutes: () => routes.read(),
+    writeRoutes: (next) => routes.write(next),
     path: config.path,
     protectedPath: protectedBots.path,
     readProtected: () => protectedBots.read(),
@@ -103,6 +121,14 @@ export async function runConfigCommand(
 ): Promise<number> {
   const json = args.includes("--json");
   const words = args.filter((arg) => arg !== "--json");
+  if (words[0] === ROUTE || words[0] === UNROUTE) {
+    return runRouteCommand(words[0], words.slice(1), {
+      stdout: ctx.stdout,
+      deps: ctx.deps,
+      json,
+      usage: (error) => usage(ctx.stderr, error),
+    });
+  }
   const unknownFlag = words.find((arg) => arg.startsWith("-"));
   if (unknownFlag) {
     return usage(ctx.stderr, `unknown flag "${unknownFlag.split("=", 1)[0]}"`);
@@ -120,7 +146,7 @@ export async function runConfigCommand(
   if (setting !== undefined && setting !== SETTING && setting !== USAGE) {
     return usage(
       ctx.stderr,
-      `unknown setting "${setting}" (known: ${SETTING}, ${USAGE}, ${PROTECT}, ${UNPROTECT})`,
+      `unknown setting "${setting}" (known: ${SETTING}, ${USAGE}, ${PROTECT}, ${UNPROTECT}, ${ROUTE}, ${UNROUTE})`,
     );
   }
   if (setting === SETTING && value !== undefined && !isKeychainAccess(value)) {
@@ -135,9 +161,10 @@ export async function runConfigCommand(
   if (value === undefined) {
     const saved = await ctx.deps.itemAccess();
     const bots = setting ? undefined : await ctx.deps.readProtected();
+    const routes = setting ? undefined : await ctx.deps.readRoutes();
     if (json) {
       ctx.stdout.write(
-        `${JSON.stringify({ keychainAccess, usage: current.usage, savedSignIn: saved ?? null, path: ctx.deps.path, ...(bots && { protectedBots: protectedJson(bots), protectedPath: ctx.deps.protectedPath }) }, null, 2)}\n`,
+        `${JSON.stringify({ keychainAccess, usage: current.usage, savedSignIn: saved ?? null, path: ctx.deps.path, ...(bots && { protectedBots: protectedJson(bots), protectedPath: ctx.deps.protectedPath }), ...(routes && (await routesJson(routes, ctx.deps))) }, null, 2)}\n`,
       );
     } else if (setting) {
       ctx.stdout.write(
@@ -146,7 +173,7 @@ export async function runConfigCommand(
     } else {
       const item = saved ? `(saved sign-in: ${saved})` : "(no saved sign-in)";
       ctx.stdout.write(
-        `${SETTING}  ${keychainAccess}  ${item}\n${USAGE}            ${current.usage}  (local only; see grokbot stats)\n${describeProtected(bots ?? new Map(), ctx.deps.protectedPath)}\nSettings file: ${ctx.deps.path}\n`,
+        `${SETTING}  ${keychainAccess}  ${item}\n${USAGE}            ${current.usage}  (local only; see grokbot stats)\n${describeProtected(bots ?? new Map(), ctx.deps.protectedPath)}\n${await describeRoutes(routes ?? new Map(), ctx.deps)}\nSettings file: ${ctx.deps.path}\n`,
       );
     }
     return EXIT_CODE.ok;

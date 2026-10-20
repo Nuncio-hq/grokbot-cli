@@ -101,6 +101,7 @@ export const DISPATCH_RENDERERS: HumanRenderers<DispatchCommandName> = {
           ),
     ),
   ask: ({ jobId, outcome }) => outcomeText(jobId, outcome),
+  reply: ({ jobId, outcome }) => outcomeText(jobId, outcome),
   send: ({ jobId, agent, queued }) => ({
     stdout: `${jobId}\n`,
     note: queued

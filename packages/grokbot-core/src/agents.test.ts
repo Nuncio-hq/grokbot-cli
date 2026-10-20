@@ -230,35 +230,24 @@ describe("resolveAgent", () => {
   });
 
   it("treats a blank query as no agent selected", () => {
-    expect(thrown(() => resolveAgent("  ", AGENTS))).toStrictEqual({
-      code: "not-found",
-      message:
-        "No agent selected. Pass --agent <name|agentId> or set GROKBOT_AGENT.",
-    });
+    expect(thrown(() => resolveAgent("  ", AGENTS)).code).toBe("not-found");
   });
 });
 
 describe("pickAgentQuery", () => {
   it("takes the --agent flag over GROKBOT_AGENT", () => {
-    expect(
-      pickAgentQuery({ flag: " Staff Test ", env: "Primary Test" }),
-    ).toStrictEqual({ ok: true, query: "Staff Test" });
+    expect(pickAgentQuery({ flag: " Staff Test ", env: "Primary Test" })).toBe(
+      "Staff Test",
+    );
   });
 
   it("falls back to GROKBOT_AGENT when the flag is blank", () => {
-    expect(pickAgentQuery({ flag: "  ", env: "Primary Test" })).toStrictEqual({
-      ok: true,
-      query: "Primary Test",
-    });
+    expect(pickAgentQuery({ flag: "  ", env: "Primary Test" })).toBe(
+      "Primary Test",
+    );
   });
 
   it("never defaults to the first listed bot", () => {
-    const picked = pickAgentQuery({ env: "" });
-    expect(picked.ok).toBe(false);
-    if (picked.ok) return;
-    expect([picked.error.code, picked.error.message]).toStrictEqual([
-      "not-found",
-      "No agent selected. Pass --agent <name|agentId> or set GROKBOT_AGENT.",
-    ]);
+    expect(pickAgentQuery({ env: "" })).toBeUndefined();
   });
 });

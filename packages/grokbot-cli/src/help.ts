@@ -12,6 +12,7 @@ import {
   takesValue,
 } from "./command-params.js";
 import { CONFIG_SUMMARY } from "./config-command.js";
+import { SETUP_PROMPT_SUMMARY } from "./setup-prompt-command.js";
 import { STATS_SUMMARY } from "./stats-command.js";
 
 function valueLabel(spec: ParamSpec): string {
@@ -64,6 +65,8 @@ export function generalHelp(): string {
   return [
     `grokbot ${GROKBOT_VERSION}. Orchestrate your GrokBot workforce from any terminal.`,
     "",
+    "First time? Run grokbot setup-prompt and paste its output into your agent.",
+    "",
     "Usage: grokbot <command> [arguments] [flags]",
     "",
     "Commands:",
@@ -75,11 +78,13 @@ export function generalHelp(): string {
     "Settings:",
     ...columns([
       ["config", CONFIG_SUMMARY],
+      ["setup-prompt", SETUP_PROMPT_SUMMARY],
       ["stats", STATS_SUMMARY],
     ]),
     "",
     "Flags go before or after the command. Commands with an --agent flag fall",
-    "back to GROKBOT_AGENT. Workforce commands (update, fire, room-members,",
+    "back to GROKBOT_AGENT, then this folder's project route (grokbot config route),",
+    "then the account's primary Bot. Workforce commands (update, fire, room-members,",
     "skills-*, routines-*) take the bot as their first argument instead.",
     'Put -- before text that starts with a dash: grokbot ask -- "-5 is my answer"',
     "With --json, stdout is one JSON document; the job id and errors still go",

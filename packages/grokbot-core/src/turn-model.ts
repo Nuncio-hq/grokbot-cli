@@ -1,4 +1,8 @@
-import { type AgentRef, isSameAgent } from "./agent-ref.js";
+import {
+  type DelegationContext,
+  DelegationLedger,
+  type DelegationReport,
+} from "./delegations.js";
 import {
   type CardEntry,
   compareSeq,
@@ -18,8 +22,10 @@ import {
 export interface Turn {
   /** Rows after our echo that belong to the turn, in seq order. */
   readonly rows: readonly TranscriptEntry[];
-  /** A delegation we sent has no reply from that bot yet. */
+  /** A delegation we sent has no reply from that bot yet, and its bot may still send one. */
   readonly hasOpenDelegation: boolean;
+  /** Every delegation of the turn still without a reply, and what the bots' reads say of them. */
+  readonly delegations: DelegationReport;
   /** Cards of the turn still waiting on the owner: open, and the bot has not resumed past them. */
   readonly openCards: readonly CardEntry[];
   /** Rows of the latest run after its last delegate reply or card: where the final reply lives. */
@@ -70,11 +76,17 @@ const NO_RECORDS: BusyAtSend = new Map();
  * run is where the bot answers, so the tail restarts there. A row without a requestId
  * (legacy rows, blobs) counts only before the owner's next unlinked message, and so does
  * every row when the echo has none.
+ *
+ * Delegations pair with their replies through a DelegationLedger (see delegations.ts):
+ * by agent, as ever, unless `delegations` holds the reads of the delegate bots, which
+ * place each reply on its own delegation and release the ones a delegate will never
+ * answer. Without `delegations` every delegation stays open until its reply.
  */
 export function findTurn(
   entries: readonly TranscriptEntry[],
   sentMessageId: string,
   busyAtSend: BusyAtSend = NO_RECORDS,
+  delegations?: DelegationContext,
 ): Turn | undefined {
   const rows = newestVersions(entries);
   const echoAt = rows.findIndex(
@@ -107,7 +119,8 @@ export function findTurn(
   const ownServerTurns = new Set(
     shared.echoes.flatMap((e) => serverTurnOf(e) ?? []),
   );
-  const open: AgentRef[] = [];
+  const ledger = new DelegationLedger(delegations);
+  for (const e of rows) if (e.kind === "user-message") ledger.receive(e);
   const cards: CardEntry[] = [];
   const resumed = new Set<CardEntry>();
   const turn: TranscriptEntry[] = [];
@@ -151,10 +164,8 @@ export function findTurn(
       return;
     }
     if (e.kind === "user-message" && e.fromAgent) {
-      const from = e.fromAgent;
-      const closes = open.findIndex((to) => isSameAgent(to, from));
-      if (closes < 0 || (run === undefined && !beforeOwner)) return;
-      open.splice(closes, 1);
+      if ((run === undefined && !beforeOwner) || !ledger.answer(e, e.fromAgent))
+        return;
       runs.add(run);
       latestRuns = new Set([run]);
       turn.push(e);
@@ -167,7 +178,7 @@ export function findTurn(
         : !runs.has(run) && !resumesCards(run) && !continuesTurn(run)
     )
       return;
-    if (e.kind === "assistant-message" && e.toAgent) open.push(e.toAgent);
+    if (e.kind === "assistant-message" && e.toAgent) ledger.sent(e, e.toAgent);
     turn.push(e);
     if (e.kind !== "card") return;
     cards.push(e);
@@ -181,9 +192,11 @@ export function findTurn(
   });
   const reason = sharedReason(shared, echo);
   const nextOwner = cut < 0 ? undefined : after[cut];
+  const report = ledger.report();
   return {
     rows: turn,
-    hasOpenDelegation: open.length > 0,
+    hasOpenDelegation: report.pending,
+    delegations: report,
     openCards: cards.filter((c) => c.open && !resumed.has(c)),
     tail,
     startMs: echo.timestampMs,

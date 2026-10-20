@@ -16,6 +16,12 @@ import { errorMessage } from "./error-message.js";
 import { EXIT_CODE } from "./exit-codes.js";
 import type { TextSink } from "./main.js";
 import {
+  defaultSetupPromptDeps,
+  runSetupPromptCommand,
+  SETUP_PROMPT_HELP,
+  type SetupPromptDeps,
+} from "./setup-prompt-command.js";
+import {
   defaultStatsDeps,
   runStatsCommand,
   STATS_HELP,
@@ -23,10 +29,10 @@ import {
 } from "./stats-command.js";
 
 /**
- * Local commands outside the RPC catalog: login / logout / whoami, config and stats. They
- * never build the runner (stats --bots makes its own read-only calls) and MCP never offers them.
+ * Local commands outside the RPC catalog: login / logout / whoami, config, stats and
+ * setup-prompt. None builds the runner or touches the network; MCP never offers any of them.
  */
-type LocalName = AuthCommandName | "config" | "stats";
+type LocalName = AuthCommandName | "config" | "stats" | "setup-prompt";
 
 export interface LocalContext {
   readonly stdout: TextSink;
@@ -37,12 +43,17 @@ export interface LocalContext {
   readonly auth?: AuthDeps;
   readonly config?: ConfigDeps;
   readonly stats?: StatsDeps;
+  /** Where `grokbot setup-prompt` finds the shipped skill; built lazily like `auth`. */
+  readonly setupPrompt?: SetupPromptDeps;
 }
 
 /** Words and flags that may come before the command name, as elsewhere in the CLI. */
 const LEADING = new Set(["help", "--help", "-h", "--json"]);
 const isLocal = (name: string | undefined): name is LocalName =>
-  name === "config" || name === "stats" || isAuthCommand(name);
+  name === "config" ||
+  name === "stats" ||
+  name === "setup-prompt" ||
+  isAuthCommand(name);
 
 /**
  * Finds a local command after leading flags: `whoami`, `--json whoami`, `help login`,
@@ -75,7 +86,9 @@ export async function runLocal(
         ? CONFIG_HELP
         : name === "stats"
           ? STATS_HELP
-          : AUTH_HELP[name],
+          : name === "setup-prompt"
+            ? SETUP_PROMPT_HELP
+            : AUTH_HELP[name],
     );
     return EXIT_CODE.ok;
   }
@@ -103,14 +116,21 @@ export async function runLocal(
               signal: controller.signal,
               deps: ctx.stats ?? defaultStatsDeps(ctx.env),
             })
-          : runAuthCommand(name, args, {
-              stdout,
-              stderr,
-              env: ctx.env,
-              isTTY: ctx.isTTY,
-              signal: controller.signal,
-              deps: ctx.auth ?? defaultAuthDeps(),
-            });
+          : name === "setup-prompt"
+            ? runSetupPromptCommand(args, {
+                stdout,
+                stderr,
+                isTTY: ctx.isTTY,
+                deps: ctx.setupPrompt ?? defaultSetupPromptDeps(),
+              })
+            : runAuthCommand(name, args, {
+                stdout,
+                stderr,
+                env: ctx.env,
+                isTTY: ctx.isTTY,
+                signal: controller.signal,
+                deps: ctx.auth ?? defaultAuthDeps(),
+              });
     return await Promise.race([run, aborted]);
   } catch (error) {
     if (error === INTERRUPTED || controller.signal.aborted) {
