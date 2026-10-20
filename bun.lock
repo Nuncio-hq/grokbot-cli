@@ -14,27 +14,27 @@
     },
     "packages/grokbot-cli": {
       "name": "grokbotagent-cli",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "bin": {
         "grokbot": "dist/cli.js",
       },
       "dependencies": {
-        "grokbot-core": "^0.1.1",
+        "grokbot-core": "^0.2.1",
         "uqr": "0.1.3",
       },
     },
     "packages/grokbot-core": {
       "name": "grokbot-core",
-      "version": "0.2.0",
+      "version": "0.2.1",
     },
     "packages/grokbot-mcp": {
       "name": "grokbot-mcp",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "bin": {
         "grokbot-mcp": "dist/index.js",
       },
       "dependencies": {
-        "grokbot-core": "^0.1.1",
+        "grokbot-core": "^0.2.1",
       },
     },
   },
