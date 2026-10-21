@@ -11,7 +11,7 @@ import {
 } from "./mcp-era-request.js";
 import { callTool, mcpTools } from "./mcp-tools.js";
 
-export type Handler = (
+type Handler = (
   params: JsonObject,
   signal: AbortSignal,
 ) => Outcome | Promise<Outcome>;

@@ -8,7 +8,7 @@ export interface TokenFifoServer {
   stop(): void;
 }
 
-export interface TokenFifoOptions {
+interface TokenFifoOptions {
   readonly intervalMs?: number;
   /** Pause after a serve, so a reader still draining the pipe never gets the token twice. */
   readonly coolDownMs?: number;

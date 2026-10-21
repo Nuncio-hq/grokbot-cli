@@ -23,7 +23,7 @@ const ECHO_WINDOW_MS = 60_000;
 const POLL_MS = 2_000;
 
 /** Throws GrokBotError("protocol") unless SendGrokBotUserMessage dispatched the message. */
-export function assertDispatched(raw: unknown): void {
+function assertDispatched(raw: unknown): void {
   const response: JsonObject = asJsonObject(raw) ?? {};
   const delivery = readString(response, "delivery");
   const refused = delivery?.endsWith("REFUSED") === true;
@@ -66,10 +66,7 @@ export function newQueuedJob(
 }
 
 /** The bot's queued jobs, oldest first. */
-export function queueOf(
-  saved: readonly JobRecord[],
-  agentId: string,
-): JobRecord[] {
+function queueOf(saved: readonly JobRecord[], agentId: string): JobRecord[] {
   const at = (j: JobRecord) => j.queuedAtMs ?? j.sentAtMs;
   return saved
     .filter((j) => j.agentId === agentId && j.state.status === "queued")

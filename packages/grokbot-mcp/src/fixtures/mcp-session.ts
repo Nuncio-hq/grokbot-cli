@@ -20,7 +20,7 @@ export const PRIMARY_TEST: Agent = {
   harness: "",
 };
 
-export interface RunCall {
+interface RunCall {
   readonly name: CommandName;
   readonly input: unknown;
   readonly signal: AbortSignal | undefined;

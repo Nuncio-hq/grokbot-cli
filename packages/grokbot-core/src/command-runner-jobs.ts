@@ -16,7 +16,7 @@ import {
 import type { BusyAtSend } from "./turn-sharing.js";
 import { waitForDone } from "./wait-for-done.js";
 
-export { assertDispatched, type JobContext } from "./job-queue.js";
+export type { JobContext } from "./job-queue.js";
 
 /**
  * Saves `text` as a queued job, then sends the bot's queue if the bot is free, so a bot

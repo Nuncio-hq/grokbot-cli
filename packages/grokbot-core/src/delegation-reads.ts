@@ -6,7 +6,7 @@ import { newestVersions } from "./turn-model.js";
 import { isFatal } from "./wait-reconnect.js";
 
 /** Rows of a delegate's transcript read to tell what became of a delegation: one bounded page. */
-export const DELEGATE_ROWS = 50;
+const DELEGATE_ROWS = 50;
 
 /**
  * From when the rows hold every row of the transcript: undefined for a page that is not

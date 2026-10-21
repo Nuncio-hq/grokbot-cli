@@ -8,7 +8,7 @@ import {
 
 export const BLUE_MESSAGE_ID = "8980adbc-0000-4000-8000-000000000000";
 export const GREEN_MESSAGE_ID = "58d5b4ce-0000-4000-8000-000000000000";
-export const WIDGET_PROMPT = "Which color do you pick?";
+const WIDGET_PROMPT = "Which color do you pick?";
 const COLOR_ASK =
   "Use your question widget to ask me to pick a color from Red, Blue, Green. Do not answer it yourself.";
 export const COLOR_WIDGET = {

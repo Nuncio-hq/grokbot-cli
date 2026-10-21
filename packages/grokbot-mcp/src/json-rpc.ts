@@ -12,7 +12,7 @@ export type Outcome =
   | { readonly result: object }
   | { readonly error: RpcError };
 
-export type Incoming =
+type Incoming =
   | {
       readonly kind: "request";
       readonly id: RequestId;
@@ -30,8 +30,8 @@ export type Incoming =
       readonly error: RpcError;
     };
 
-export const PARSE_ERROR: RpcError = { code: -32700, message: "Parse error" };
-export const INVALID_REQUEST: RpcError = {
+const PARSE_ERROR: RpcError = { code: -32700, message: "Parse error" };
+const INVALID_REQUEST: RpcError = {
   code: -32600,
   message: "Invalid Request",
 };

@@ -15,7 +15,7 @@ import { GrokBotError } from "./contracts.js";
  * (`QM` in electron-main/main-core.cjs, app.asar v0.70.2). Dev and staging hosts use
  * another id; override with GROKBOT_AUTH_CLIENT_ID if Cursor rotates it.
  */
-export const AUTH_CLIENT_ID = "KbZUR41cY7W6zRSdpSUJ7I7mLYBKOCmB";
+const AUTH_CLIENT_ID = "KbZUR41cY7W6zRSdpSUJ7I7mLYBKOCmB";
 
 /** The app refreshes when the access token has under 5 minutes left (`foe`). */
 const REFRESH_WINDOW_MS = 5 * 60 * 1000;

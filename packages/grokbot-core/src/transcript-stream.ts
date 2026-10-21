@@ -59,7 +59,7 @@ export type StreamEvent =
       readonly raw: unknown;
     };
 
-export interface ReadSinceRequest {
+interface ReadSinceRequest {
   readonly agentId: string;
   /** Keep rows whose updatedSeq is above this. */
   readonly afterSeq: Seq | string;

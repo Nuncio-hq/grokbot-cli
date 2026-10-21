@@ -26,7 +26,7 @@ export const MAIN = "0a1b2c3d-1111-4111-8111-111111111111";
 export const PRIMARY = "f882ec52-17b1-4639-b0fc-07fed7526b09";
 export const STAFF = "201a8cb2-e34a-4dd6-858c-c8601d5c2aa5";
 /** The user's protected list in these tests: the main bot and both test bots. */
-export const PROTECTED_BOTS: ProtectedBots = new Map([
+const PROTECTED_BOTS: ProtectedBots = new Map([
   [MAIN, "main"],
   [PRIMARY, "test"],
   [STAFF, "test"],

@@ -24,7 +24,7 @@ const ROSTER = {
   ],
 };
 export const RUNNING = { statuses: [{ agentId: AGENT, isRunning: true }] };
-export const IDLE = { statuses: [{ agentId: AGENT }] };
+const IDLE = { statuses: [{ agentId: AGENT }] };
 export const ASK = {
   text: "ping",
   agent: "Trace Bot",

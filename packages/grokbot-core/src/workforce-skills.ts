@@ -12,7 +12,7 @@ export interface Skill {
 }
 
 /** A library entry as the gateway lists it, with its markdown body when the list carries one. */
-export interface LibraryEntry extends Skill {
+interface LibraryEntry extends Skill {
   readonly body: string | undefined;
 }
 
@@ -50,7 +50,7 @@ export const toSkill = ({ id, name, source, description }: Skill): Skill => ({
  */
 export type SkillManager = "grokbot" | "user";
 
-export const managedBy = (source: string): SkillManager =>
+const managedBy = (source: string): SkillManager =>
   source === "managed" ? "grokbot" : "user";
 
 /** A `skills-list` row: the skill plus who manages it. */

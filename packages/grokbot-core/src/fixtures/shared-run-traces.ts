@@ -19,7 +19,7 @@ export const TICKET_B_ID = "bbbb0002-0000-4000-8000-000000000000";
  * nothing more: run B did ticket B and started ticket A's cloud agent, and the cloud
  * agent's reply started run C, whose final reply is ticket A's result.
  */
-export const SPIKE_TRACE = {
+const SPIKE_TRACE = {
   echoA: withEntryId(
     userRow(169, "Ticket A: start one cloud agent to count files.", {
       clientNonce: TICKET_A_ID,

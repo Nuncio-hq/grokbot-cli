@@ -11,7 +11,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
  * A rerun reuses that id, so a create that lands late cannot leave a twin bot.
  * Each file holds the name and the id only.
  */
-export interface PendingHires {
+interface PendingHires {
   load(name: string): Promise<AgentId | undefined>;
   save(name: string, agentId: AgentId): Promise<void>;
   clear(name: string): Promise<void>;

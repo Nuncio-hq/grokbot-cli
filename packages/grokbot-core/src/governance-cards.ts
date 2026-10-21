@@ -47,7 +47,7 @@ export type GovernanceCard = {
   | { readonly type: OwnerOnlyCardType; readonly summary: string }
 );
 
-export type GovernanceCardType = GovernanceCard["type"];
+type GovernanceCardType = GovernanceCard["type"];
 
 export const ANSWERABLE: readonly GovernanceCardType[] = ["widget"];
 export const APPROVABLE: readonly GovernanceCardType[] = [

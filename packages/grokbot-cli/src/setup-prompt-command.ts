@@ -50,7 +50,7 @@ export function defaultSetupPromptDeps(): SetupPromptDeps {
 }
 
 /** The prompt for an agent runtime, naming the skill by `skill` (a path, or the npm-root form). */
-export function setupPrompt(skill: string, found: boolean): string {
+function setupPrompt(skill: string, found: boolean): string {
   return [
     "You are setting up grokbot with me for the first time. grokbot is a command line tool for working with my GrokBot bots.",
     "",

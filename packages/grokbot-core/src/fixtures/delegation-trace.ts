@@ -36,7 +36,7 @@ export const TRACE_ROWS = {
   finalReply: textReplyRow(147, "RESULT: PONG", "0383ac5f"),
 } satisfies Record<string, WireEntry>;
 
-export const TRACE_IN_ORDER: readonly WireEntry[] = [
+const TRACE_IN_ORDER: readonly WireEntry[] = [
   TRACE_ROWS.echo,
   TRACE_ROWS.progressNote,
   TRACE_ROWS.delegation,

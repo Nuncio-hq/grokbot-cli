@@ -4,16 +4,16 @@ const HEADER_BYTES = 5;
 const FLAG_COMPRESSED = 0x01;
 const FLAG_END_STREAM = 0x02;
 
-export interface ConnectEndError {
+interface ConnectEndError {
   readonly code: string;
   readonly message?: string;
 }
 
-export type ConnectFrame =
+type ConnectFrame =
   | { readonly kind: "message"; readonly json: unknown }
   | { readonly kind: "end"; readonly error?: ConnectEndError };
 
-export interface ConnectFrameDecoder {
+interface ConnectFrameDecoder {
   /** Feeds one chunk of the response body; returns every frame it completes. */
   push(chunk: Uint8Array): ConnectFrame[];
   /** Throws if the body ended in the middle of a frame. */

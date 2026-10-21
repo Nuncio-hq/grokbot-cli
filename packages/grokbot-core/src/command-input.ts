@@ -15,7 +15,7 @@ export type ParseResult<N extends CommandName> =
   | { readonly ok: true; readonly input: CommandInput<N> }
   | { readonly ok: false; readonly errors: readonly string[] };
 
-export type ParsedParams =
+type ParsedParams =
   | { readonly ok: true; readonly input: Readonly<Record<string, ParamValue>> }
   | { readonly ok: false; readonly errors: readonly string[] };
 

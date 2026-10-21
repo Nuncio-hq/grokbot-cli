@@ -32,7 +32,7 @@ export interface TokenSource {
   describe(): Promise<SignInInfo>;
 }
 
-export interface TokenSourceOptions {
+interface TokenSourceOptions {
   /** `itemAccess` is optional: when present, describe() reports the mode without a dialog. */
   readonly store?: TokenPairStore &
     Partial<Pick<CredentialStore, "itemAccess">>;

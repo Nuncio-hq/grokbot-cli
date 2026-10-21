@@ -10,7 +10,7 @@ export const LEGACY_VERSIONS = [
 ] as const;
 
 /** Stateless revisions: every request carries its version and client capabilities in `_meta`. */
-export const MODERN_VERSIONS = ["2026-07-28"] as const;
+const MODERN_VERSIONS = ["2026-07-28"] as const;
 
 /** Advertised by server/discover and by -32022: every version this server answers, modern first. */
 export const SUPPORTED_VERSIONS: readonly string[] = [

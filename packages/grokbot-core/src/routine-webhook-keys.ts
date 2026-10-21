@@ -35,7 +35,7 @@ export interface WebhookKeyStore {
   remove(ref: WebhookKeyRef): Promise<boolean>;
 }
 
-export interface WebhookKeyStoreOptions {
+interface WebhookKeyStoreOptions {
   readonly platform?: string;
   readonly run?: KeychainRunner;
   /** The configured mode for new items. Default: ~/.grokbot/grokbot-cli.json. */

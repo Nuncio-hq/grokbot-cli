@@ -8,12 +8,12 @@ import { readTranscriptSince } from "./transcript-stream.js";
 import { findTurn } from "./turn-model.js";
 
 /** What `reply` decides before it sends: the bot, and the entry the message answers. */
-export interface ReplyTarget {
+interface ReplyTarget {
   readonly agent: Agent;
   readonly replyToId: string;
 }
 
-export interface ReplyInput {
+interface ReplyInput {
   /** A saved job: its bot is the target, and its last bot message the default entry. */
   readonly job?: string;
   /** An entry of the bot's transcript; replaces the job's last bot message. */

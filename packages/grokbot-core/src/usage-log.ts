@@ -15,7 +15,7 @@ export type UsageStatus =
   | "ok"
   | "error";
 
-export const DURATION_BUCKETS = ["<1s", "<10s", "<1m", "<5m", ">=5m"] as const;
+const DURATION_BUCKETS = ["<1s", "<10s", "<1m", "<5m", ">=5m"] as const;
 export type DurationBucket = (typeof DURATION_BUCKETS)[number];
 
 /**

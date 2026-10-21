@@ -96,7 +96,7 @@ const TOKEN_LIKE = [
 ];
 
 /** Replaces JWTs, long hex, and long opaque strings with [redacted]. */
-export function redactTokenLike(text: string): string {
+function redactTokenLike(text: string): string {
   return TOKEN_LIKE.reduce(
     (out, pattern) => out.replace(pattern, "[redacted]"),
     text,

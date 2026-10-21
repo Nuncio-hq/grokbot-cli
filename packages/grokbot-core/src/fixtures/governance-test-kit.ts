@@ -21,7 +21,7 @@ import {
 
 export const PRIMARY = "f882ec52-17b1-4639-b0fc-07fed7526b09";
 export const STAFF = "201a8cb2-e34a-4dd6-858c-c8601d5c2aa5";
-export const ROOM = "5ca1ab1e-0000-4000-8000-000000000001";
+const ROOM = "5ca1ab1e-0000-4000-8000-000000000001";
 const KIND = "GROK_BOT_AGENT_KIND_AGENT";
 export const ROSTER = {
   agents: [
@@ -37,7 +37,7 @@ export const ROSTER = {
   ],
 };
 
-export interface Recorded {
+interface Recorded {
   readonly via: "server" | "gateway";
   readonly method: string;
   readonly body: JsonObject;
@@ -131,7 +131,7 @@ export function workerUntilKilled(
 }
 
 /** Records every side effect a governance handler performs, with no real I/O. */
-export function fakeDeps(
+function fakeDeps(
   overrides: Partial<GovernanceDeps> = {},
   events: string[] = [],
 ) {

@@ -6,7 +6,7 @@ import { asJsonObject, readString } from "./transcript.js";
  * A bot's brief, stored in its one `description` field: what it does, optional
  * instructions, and the folder rule `hire` adds. Bots made elsewhere have a summary only.
  */
-export interface Brief {
+interface Brief {
   readonly summary: string;
   readonly instructions: string;
   readonly folder: string | undefined;
@@ -16,7 +16,7 @@ export interface Brief {
  * What gateway `updateAgent` takes as `profile`. The app's schema requires `name` and
  * `description`; the rest are optional, so they are sent only when the bot has them.
  */
-export interface Profile {
+interface Profile {
   readonly name: string;
   readonly description: string;
   readonly title?: string;
@@ -32,7 +32,7 @@ export interface ProfileChange {
   readonly instructions?: string;
 }
 
-export const SHARED_FOLDER = "/workspace/shared/";
+const SHARED_FOLDER = "/workspace/shared/";
 const INSTRUCTIONS_HEADING = "\n\nInstructions:\n";
 const WORKSPACE_RULE =
   /\n\nWorkspace: your own folder is (\S+)\. Keep your files there; put files other bots need in \/workspace\/shared\/\.$/;

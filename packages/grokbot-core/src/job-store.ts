@@ -140,7 +140,7 @@ function parseState(raw: unknown): JobState | undefined {
   return undefined;
 }
 
-export function parseJobRecord(raw: unknown): JobRecord {
+function parseJobRecord(raw: unknown): JobRecord {
   const o: JsonObject = asJsonObject(raw) ?? {};
   const str = (key: string) => readString(o, key);
   const [jobId, agentId, sentMessageId] = [

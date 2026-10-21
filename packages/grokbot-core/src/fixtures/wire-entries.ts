@@ -9,7 +9,7 @@ export type WireEntry = {
   blobHash?: string;
 };
 
-export function encodeBody(body: unknown): string {
+function encodeBody(body: unknown): string {
   return Buffer.from(JSON.stringify(body), "utf8").toString("base64");
 }
 

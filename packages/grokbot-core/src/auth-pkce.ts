@@ -11,7 +11,7 @@ export interface PkcePair {
   readonly challenge: string;
 }
 
-export interface PkceSources {
+interface PkceSources {
   readonly randomBytes?: (size: number) => Uint8Array;
   readonly randomUUID?: () => string;
 }

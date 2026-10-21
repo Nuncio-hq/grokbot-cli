@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 export const SECURITY_NOT_FOUND = 44;
 export const SECURITY_NOT_RUNNABLE = 127;
 /** Silent reads finish at once; a locked keychain must not hang a host on a GUI prompt. */
-export const SECURITY_TIMEOUT_MS = 15_000;
+const SECURITY_TIMEOUT_MS = 15_000;
 /** In prompt mode the owner needs time to read the macOS dialog and click Allow. */
 export const SECURITY_PROMPT_TIMEOUT_MS = 60_000;
 

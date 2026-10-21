@@ -24,7 +24,7 @@ export interface CliRun {
   readonly runnerOptions: readonly CommandRunnerOptions[];
 }
 
-export interface CliSetup {
+interface CliSetup {
   readonly outputs?: Partial<CommandOutputs>;
   /** Thrown by runner.run instead of returning an output. */
   readonly error?: unknown;

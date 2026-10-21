@@ -93,7 +93,7 @@ export function ownerRow(
   });
 }
 
-export interface Scenario {
+interface Scenario {
   /** The sender's job. */
   readonly messageId: string;
   /** The bot the job runs on and its rows. */

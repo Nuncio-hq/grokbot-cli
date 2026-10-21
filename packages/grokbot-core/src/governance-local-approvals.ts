@@ -11,7 +11,7 @@ import { asJsonObject, readString } from "./transcript.js";
  * `target` and `accountScope`; the desktop app omits `machineId` when it records one, and
  * so do we (REA fct `recordLocalToolApproval`).
  */
-export interface LocalApproval {
+interface LocalApproval {
   readonly id: string;
   readonly action: string;
   readonly target: string;
@@ -19,7 +19,7 @@ export interface LocalApproval {
 }
 
 /** What one record changed, so the caller can put the file back if the server refuses. */
-export interface LocalApprovalWrite {
+interface LocalApprovalWrite {
   readonly entry: LocalApproval;
   /** The row this id held before, whole; undefined when the id was new. */
   readonly previous: JsonObject | undefined;

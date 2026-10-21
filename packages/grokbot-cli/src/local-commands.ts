@@ -34,7 +34,7 @@ import {
  */
 type LocalName = AuthCommandName | "config" | "stats" | "setup-prompt";
 
-export interface LocalContext {
+interface LocalContext {
   readonly stdout: TextSink;
   readonly stderr: TextSink;
   readonly env: Readonly<Record<string, string | undefined>>;

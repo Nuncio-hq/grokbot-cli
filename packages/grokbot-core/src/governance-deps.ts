@@ -57,7 +57,7 @@ export interface GovernanceDeps {
   readonly uid: number;
 }
 
-export const RUN_DIR_PREFIX = "grokbot-worker-";
+const RUN_DIR_PREFIX = "grokbot-worker-";
 const EXIT_EVENTS = ["SIGINT", "SIGTERM", "exit"] as const;
 
 async function readRunDir(dir: string): Promise<RunDirEntry | undefined> {

@@ -11,7 +11,7 @@ export type UserMessageEntry = Extract<
   { kind: "user-message" }
 >;
 
-export interface SharedMessages {
+interface SharedMessages {
   /** Owner messages one run may have answered together, ours included, in seq order. */
   readonly echoes: readonly UserMessageEntry[];
   /** Index in the rows of the first of them; the turn starts after it. */

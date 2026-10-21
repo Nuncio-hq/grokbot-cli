@@ -9,7 +9,7 @@ export type ResolveVerb = "approve" | "deny";
  * numeric local-tool codes, which the server validates strictly (catalog notes, 14 Oct:
  * short forms like "denied" and the code 0 both give HTTP 400).
  */
-export interface ResolvePlan {
+interface ResolvePlan {
   readonly method:
     | "ResolveGrokBotAutoReviewApproval"
     | "ResolveGrokBotLocalToolPermission";

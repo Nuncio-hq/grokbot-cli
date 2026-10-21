@@ -71,7 +71,7 @@ export async function loginWithBrowser(
   return { method: "browser" };
 }
 
-export interface ApiKeyLoginOptions extends AuthEndpoints {
+interface ApiKeyLoginOptions extends AuthEndpoints {
   readonly store?: TokenPairStore;
   readonly exchange?: (apiKey: string) => Promise<TokenPair>;
   readonly platform?: string;

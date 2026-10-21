@@ -17,7 +17,7 @@ const MAX_DELAY_MS = 10_000;
 const BACKOFF = 1.2;
 const MAX_FAILURES_IN_A_ROW = 3;
 
-export interface PollOptions extends AuthEndpoints {
+interface PollOptions extends AuthEndpoints {
   readonly signal?: AbortSignal;
   /** Injected so tests never wait. */
   readonly sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;

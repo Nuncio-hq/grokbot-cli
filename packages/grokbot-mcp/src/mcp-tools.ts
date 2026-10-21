@@ -24,7 +24,7 @@ interface ToolAnnotations {
   readonly destructiveHint: boolean;
 }
 
-export interface McpTool {
+interface McpTool {
   readonly name: string;
   readonly description: string;
   readonly inputSchema: CommandJsonSchema;

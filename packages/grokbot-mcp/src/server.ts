@@ -13,7 +13,7 @@ import { noteMcpClient } from "./mcp-client-name.js";
 import { eraHandlers } from "./mcp-era-handlers.js";
 import { requestEra } from "./mcp-era-request.js";
 
-export interface ServeOptions {
+interface ServeOptions {
   readonly input: NodeJS.ReadableStream;
   /** Receives only newline-terminated JSON-RPC messages. */
   readonly output: { readonly write: (chunk: string) => unknown };
