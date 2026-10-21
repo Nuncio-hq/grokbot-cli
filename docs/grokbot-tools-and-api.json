@@ -1,7 +1,7 @@
 {
  "about": "GrokBot bot tools and aiserver.v1.GrokBotService methods, with what each really does and how sure we are.",
- "app_version": "0.71.2",
- "checked": "2026-10-17",
+ "app_version": "0.72.1",
+ "checked": "2026-10-21",
  "evidence_levels": {
   "probed": "Tested live",
   "probed-error": "Tested, returned an error",
@@ -21,6 +21,17 @@
    "evidence": "app-code",
    "confidence": "medium",
    "notes": "The bot's setup prompt says never to call it from memory, skill or routine text without first asking the owner in a question widget. The app lets owners add a custom MCP server for everyone using a Bot. Label is 'Connecting to <service>', or 'Connecting to a third party app' when no service is named.",
+   "in_tool_registry": true
+  },
+  {
+   "name": "AndroidReadNotifications",
+   "area": "Your Mac & phone",
+   "function": "Reads the notifications on the owner's Android phone through an on-device tool.",
+   "status_label": null,
+   "needs_approval": "unknown",
+   "evidence": "app-code",
+   "confidence": "low",
+   "notes": "New in 0.72.0. It joined the app's phone-tool group, which held only CopyToBox, CopyFromBox, ListMachines and MobileReadCalendar in 0.71.2. MobileReadCalendar uses the 'run-phone-tool' card ('Allow Grok Bot to use an on-device tool on your phone?') and this tool now sits in the same group, so it probably asks the same way; that is inferred, and no phone code ships in the desktop app. What it takes and returns is not visible. The name says Android only, which is inferred. No dedicated status label; the app falls back to the generic 'Working' label.",
    "in_tool_registry": true
   },
   {
@@ -141,7 +152,7 @@
    "needs_approval": "yes",
    "evidence": "schema",
    "confidence": "high",
-   "notes": "Approval card: 'Allow {bot} to use its computer?'. Shown as 'On its computer'.",
+   "notes": "Approval card: 'Allow {bot} to use its computer?'. Shown as 'On its computer'. 0.72.0 adds two options: a full-resolution screenshot (the result then names the saved file with its hash, size, width and height) and marking the monitor busy (success and error results say whether it was marked).",
    "in_tool_registry": true
   },
   {
@@ -241,6 +252,17 @@
    "evidence": "name-only",
    "confidence": "medium",
    "notes": "Name only. No dedicated status label; the app falls back to the generic 'Working' label.",
+   "in_tool_registry": true
+  },
+  {
+   "name": "DeviceGetLocation",
+   "area": "Your Mac & phone",
+   "function": "Gets the location of the owner's phone through an on-device tool.",
+   "status_label": null,
+   "needs_approval": "unknown",
+   "evidence": "app-code",
+   "confidence": "low",
+   "notes": "New in 0.72.0. It joined the app's phone-tool group, which held only CopyToBox, CopyFromBox, ListMachines and MobileReadCalendar in 0.71.2. MobileReadCalendar uses the 'run-phone-tool' card ('Allow Grok Bot to use an on-device tool on your phone?') and this tool now sits in the same group, so it probably asks the same way; that is inferred, and no phone code ships in the desktop app. What it takes and returns is not visible. No dedicated status label; the app falls back to the generic 'Working' label.",
    "in_tool_registry": true
   },
   {
@@ -431,6 +453,50 @@
    "in_tool_registry": true
   },
   {
+   "name": "IOSControlHome",
+   "area": "Your Mac & phone",
+   "function": "Controls the smart home on the owner's iPhone, probably Apple Home, through an on-device tool.",
+   "status_label": null,
+   "needs_approval": "unknown",
+   "evidence": "app-code",
+   "confidence": "low",
+   "notes": "New in 0.72.0. It joined the app's phone-tool group, which held only CopyToBox, CopyFromBox, ListMachines and MobileReadCalendar in 0.71.2. MobileReadCalendar uses the 'run-phone-tool' card ('Allow Grok Bot to use an on-device tool on your phone?') and this tool now sits in the same group, so it probably asks the same way; that is inferred, and no phone code ships in the desktop app. What it takes and returns is not visible. The IOS prefix suggests iPhone only, and the Home meaning comes from the name; both are inferred. No dedicated status label; the app falls back to the generic 'Working' label.",
+   "in_tool_registry": true
+  },
+  {
+   "name": "IOSReadHome",
+   "area": "Your Mac & phone",
+   "function": "Reads the state of the smart home on the owner's iPhone, probably Apple Home, through an on-device tool.",
+   "status_label": null,
+   "needs_approval": "unknown",
+   "evidence": "app-code",
+   "confidence": "low",
+   "notes": "New in 0.72.0. It joined the app's phone-tool group, which held only CopyToBox, CopyFromBox, ListMachines and MobileReadCalendar in 0.71.2. MobileReadCalendar uses the 'run-phone-tool' card ('Allow Grok Bot to use an on-device tool on your phone?') and this tool now sits in the same group, so it probably asks the same way; that is inferred, and no phone code ships in the desktop app. What it takes and returns is not visible. The IOS prefix suggests iPhone only, and the Home meaning comes from the name; both are inferred. No dedicated status label; the app falls back to the generic 'Working' label.",
+   "in_tool_registry": true
+  },
+  {
+   "name": "IOSReadReminders",
+   "area": "Your Mac & phone",
+   "function": "Reads the reminders on the owner's iPhone through an on-device tool.",
+   "status_label": null,
+   "needs_approval": "unknown",
+   "evidence": "app-code",
+   "confidence": "low",
+   "notes": "New in 0.72.0. It joined the app's phone-tool group, which held only CopyToBox, CopyFromBox, ListMachines and MobileReadCalendar in 0.71.2. MobileReadCalendar uses the 'run-phone-tool' card ('Allow Grok Bot to use an on-device tool on your phone?') and this tool now sits in the same group, so it probably asks the same way; that is inferred, and no phone code ships in the desktop app. What it takes and returns is not visible. The IOS prefix suggests iPhone only, which is inferred. No dedicated status label; the app falls back to the generic 'Working' label.",
+   "in_tool_registry": true
+  },
+  {
+   "name": "IOSWriteReminders",
+   "area": "Your Mac & phone",
+   "function": "Creates or changes reminders on the owner's iPhone through an on-device tool.",
+   "status_label": null,
+   "needs_approval": "unknown",
+   "evidence": "app-code",
+   "confidence": "low",
+   "notes": "New in 0.72.0. It joined the app's phone-tool group, which held only CopyToBox, CopyFromBox, ListMachines and MobileReadCalendar in 0.71.2. MobileReadCalendar uses the 'run-phone-tool' card ('Allow Grok Bot to use an on-device tool on your phone?') and this tool now sits in the same group, so it probably asks the same way; that is inferred, and no phone code ships in the desktop app. What it takes and returns is not visible. The IOS prefix suggests iPhone only, which is inferred. No dedicated status label; the app falls back to the generic 'Working' label.",
+   "in_tool_registry": true
+  },
+  {
    "name": "JoinMeeting",
    "area": "Meetings & calls",
    "function": "Joins a meeting now, or schedules the bot to join later: once, on a repeat, or following a calendar series. The owner has to consent first.",
@@ -548,7 +614,40 @@
    "needs_approval": "yes",
    "evidence": "app-code",
    "confidence": "medium",
-   "notes": "Uses the 'run-phone-tool' action and the card 'Allow Grok Bot to use an on-device tool on your phone?'. The app says the permission has to be given on the phone. Behind the mobile local tools flag. The link to the phone card is by elimination. No dedicated status label; the app falls back to the generic 'Working' label.",
+   "notes": "Uses the 'run-phone-tool' action and the card 'Allow Grok Bot to use an on-device tool on your phone?'. The app says the permission has to be given on the phone. Behind the mobile local tools flag. The link to the phone card is by elimination. In 0.72.0 it shares the app's phone-tool group with nine new phone tools (AndroidReadNotifications, DeviceGetLocation, IOSControlHome, IOSReadHome, IOSReadReminders, IOSWriteReminders, MobileReadContacts, MobileSetAlarm, MobileWriteCalendar), which probably use the same card; that is inferred. No dedicated status label; the app falls back to the generic 'Working' label.",
+   "in_tool_registry": true
+  },
+  {
+   "name": "MobileReadContacts",
+   "area": "Your Mac & phone",
+   "function": "Reads the contacts on the owner's phone through an on-device tool.",
+   "status_label": null,
+   "needs_approval": "unknown",
+   "evidence": "app-code",
+   "confidence": "low",
+   "notes": "New in 0.72.0. It joined the app's phone-tool group, which held only CopyToBox, CopyFromBox, ListMachines and MobileReadCalendar in 0.71.2. MobileReadCalendar uses the 'run-phone-tool' card ('Allow Grok Bot to use an on-device tool on your phone?') and this tool now sits in the same group, so it probably asks the same way; that is inferred, and no phone code ships in the desktop app. What it takes and returns is not visible. No dedicated status label; the app falls back to the generic 'Working' label.",
+   "in_tool_registry": true
+  },
+  {
+   "name": "MobileSetAlarm",
+   "area": "Your Mac & phone",
+   "function": "Sets an alarm on the owner's phone through an on-device tool.",
+   "status_label": null,
+   "needs_approval": "unknown",
+   "evidence": "app-code",
+   "confidence": "low",
+   "notes": "New in 0.72.0. It joined the app's phone-tool group, which held only CopyToBox, CopyFromBox, ListMachines and MobileReadCalendar in 0.71.2. MobileReadCalendar uses the 'run-phone-tool' card ('Allow Grok Bot to use an on-device tool on your phone?') and this tool now sits in the same group, so it probably asks the same way; that is inferred, and no phone code ships in the desktop app. What it takes and returns is not visible. No dedicated status label; the app falls back to the generic 'Working' label.",
+   "in_tool_registry": true
+  },
+  {
+   "name": "MobileWriteCalendar",
+   "area": "Your Mac & phone",
+   "function": "Creates or changes calendar events on the owner's phone through an on-device tool.",
+   "status_label": null,
+   "needs_approval": "unknown",
+   "evidence": "app-code",
+   "confidence": "low",
+   "notes": "New in 0.72.0. It joined the app's phone-tool group, which held only CopyToBox, CopyFromBox, ListMachines and MobileReadCalendar in 0.71.2. MobileReadCalendar uses the 'run-phone-tool' card ('Allow Grok Bot to use an on-device tool on your phone?') and this tool now sits in the same group, so it probably asks the same way; that is inferred, and no phone code ships in the desktop app. What it takes and returns is not visible. No dedicated status label; the app falls back to the generic 'Working' label.",
    "in_tool_registry": true
   },
   {
@@ -582,6 +681,28 @@
    "evidence": "app-code",
    "confidence": "high",
    "notes": "Card: 'Place a phone call to <destination>'. Warning: 'The agent may repeat anything here to whoever answers, and the call cannot be recalled once placed'. The app config lists it as a first-party send tool for send labeling. Voice call flags exist. No dedicated status label; the app falls back to the generic 'Working' label.",
+   "in_tool_registry": true
+  },
+  {
+   "name": "PlacesSearch",
+   "area": "Web",
+   "function": "Searches for places such as businesses and points of interest, and the reply can carry place cards with details like opening hours, rating count and a maps link.",
+   "status_label": "Searching the web",
+   "needs_approval": "no",
+   "evidence": "app-code",
+   "confidence": "medium",
+   "notes": "New in 0.72.0. Shares the 'Searching the web' label with WebSearch. The app's agent coordinator validates place cards (kind places) on a text reply. The desktop app has no code that renders cards, and the CLI reads only the reply text, so it does not see them. Linking the cards to this tool is by name, which is inferred. No approval card was found.",
+   "in_tool_registry": true
+  },
+  {
+   "name": "ProductSearch",
+   "area": "Web",
+   "function": "Searches for products to buy, and the reply can carry shopping cards with product details.",
+   "status_label": null,
+   "needs_approval": "no",
+   "evidence": "name-only",
+   "confidence": "low",
+   "notes": "New in 0.72.0. The app's agent coordinator validates shopping cards (kind shopping, version 2 or later, a list of products) on a text reply. The desktop app has no code that renders cards, and the CLI reads only the reply text, so it does not see them. Linking the cards to this tool is by name only, which is inferred. No approval card was found. No dedicated status label; the app falls back to the generic 'Working' label.",
    "in_tool_registry": true
   },
   {
@@ -750,6 +871,17 @@
    "in_tool_registry": true
   },
   {
+   "name": "ReadTranscriptFile",
+   "area": "Memory & skills",
+   "function": "Reads one transcript file.",
+   "status_label": null,
+   "needs_approval": "unknown",
+   "evidence": "name-only",
+   "confidence": "low",
+   "notes": "Name only; new in 0.72.0. Whose transcripts these cover (your chats, voice calls or other bots') and what a transcript file is are not visible. The new client flag realtime_voice_utterances and the new agent-run flags for reading voice call utterances suggest a link to voice calls, which is inferred from names only. No dedicated status label; the app falls back to the generic 'Working' label.",
+   "in_tool_registry": true
+  },
+  {
    "name": "RecallMemory",
    "area": "Memory & skills",
    "function": "Reads what the bot has saved in memory.",
@@ -791,6 +923,17 @@
    "evidence": "schema",
    "confidence": "high",
    "notes": "Matched by name to the rename-OAuth-account call (server id, account key, new key). No dedicated status label; the app falls back to the generic 'Working' label.",
+   "in_tool_registry": true
+  },
+  {
+   "name": "ReportSiteBlocked",
+   "area": "Web",
+   "function": "Reports that a website blocked the bot, probably so the app can tell the owner. This reading comes from the name only.",
+   "status_label": null,
+   "needs_approval": "unknown",
+   "evidence": "name-only",
+   "confidence": "low",
+   "notes": "Name only; new in 0.72.0. The app already had a path from a bot being blocked to a site_blocked state in 0.71.2, but no screen reads this tool by name, so linking the two is inferred. No dedicated status label; the app falls back to the generic 'Working' label.",
    "in_tool_registry": true
   },
   {
@@ -937,14 +1080,36 @@
    "in_tool_registry": true
   },
   {
+   "name": "SearchTranscriptFiles",
+   "area": "Memory & skills",
+   "function": "Searches transcript files for a query.",
+   "status_label": null,
+   "needs_approval": "unknown",
+   "evidence": "name-only",
+   "confidence": "low",
+   "notes": "Name only; new in 0.72.0. See ReadTranscriptFile for the open questions. No dedicated status label; the app falls back to the generic 'Working' label.",
+   "in_tool_registry": true
+  },
+  {
+   "name": "SearchTranscripts",
+   "area": "Memory & skills",
+   "function": "Searches conversation transcripts for a query.",
+   "status_label": null,
+   "needs_approval": "unknown",
+   "evidence": "name-only",
+   "confidence": "low",
+   "notes": "Name only; new in 0.72.0. See ReadTranscriptFile for the open questions. No dedicated status label; the app falls back to the generic 'Working' label.",
+   "in_tool_registry": true
+  },
+  {
    "name": "SendEmail",
    "area": "Messages & email",
    "function": "Sends an email from one of the bot's own inboxes, with to, cc, bcc, subject, text or HTML body, reply-to and an in-reply-to message. An 'unsolicited' flag marks first-contact mail.",
    "status_label": null,
    "needs_approval": "yes",
    "evidence": "schema",
-   "confidence": "high",
-   "notes": "The app says the bot's address is useful for 'sending email with your approval'. The server keeps a suppression list (bounces, complaints, unsubscribes) and sending limits. No dedicated status label; the app falls back to the generic 'Working' label.",
+   "confidence": "medium",
+   "notes": "The app says the bot's address is useful for 'sending email with your approval'. The server keeps a suppression list (bounces, complaints, unsubscribes) and sending limits. In 0.72.0 the SendGrokBotEmail method this description came from is gone from the schema, while the tool name is still in the registry. The arguments above are from the 0.71.2 schema, and where sending lives now is not visible. No dedicated status label; the app falls back to the generic 'Working' label.",
    "in_tool_registry": true
   },
   {
@@ -1058,6 +1223,17 @@
    "in_tool_registry": true
   },
   {
+   "name": "SetStatus",
+   "area": "Profile & settings",
+   "function": "Sets a short status text that describes what the bot is doing, so the app can show it in place of the generic 'Working' label.",
+   "status_label": null,
+   "needs_approval": "no",
+   "evidence": "app-code",
+   "confidence": "medium",
+   "notes": "New in 0.72.0. The app has its own case for it in the status label. When the harness-based status gate is on, it shows the tool's detail text as the live status, with a leading 'is ' dropped and the first letter capitalised. That gate is on when either client gate sand_harness_based_status or sand_side_model_status is on (both default off). Otherwise it falls back to the generic 'Working' label. Not the same as SetSlackStatus or SetMicrosoftTeamsStatus. No approval card was found.",
+   "in_tool_registry": true
+  },
+  {
    "name": "SetUpMicrosoftTeams",
    "area": "Slack & channels",
    "function": "Starts connecting the bot to Microsoft Teams, likely the Teams counterpart of SetUpSlack.",
@@ -1109,7 +1285,7 @@
    "needs_approval": "no",
    "evidence": "status-label",
    "confidence": "medium",
-   "notes": "Shown as 'Reading a file'. The app also lists Skill with Computer, Read, Screenshot and Shell as one group of tools.",
+   "notes": "Shown as 'Reading a file'. The app also lists Skill with Computer, Read, Screenshot and Shell, and since 0.72.0 Vault, as one group of tools (the app's local-tool list).",
    "in_tool_registry": true
   },
   {
@@ -1289,6 +1465,28 @@
    "in_tool_registry": true
   },
   {
+   "name": "Vault",
+   "area": "Credentials & payments",
+   "function": "Gives the bot access to the owner's vault (logins, cards and contacts), probably to look items up or fill them in. What it does exactly is not visible.",
+   "status_label": null,
+   "needs_approval": "unknown",
+   "evidence": "app-code",
+   "confidence": "low",
+   "notes": "New in 0.72.0. Only the name and its surroundings are known. The vault now holds logins, cards and contacts ('Grok Bot can see your saved contacts and types them in at checkout'), reads card photos, imports from CSV and has a 'vault' deep-link route (client gates grok_bot_vault and grok_bot_vault_cards). The tool is also in the app's local-tool list (Computer, Read, Screenshot, Shell, Skill, Vault), but nothing in the shipped code reads that list, so what that means is unknown. Whether it needs approval is not visible. No dedicated status label; the app falls back to the generic 'Working' label.",
+   "in_tool_registry": true
+  },
+  {
+   "name": "Visualize",
+   "area": "Documents & canvas",
+   "function": "Shows the owner an inline visual: an HTML document the app renders in a sandboxed frame inside the chat.",
+   "status_label": null,
+   "needs_approval": "no",
+   "evidence": "app-code",
+   "confidence": "medium",
+   "notes": "New in 0.72.0. It posts a 'visualization' card (title, documentSha256, optional heightPx, kept only between 160 and 680). The app reads the document with ReadGrokBotMcpAppDocument and renders it in a sandboxed iframe. Behind the client gate sand_enable_visualizations (default off); the main process throws 'Inline visuals are behind the sand_enable_visualizations gate' when it is off. The card is informational and needs no owner action. No dedicated status label; the app falls back to the generic 'Working' label.",
+   "in_tool_registry": true
+  },
+  {
    "name": "WakeParent",
    "area": "Other bots & team",
    "function": "Lets a helper wake the bot that started it. This is the likely meaning.",
@@ -1390,12 +1588,12 @@
   {
    "name": "GenerateVideo",
    "area": "Media",
-   "function": "Makes a video from a prompt and saves it to a file, with an optional start image, reference images, length, aspect ratio and resolution. It returns the file path and the length.",
+   "function": "Makes a video from a prompt and saves it to a file, with an optional start image, keyframes (an image and a time each), reference images, length, aspect ratio and resolution. It returns the file path and the length.",
    "status_label": "Generating a video",
    "needs_approval": "no",
    "evidence": "schema",
    "confidence": "high",
-   "notes": "Seen only in the status-label function. Shown as 'Generating a video'. Behind a feature flag for video generation.",
+   "notes": "Seen only in the status-label function. Shown as 'Generating a video'. Behind a feature flag for video generation. 0.72.0 adds keyframes, each an image path and a time in seconds.",
    "in_tool_registry": false
   },
   {
@@ -1477,14 +1675,14 @@
    "area": "Transcript",
    "function": "Opens a long-lived server stream that pushes live changes for the account's bots: new, changed or deleted transcript rows, conversation clears, run state and roster changes. The desktop app uses it instead of polling to keep every conversation current.",
    "inputs": "cursors (one per bot: agentId, generation, afterUpdatedSeq, sessionId), includeUnlistedAgents (the app sends true), inlineBodyMaxBytes",
-   "returns": "A stream of frames. Frame types: connected (streamId, serverTimeMs, absoluteLifetimeMs), rows (agentId, sessionId, generation, entries, deletes, replay flag), cleared (agentId, sessionId, newGeneration), cursorTooOld, heartbeat, agentState (live and client state per bot, and a snapshot flag), computerActions, agentStateChanged, turnFailed, rosterChanged, boxState (state and a snapshot flag), pageTitleChanged",
+   "returns": "A stream of frames. Frame types: connected (streamId, serverTimeMs, absoluteLifetimeMs), rows (agentId, sessionId, generation, entries, deletes, replay flag), cleared (agentId, sessionId, newGeneration), cursorTooOld, heartbeat, agentState (live state, now including workingTaskIds, and client state per bot, and a snapshot flag), computerActions, agentStateChanged, turnFailed, rosterChanged, boxState (state and a snapshot flag), pageTitleChanged",
    "evidence": "probed",
    "confidence": "high",
    "safety": "read-only",
-   "notes": "Tested live 14 Oct 2026 on the test bots: connect protocol over HTTP/1.1 works (content-type application/connect+json, connect-protocol-version 1, each frame = 1 flag byte + 4-byte big-endian length + JSON). Frames seen: connected (streamId, serverTimeMs, absoluteLifetimeMs 1195000, so about 20 minutes per stream), agentState (the first has snapshot true and covers every bot on the account, even with one cursor), boxState, rows (agentId, entries with seq, updatedSeq, entryId, entryKind, base64 body), heartbeat every 10 s. A send showed live isRunning, then isComposingMessage, then idle, plus the new rows, within about 4 s. Rows carry the agentId at frame level, not per entry. Start the cursor at the bot's highest updatedSeq to skip the replay. Checked 14 Oct 2026 (Phase 01 build): each decoded frame is a JSON object keyed by its type, for example {\"agentState\": {...}} or {\"connected\": {...}}, not an object with a type field. A cursor without generation (or with \"0\") connects fine.",
+   "notes": "Tested live 14 Oct 2026 on the test bots: connect protocol over HTTP/1.1 works (content-type application/connect+json, connect-protocol-version 1, each frame = 1 flag byte + 4-byte big-endian length + JSON). Frames seen: connected (streamId, serverTimeMs, absoluteLifetimeMs 1195000, so about 20 minutes per stream), agentState (the first has snapshot true and covers every bot on the account, even with one cursor), boxState, rows (agentId, entries with seq, updatedSeq, entryId, entryKind, base64 body), heartbeat every 10 s. A send showed live isRunning, then isComposingMessage, then idle, plus the new rows, within about 4 s. Rows carry the agentId at frame level, not per entry. Start the cursor at the bot's highest updatedSeq to skip the replay. Checked 14 Oct 2026 (Phase 01 build): each decoded frame is a JSON object keyed by its type, for example {\"agentState\": {...}} or {\"connected\": {...}}, not an object with a type field. A cursor without generation (or with \"0\") connects fine. 0.72.0 adds live.workingTaskIds to the live state in agentState frames. The bot record in rosterChanged frames gains routinePolicy, viewerAccess and accessGrantsOnly (see ListGrokBotAgents), and its changedFields can now name JOB_ROLE and LIBRARY_PINS.",
    "domain": "Bots and conversations",
    "rpc": "server-streaming",
-   "used_by_cli": false
+   "used_by_cli": true
   },
   {
    "name": "SetGrokBotAgentClientState",
@@ -1505,14 +1703,14 @@
    "area": "Bot status & sessions",
    "function": "Returns, for each bot you list, the live run state and your own client state. It tells you whether a bot is running a turn right now, which tool it is using, and the unread count.",
    "inputs": "agentIds (list of bot UUIDs)",
-   "returns": "statuses: per bot, agentId, isRunning, live (isRunning, isComposingMessage, isRetrying, activity {kind, tool, detail, target, callId}, awaiting, updatedAtMs, staleAfterMs, sessionId, hasRunningSubagents, surfaceTaskId) and client (unreadCount, lastViewedAtMs, lastActivityAtMs, last entry and message previews, notification flags, hiddenFromSidebar)",
+   "returns": "statuses: per bot, agentId, isRunning, live (isRunning, isComposingMessage, isRetrying, activity {kind, tool, detail, target, callId}, awaiting, updatedAtMs, staleAfterMs, sessionId, hasRunningSubagents, surfaceTaskId, workingTaskIds, lastTurnSettlement {turnId, outcome, settledAtMs}) and client (unreadCount, lastViewedAtMs, lastActivityAtMs, last entry and message previews, notification flags, hiddenFromSidebar)",
    "evidence": "probed",
    "confidence": "high",
    "safety": "read-only",
-   "notes": "Confirmed in live tests: isRunning and live.activity (tool name) tracked a delegation test correctly. The desktop app does not call it, it receives the same live and client objects in agentState frames from WatchGrokBotTranscripts. In an idle probe the live object held only agentId, updatedAtMs and staleAfterMs, so false and zero values are left out of the JSON and a missing isRunning means false.",
+   "notes": "Confirmed in live tests: isRunning and live.activity (tool name) tracked a delegation test correctly. The desktop app does not call it, it receives the same live and client objects in agentState frames from WatchGrokBotTranscripts. In an idle probe the live object held only agentId, updatedAtMs and staleAfterMs, so false and zero values are left out of the JSON and a missing isRunning means false. 0.72.0 adds live.workingTaskIds (ids of agent tasks that are running a turn). The app's agent coordinator keeps it only while a turn is running and empties it when the live state goes stale. 21 Oct 2026, on the test bots: live.lastTurnSettlement is {turnId, outcome (success, error or cancelled), settledAtMs}; turnId equals the requestId of every transcript row of that run, and the field is absent while the next run is going, then reappears for it. It is not in the app's 0.72.1 proto; the app's renderer reads it, also with clientNonce, errorCode, errorDomain and errorRetryable, none of which were seen live. grokbot's Done Rule uses it to end a turn whose own run has settled. A bot answering inside a room reported an empty sessionId, the same as in its main chat, so live status does not tell which chat a bot is busy in; the room's own status names the member through activeGroupMemberId.",
    "domain": "Bots and conversations",
    "rpc": "unary",
-   "used_by_cli": false
+   "used_by_cli": true
   },
   {
    "name": "ListGrokBotAgentSessions",
@@ -1715,14 +1913,14 @@
    "area": "Routines",
    "function": "Lists the routines (automations) of one bot. Each item is an id plus a JSON record with name, prompt, trigger, schedule text, whether it is enabled, last and next run times and past runs.",
    "inputs": "agentId, optional timeZone (the app sends its own)",
-   "returns": "automations (automationId, recordJson). recordJson keys seen: id, name, prompt, trigger {type, schedule...}, schedule, triggerDescription, isEnabled, createdAt, lastRunAt, nextRunAt, runs, filePath, provenance",
+   "returns": "automations (automationId, recordJson, viewerPermissions {allowedActions}). recordJson keys seen: id, name, prompt, trigger {type, schedule...}, schedule, triggerDescription, isEnabled, createdAt, lastRunAt, nextRunAt, runs, filePath, provenance",
    "evidence": "probed",
    "confidence": "high",
    "safety": "read-only",
-   "notes": "Probe returned two routines for the owner's bot. 14 Oct 2026: a test routine showed trigger {type cron, schedule 'CRON_TZ=Australia/Adelaide 0 9 * * 1'}, isEnabled false and nextRunAt null while paused. recordJson is a JSON string you must parse yourself. There is no create method: the bot creates routines (its UpdateRoutine tool), which posts an event row {type automation-changed, action created, automationId, automationName} in the chat. No approval card appeared.",
+   "notes": "Probe returned two routines for the owner's bot. 14 Oct 2026: a test routine showed trigger {type cron, schedule 'CRON_TZ=Australia/Adelaide 0 9 * * 1'}, isEnabled false and nextRunAt null while paused. recordJson is a JSON string you must parse yourself. There is no create method: the bot creates routines (its UpdateRoutine tool), which posts an event row {type automation-changed, action created, automationId, automationName} in the chat. No approval card appeared. 0.72.0 adds viewerPermissions to each item: allowedActions lists OPEN, TOGGLE, EDIT or DELETE. The app maps it to canOpen, canToggle, canEdit and canDelete and treats a missing value as all allowed.",
    "domain": "Bots and conversations",
    "rpc": "unary",
-   "used_by_cli": false
+   "used_by_cli": true
   },
   {
    "name": "ListGrokBotAccountAutomations",
@@ -1733,7 +1931,7 @@
    "evidence": "probed",
    "confidence": "high",
    "safety": "read-only",
-   "notes": "If readIndividually is true for a bot, its list is empty here and the caller must read it with ListGrokBotAgentAutomations. unavailable means the routines could not be read.",
+   "notes": "If readIndividually is true for a bot, its list is empty here and the caller must read it with ListGrokBotAgentAutomations. unavailable means the routines could not be read. 0.72.0: the returned items gain viewerPermissions (allowedActions), as in ListGrokBotAgentAutomations.",
    "domain": "Bots and conversations",
    "rpc": "unary",
    "used_by_cli": false
@@ -1757,11 +1955,11 @@
    "area": "Agent tasks",
    "function": "Lists the tasks a bot tracks for you, each with a name, description, open or done status and an unread-update marker. The app shows them in its task list and asks for recently finished ones too.",
    "inputs": "agentId, includeRecentlyDone (the app sends true)",
-   "returns": "tasks (id, name, description, status, updatedAtMs, unreadEntryId, unreadPreview, unreadAtMs, pinnedAtMs)",
+   "returns": "tasks (id, name, description, status, updatedAtMs, unreadEntryId, unreadPreview, unreadAtMs, pinnedAtMs, subagentIds)",
    "evidence": "app-code",
    "confidence": "high",
    "safety": "read-only",
-   "notes": "This is the agent-scoped task system. It is different from the session task list (ListGrokBotTasks, KeepGrokBotTaskList, DismissGrokBotTask, MarkGrokBotTasksSeen). From the 0.71.2 app code: a task has its own thread, session task:<10-hex id> (or task:<id>:<parent session>), whose rows have entry ids task-<id>-t<turn>s<seq>, and the app shows tasks only when the client gate sand_tasks is on (default off). No method creates a task, so tasks probably come from the bot's CreateTask tool. Live 19 Oct 2026 with sand_tasks off: the list was empty on both test bots; a message with an unknown taskId landed in the main chat; sessionId task:<id> answered 404 'Grok Bot agent not found'.",
+   "notes": "This is the agent-scoped task system. It is different from the session task list (ListGrokBotTasks, KeepGrokBotTaskList, DismissGrokBotTask, MarkGrokBotTasksSeen). From the 0.71.2 app code: a task has its own thread, session task:<10-hex id> (or task:<id>:<parent session>), whose rows have entry ids task-<id>-t<turn>s<seq>, and the app shows tasks only when the client gate sand_tasks is on (default off). No method creates a task, so tasks probably come from the bot's CreateTask tool. Live 19 Oct 2026 with sand_tasks off: the list was empty on both test bots; a message with an unknown taskId landed in the main chat; sessionId task:<id> answered 404 'Grok Bot agent not found'. 0.72.0 adds subagentIds (ids of the subagents working for the task). The app judges a thread as working when its id is in live.workingTaskIds or any of its subagentIds is a running subagent (ListGrokBotSubagents); a task with status done never counts as working, and a thread waiting on you counts as blocked instead.",
    "domain": "Bots and conversations",
    "rpc": "unary",
    "used_by_cli": false
@@ -1771,11 +1969,11 @@
    "area": "Todos & subagents",
    "function": "Lists the subagents a bot is running right now. The app shows each returned item as running.",
    "inputs": "agentId",
-   "returns": "subagents (subagentId, subagentType, title, startedAtMs)",
+   "returns": "subagents (subagentId, subagentType, title, startedAtMs, freshUntilMs)",
    "evidence": "app-code",
    "confidence": "high",
    "safety": "read-only",
-   "notes": "Probe returned an empty object (none running). Related: live.hasRunningSubagents in ListGrokBotAgentStatuses.",
+   "notes": "Probe returned an empty object (none running). Related: live.hasRunningSubagents in ListGrokBotAgentStatuses. 0.72.0 adds freshUntilMs (a time in ms). The app copies it when above zero and schedules a refresh at the earliest value among running subagents, or after 10 seconds if that time has passed. It is probably a server liveness lease after which a 'running' entry is stale; that reading is inferred.",
    "domain": "Bots and conversations",
    "rpc": "unary",
    "used_by_cli": true
@@ -1789,7 +1987,7 @@
    "evidence": "app-code",
    "confidence": "high",
    "safety": "writes",
-   "notes": "Not probed.",
+   "notes": "0.72.0: the returned tasks gain subagentIds (see ListGrokBotAgentTasks). Not probed.",
    "domain": "Bots and conversations",
    "rpc": "unary",
    "used_by_cli": false
@@ -1803,7 +2001,7 @@
    "evidence": "app-code",
    "confidence": "high",
    "safety": "writes",
-   "notes": "Not probed. The app only clears the marker locally if the task's unreadEntryId matches entryId.",
+   "notes": "Not probed. The app only clears the marker locally if the task's unreadEntryId matches entryId. 0.72.0: the returned tasks gain subagentIds (see ListGrokBotAgentTasks).",
    "domain": "Bots and conversations",
    "rpc": "unary",
    "used_by_cli": false
@@ -1817,7 +2015,21 @@
    "evidence": "app-code",
    "confidence": "high",
    "safety": "writes",
-   "notes": "New in 0.71.2. The app pins or unpins in its own list first (stamping pinnedAtMs with the current time) and reloads the list if the call fails. Not probed.",
+   "notes": "New in 0.71.2. The app pins or unpins in its own list first (stamping pinnedAtMs with the current time) and reloads the list if the call fails. 0.72.0: the returned tasks gain subagentIds (see ListGrokBotAgentTasks). Not probed.",
+   "domain": "Bots and conversations",
+   "rpc": "unary",
+   "used_by_cli": false
+  },
+  {
+   "name": "CreateGrokBotThreadFromMessage",
+   "area": "Agent tasks",
+   "function": "Starts a thread (an agent task with its own conversation) from one message in the main chat.",
+   "inputs": "agentId, entryId (the transcript entry id of the message)",
+   "returns": "refusal (failureCode, message), only when refused; no thread or task id comes back",
+   "evidence": "app-code",
+   "confidence": "high",
+   "safety": "writes",
+   "notes": "New in 0.72.0. The 'Create Thread' item in a message's menu calls it. The app shows the item only when the client gate sand_tasks is on, the bot uses the temporal harness and is not a group, you own the bot and you are in the main chat. A reply without a refusal counts as success. To find the new thread, list ListGrokBotAgentTasks; its transcript session is probably task:<id> (inferred from the 0.71.2 task session scheme, not tested). Not probed.",
    "domain": "Bots and conversations",
    "rpc": "unary",
    "used_by_cli": false
@@ -1887,10 +2099,10 @@
    "evidence": "probed",
    "confidence": "high",
    "safety": "writes",
-   "notes": "Tested live 14 Oct 2026 on the test bots: on a routine a test bot created when asked, isEnabled true returned the list with nextRunAt set; false returned it with nextRunAt cleared. Pass the automationId from ListGrokBotAgentAutomations, not the routine's name-based id.",
+   "notes": "Tested live 14 Oct 2026 on the test bots: on a routine a test bot created when asked, isEnabled true returned the list with nextRunAt set; false returned it with nextRunAt cleared. Pass the automationId from ListGrokBotAgentAutomations, not the routine's name-based id. 0.72.0: the returned items gain viewerPermissions (allowedActions), as in ListGrokBotAgentAutomations.",
    "domain": "Bots and conversations",
    "rpc": "unary",
-   "used_by_cli": false
+   "used_by_cli": true
   },
   {
    "name": "DeleteGrokBotAgentAutomation",
@@ -1901,7 +2113,49 @@
    "evidence": "probed",
    "confidence": "high",
    "safety": "destructive",
-   "notes": "Tested live 14 Oct 2026 on the test bots: deleted the test routine and returned an empty list; ListGrokBotAgentAutomations confirmed it was gone.",
+   "notes": "Tested live 14 Oct 2026 on the test bots: deleted the test routine and returned an empty list; ListGrokBotAgentAutomations confirmed it was gone. 0.72.0: the returned items gain viewerPermissions (allowedActions), as in ListGrokBotAgentAutomations.",
+   "domain": "Bots and conversations",
+   "rpc": "unary",
+   "used_by_cli": true
+  },
+  {
+   "name": "ListGrokBotAgentRoutines",
+   "area": "Routines",
+   "function": "Lists the routines of one team bot across users, with who each one runs as and what you may do with it, plus the bot's routine policy. The app's team bot panel shows teammates' routines from it.",
+   "inputs": "agentId, optional timeZone (the app sends its own)",
+   "returns": "routines (automationId, routineId, name, triggerDescription, triggerPresentationJson, schedule, isEnabled, nextRunAtMs, createdAtMs, runAsUserId, runAsDisplayName, runAsIsViewer, recordJson, viewerPermissions {allowedActions: OPEN, TOGGLE, EDIT or DELETE}), routinePolicy {allowCollaboratorCreation, viewerAllowedActions: CREATE or CHANGE_POLICY}",
+   "evidence": "app-code",
+   "confidence": "high",
+   "safety": "read-only",
+   "notes": "New in 0.72.0. The app calls it only for a bot that belongs to a team and reads NotFound as 'routines off'. It keeps only rows where runAsIsViewer is false, so the panel shows teammates' routines ('Added by <name>'); your own come from ListGrokBotAgentAutomations. The panel sits behind the client gates grok_bot_team_bot_details_panel, grok_bot_multiplayer and sand_simplified_right_pane. Whether it works for a personal bot is not known. Not probed.",
+   "domain": "Bots and conversations",
+   "rpc": "unary",
+   "used_by_cli": false
+  },
+  {
+   "name": "SetGrokBotAgentRoutineEnabled",
+   "area": "Routines",
+   "function": "Turns one teammate's routine on or off on a team bot and returns the updated routine.",
+   "inputs": "agentId, automationId, isEnabled, optional timeZone",
+   "returns": "routine (same fields as the items of ListGrokBotAgentRoutines)",
+   "evidence": "app-code",
+   "confidence": "high",
+   "safety": "writes",
+   "notes": "New in 0.72.0. The app uses it for the pause and resume switch on a teammate's routine. A permission_denied error with the header x-grok-bot-refusal: routine_not_manageable means you may no longer toggle that routine; not_found means it is gone. A reply without a routine is an error in the app. For your own routines the existing SetGrokBotAgentAutomationEnabled still applies. Not probed.",
+   "domain": "Bots and conversations",
+   "rpc": "unary",
+   "used_by_cli": false
+  },
+  {
+   "name": "SetGrokBotAgentAllowCollaboratorAutomationCreation",
+   "area": "Routines",
+   "function": "Turns on or off whether collaborators of a team bot may have it create routines, and returns the bot's routine policy.",
+   "inputs": "id (the bot's agentId; the field is called id, not agentId), allow (true or false)",
+   "returns": "routinePolicy {allowCollaboratorCreation, viewerAllowedActions: CREATE or CHANGE_POLICY}",
+   "evidence": "app-code",
+   "confidence": "medium",
+   "safety": "writes",
+   "notes": "New in 0.72.0. The bot setup dialog (automations tab) has the toggle 'Collaborators can create routines'. It is disabled unless the policy lists CHANGE_POLICY for you ('Only the owner and managers can change this setting'). A reply without a policy is an error in the app. What the flag changes on the server is inferred from UI strings: it probably decides whether other people's chat requests can make the bot save routines. It widens who can schedule runs, so ask the owner first. Not probed.",
    "domain": "Bots and conversations",
    "rpc": "unary",
    "used_by_cli": false
@@ -1939,14 +2193,14 @@
    "area": "Settings",
    "function": "Reads your account-level runtime settings in one object: main bot id, pinned bots, sidebar sections, onboarding flag, terms-seen time, auto-review rules, email provider, X tool access and tool permissions.",
    "inputs": "none",
-   "returns": "settings (updatedAtMs, mainAgentId, pinnedAgents {agentIds}, sidebarSections {sections}, hasSeenOnboarding, termsSeenAtMs, autoReviewInstructions, emailProvider GOOGLE or MICROSOFT, xToolAccess OWN or SHARED, toolPermissions {scopes})",
+   "returns": "settings (updatedAtMs, mainAgentId, pinnedAgents {agentIds}, sidebarSections {sections}, hasSeenOnboarding, termsSeenAtMs, autoReviewInstructions, emailProvider GOOGLE or MICROSOFT, xToolAccess OWN or SHARED, toolPermissions {scopes}, jobRole)",
    "evidence": "probed",
    "confidence": "high",
    "safety": "read-only",
-   "notes": "Use mainAgentId here to find the primary bot. The app reads pinned bots, tool permissions and the terms-seen time from this object instead of the dedicated Get calls. Probe showed mainAgentId, updatedAtMs, pinnedAgents, sidebarSections, hasSeenOnboarding, autoReviewInstructions and emailProvider, with no termsSeenAtMs.",
+   "notes": "Use mainAgentId here to find the primary bot. The app reads pinned bots, tool permissions and the terms-seen time from this object instead of the dedicated Get calls. Probe showed mainAgentId, updatedAtMs, pinnedAgents, sidebarSections, hasSeenOnboarding, autoReviewInstructions and emailProvider, with no termsSeenAtMs. 0.72.0 adds jobRole (text). The app keeps it only when it is one of engineering, design, marketing, customer-support, product, ops-finance, recruiting-people, sales or productivity.",
    "domain": "Bots and conversations",
    "rpc": "unary",
-   "used_by_cli": false
+   "used_by_cli": true
   },
   {
    "name": "UpdateGrokBotUserRuntimeSettings",
@@ -1957,7 +2211,7 @@
    "evidence": "probed",
    "confidence": "high",
    "safety": "writes",
-   "notes": "Tested live 13 Oct 2026: sent only sidebarSections {sections: [{id (new UUID), name 'Test', agentIds [two bot UUIDs]}]}; HTTP 200, the response echoed the stored sections and GetGrokBotUserRuntimeSettings returned them. The list is replaced as a whole, so read the current sections and append. The app sends one field per call, so the fields look independent. It cannot change mainAgentId (use SetGrokBotMainAgent), tool permissions (SetGrokBotMcpToolPermissions) or the terms-seen time (MarkGrokBotTermsSeen). The app checks the returned settings and raises an error if the server did not store the value.",
+   "notes": "Tested live 13 Oct 2026: sent only sidebarSections {sections: [{id (new UUID), name 'Test', agentIds [two bot UUIDs]}]}; HTTP 200, the response echoed the stored sections and GetGrokBotUserRuntimeSettings returned them. The list is replaced as a whole, so read the current sections and append. The app sends one field per call, so the fields look independent. It cannot change mainAgentId (use SetGrokBotMainAgent), tool permissions (SetGrokBotMcpToolPermissions) or the terms-seen time (MarkGrokBotTermsSeen). The app checks the returned settings and raises an error if the server did not store the value. 0.72.0: the returned settings gain jobRole, but the request has no input for it, so how the role is set is not visible here.",
    "domain": "Bots and conversations",
    "rpc": "unary",
    "used_by_cli": false
@@ -1999,7 +2253,7 @@
    "evidence": "app-code",
    "confidence": "high",
    "safety": "writes",
-   "notes": "Not probed. Read the current main bot from GetGrokBotUserRuntimeSettings. A separate method, EnsureGrokBotDefaultMainAgent, creates one when none exists (it is outside this group).",
+   "notes": "Not probed. Read the current main bot from GetGrokBotUserRuntimeSettings. A separate method, EnsureGrokBotDefaultMainAgent, creates one when none exists (it is outside this group). 0.72.0: the returned settings gain jobRole (see GetGrokBotUserRuntimeSettings).",
    "domain": "Bots and conversations",
    "rpc": "unary",
    "used_by_cli": false
@@ -2041,7 +2295,7 @@
    "evidence": "schema-only",
    "confidence": "low",
    "safety": "writes",
-   "notes": "Not probed because it creates a bot. How it differs from CreateGrokBotTemporalAgent on the server is unconfirmed.",
+   "notes": "Not probed because it creates a bot. How it differs from CreateGrokBotTemporalAgent on the server is unconfirmed. 0.72.0: the bot record gains routinePolicy, viewerAccess and accessGrantsOnly (see ListGrokBotAgents).",
    "domain": "Bots and conversations",
    "rpc": "unary",
    "used_by_cli": false
@@ -2055,7 +2309,21 @@
    "evidence": "probed",
    "confidence": "high",
    "safety": "writes",
-   "notes": "Tested live 13 Oct 2026, twice (bots Primary Test and Staff Test): body agentId (new UUID), name, title, description, avatarShape 'blob', avatarColor 'black', harness 'GROK_BOT_AGENT_HARNESS_TEMPORAL', kickstartRequested false, introductionSuppressed true, language 'en'. HTTP 200 in about 1.5 s; the returned agent kept our agentId, got a numeric row id and harness 'temporal', and answered a ping about 8 s later. It shares the request and response classes of CreateGrokBotAgent in the service table. The app only uses it when GetGrokBotRuntimeCapabilities reports temporalCreationEnabled together with durableIdentityEnabled and durableIdentityWritesEnabled.",
+   "notes": "Tested live 13 Oct 2026, twice (bots Primary Test and Staff Test): body agentId (new UUID), name, title, description, avatarShape 'blob', avatarColor 'black', harness 'GROK_BOT_AGENT_HARNESS_TEMPORAL', kickstartRequested false, introductionSuppressed true, language 'en'. HTTP 200 in about 1.5 s; the returned agent kept our agentId, got a numeric row id and harness 'temporal', and answered a ping about 8 s later. It shares the request and response classes of CreateGrokBotAgent in the service table. The app only uses it when GetGrokBotRuntimeCapabilities reports temporalCreationEnabled together with durableIdentityEnabled and durableIdentityWritesEnabled. 0.72.0: the bot record gains routinePolicy, viewerAccess and accessGrantsOnly (see ListGrokBotAgents).",
+   "domain": "Bots and conversations",
+   "rpc": "unary",
+   "used_by_cli": true
+  },
+  {
+   "name": "DuplicateGrokBotAgent",
+   "area": "Bots",
+   "function": "Probably makes a copy of an existing bot under a new agent id and returns the new bot record. This reading comes from the field names only.",
+   "inputs": "sourceAgentId, agentId",
+   "returns": "agent (the bot record, same fields as ListGrokBotAgents)",
+   "evidence": "schema-only",
+   "confidence": "medium",
+   "safety": "writes",
+   "notes": "New in 0.72.0. No call site in the desktop app. The meaning of agentId is inferred: the app's other bot creation calls (CreateGrokBotTemporalAgent, CreateGrokBotAgentFromTemplate) take a client-chosen id and check that the server returns it, so this one probably does too. What gets copied (files, memory, routines, sharing) is not visible. It creates a bot, so not probed.",
    "domain": "Bots and conversations",
    "rpc": "unary",
    "used_by_cli": false
@@ -2065,11 +2333,11 @@
    "area": "Bots",
    "function": "Lists the bots on the account, which is how the CLI finds bot ids. Each record holds the bot's identity, harness, visibility, ownership flags and voice settings.",
    "inputs": "none required; optional role, includeTeamAgents, addedTeamAgentsOnly",
-   "returns": "agents (id, legacyAgentId, agentId, name, description, title, avatarShape, avatarColor, createdAtMs, updatedAtMs, harness, visibility, kind AGENT or ROOM, viewerIsOwner, viewerCanManage, voiceId, voiceSpeed, voiceLanguage, draftingDisabled, and for rooms memberAgentIds), slackConnections (agentId, connected, workspaceName, installUrl, unavailableReason, pendingAdminApproval, needsManifestUpdate, reinstallUrl, approvalDenied, appUnreachable, removedInSlack, approvalRequestUnsent), teamsConnections (agentId, installState, tenantId, tenantDisplayName, installedTeamCount, installedTeams: teamId, displayName, rscGranted, installedAtMs), truncated",
+   "returns": "agents (id, legacyAgentId, agentId, name, description, title, avatarShape, avatarColor, createdAtMs, updatedAtMs, harness, visibility, kind AGENT or ROOM, viewerIsOwner, viewerCanManage, voiceId, voiceSpeed, voiceLanguage, draftingDisabled, routinePolicy, viewerAccess, accessGrantsOnly, and for rooms memberAgentIds), slackConnections (agentId, connected, workspaceName, installUrl, unavailableReason, pendingAdminApproval, needsManifestUpdate, reinstallUrl, approvalDenied, appUnreachable, removedInSlack, approvalRequestUnsent), teamsConnections (agentId, installState (also PROVISIONING since 0.72.0), tenantId, tenantDisplayName, installedTeamCount, installedTeams: teamId, displayName, rscGranted, installedAtMs), truncated",
    "evidence": "probed",
    "confidence": "high",
    "safety": "read-only",
-   "notes": "Use agentId (a UUID) in the other calls. In the owner's result agentId equals legacyAgentId, while id is a different numeric server row id. The app passes that row id to UpdateGrokBotAgent. The manager and access calls take a value the app names serverId. The harness for the owner's bot is 'temporal'. The app also has a roster path through ListGrokBotTeamAgents.",
+   "notes": "Use agentId (a UUID) in the other calls. In the owner's result agentId equals legacyAgentId, while id is a different numeric server row id. The app passes that row id to UpdateGrokBotAgent. The manager and access calls take a value the app names serverId. The harness for the owner's bot is 'temporal'. The app also has a roster path through ListGrokBotTeamAgents. 0.72.0 adds three fields to each bot: routinePolicy (allowCollaboratorCreation, viewerAllowedActions), viewerAccess (DIRECT, GROUP or TEAM; probably how you got access, which is inferred) and accessGrantsOnly. The app copies viewerAccess into its bot model; it does not read the other two from this call and takes the routine policy from ListGrokBotAgentRoutines.",
    "domain": "Bots and conversations",
    "rpc": "unary",
    "used_by_cli": true
@@ -2083,7 +2351,7 @@
    "evidence": "app-code",
    "confidence": "medium",
    "safety": "read-only",
-   "notes": "Probe returned an empty object on the owner's account, while ListGrokBotAgents returned the bot. Do not rely on it to find your own bots.",
+   "notes": "Probe returned an empty object on the owner's account, while ListGrokBotAgents returned the bot. Do not rely on it to find your own bots. 0.72.0: the bot record gains routinePolicy, viewerAccess and accessGrantsOnly (see ListGrokBotAgents).",
    "domain": "Bots and conversations",
    "rpc": "unary",
    "used_by_cli": false
@@ -2098,6 +2366,20 @@
    "confidence": "high",
    "safety": "read-only",
    "notes": "All five flags were true in the probe. If the server answers Unimplemented the app ignores capabilities and uses its own feature gates. agentMessagingEnabled and serverRoomsEnabled have no reader in this app version.",
+   "domain": "Bots and conversations",
+   "rpc": "unary",
+   "used_by_cli": false
+  },
+  {
+   "name": "GetGrokBotPhoneUiGates",
+   "area": "Capabilities",
+   "function": "Probably tells the phone app which UI features are switched on for the account, as a map of gate name to true or false. This reading comes from the name and the response fields only.",
+   "inputs": "none",
+   "returns": "gates (map of gate name to true or false), optional phoneClientVersion (text; its meaning is not visible)",
+   "evidence": "schema-only",
+   "confidence": "low",
+   "safety": "read-only",
+   "notes": "New in 0.72.0. No call site in the desktop app and no gate names are visible, so what it reports is unknown. Not probed.",
    "domain": "Bots and conversations",
    "rpc": "unary",
    "used_by_cli": false
@@ -2125,7 +2407,7 @@
    "evidence": "app-code",
    "confidence": "high",
    "safety": "writes",
-   "notes": "Not probed. Needs a team (NO_TEAM otherwise) and a supported harness. What personalSecretNames does is not visible in app code, it is probably secrets kept personal when sharing, which is unconfirmed.",
+   "notes": "Not probed. Needs a team (NO_TEAM otherwise) and a supported harness. What personalSecretNames does is not visible in app code, it is probably secrets kept personal when sharing, which is unconfirmed. 0.72.0: the bot record gains routinePolicy, viewerAccess and accessGrantsOnly (see ListGrokBotAgents).",
    "domain": "Bots and conversations",
    "rpc": "unary",
    "used_by_cli": false
@@ -2139,7 +2421,7 @@
    "evidence": "app-code",
    "confidence": "medium",
    "safety": "writes",
-   "notes": "Not probed. The meaning of inPlace and personalSecretNames is unconfirmed.",
+   "notes": "Not probed. The meaning of inPlace and personalSecretNames is unconfirmed. 0.72.0: the bot record gains routinePolicy, viewerAccess and accessGrantsOnly (see ListGrokBotAgents).",
    "domain": "Bots and conversations",
    "rpc": "unary",
    "used_by_cli": false
@@ -2153,7 +2435,7 @@
    "evidence": "app-code",
    "confidence": "medium",
    "safety": "writes",
-   "notes": "Not probed. The app shows a published flag only for bots whose visibility is TEAM.",
+   "notes": "Not probed. The app shows a published flag only for bots whose visibility is TEAM. 0.72.0: the bot record gains routinePolicy, viewerAccess and accessGrantsOnly (see ListGrokBotAgents).",
    "domain": "Bots and conversations",
    "rpc": "unary",
    "used_by_cli": false
@@ -2167,7 +2449,7 @@
    "evidence": "app-code",
    "confidence": "medium",
    "safety": "writes",
-   "notes": "Not probed.",
+   "notes": "0.72.0: the bot record gains routinePolicy, viewerAccess and accessGrantsOnly (see ListGrokBotAgents). Not probed.",
    "domain": "Bots and conversations",
    "rpc": "unary",
    "used_by_cli": false
@@ -2261,11 +2543,11 @@
    "area": "Sharing & access",
    "function": "Reads who can use a team-shared bot: a list of entries (the whole team, a user id or a group id, each with role USER or MANAGER) plus which roles can be assigned, whether groups are on, whether the team row may be turned off, and a state token.",
    "inputs": "agentId (the app fills it with a value its wrapper calls serverId), listsCrossTierPrincipals (true or false; the app does not send it)",
-   "returns": "state (principals [team, userId or groupId, role], teamRowOn, availableRoles, groupsEnabled, teamRowOffAllowed, expectedStateToken, crossTeamSharingEnabled, callerMayEditCrossTeamRows), creatorUserId, deletedGroupIds",
+   "returns": "state (principals [team, userId or groupId, role], teamRowOn, availableRoles, groupsEnabled, teamRowOffAllowed, expectedStateToken, crossTeamSharingEnabled, callerMayEditCrossTeamRows), creatorUserId, deletedGroupIds, crossTierDirectory (organizationName, organizationIconUrl, teams: teamId, name, iconUrl)",
    "evidence": "probed-error",
    "confidence": "medium",
    "safety": "read-only",
-   "notes": "Probe on the owner's bot failed with failed_precondition. The message is cut off in our probe record at 'Not av'. It is likely a team-only feature, but that is unconfirmed. The function itself comes from the app code, which calls it in its sharing screen. The wrapper calls the id argument serverId (see AddGrokBotAgentManager).",
+   "notes": "Probe on the owner's bot failed with failed_precondition. The message is cut off in our probe record at 'Not av'. It is likely a team-only feature, but that is unconfirmed. The function itself comes from the app code, which calls it in its sharing screen. The wrapper calls the id argument serverId (see AddGrokBotAgentManager). 0.72.0 adds crossTierDirectory. The app reads it only when state.crossTeamSharingEnabled is true, to name the organization and the other teams in the cross-team rows.",
    "domain": "Bots and conversations",
    "rpc": "unary",
    "used_by_cli": false
@@ -2275,11 +2557,11 @@
    "area": "Sharing & access",
    "function": "Replaces the access list of a team-shared bot with the entries you send, carrying the expectedStateToken from GetGrokBotAgentAccess. If the state changed meanwhile, the server answers Aborted with a retryable flag and the app reloads.",
    "inputs": "agentId (the app fills it with a value its wrapper calls serverId), update {principals [team, userId or groupId, role USER or MANAGER], expectedStateToken}",
-   "returns": "state (same as GetGrokBotAgentAccess), creatorUserId, deletedGroupIds",
+   "returns": "state (same as GetGrokBotAgentAccess), creatorUserId, deletedGroupIds, crossTierDirectory (organizationName, organizationIconUrl, teams: teamId, name, iconUrl)",
    "evidence": "app-code",
    "confidence": "high",
    "safety": "writes",
-   "notes": "Not probed. Send the full list: the app builds it from the current entries, and it refuses to edit when it cannot read an entry because an update would drop it. The wrapper calls the id argument serverId (see AddGrokBotAgentManager).",
+   "notes": "Not probed. Send the full list: the app builds it from the current entries, and it refuses to edit when it cannot read an entry because an update would drop it. The wrapper calls the id argument serverId (see AddGrokBotAgentManager). 0.72.0 adds crossTierDirectory to the reply (see GetGrokBotAgentAccess).",
    "domain": "Bots and conversations",
    "rpc": "unary",
    "used_by_cli": false
@@ -2307,7 +2589,7 @@
    "evidence": "app-code",
    "confidence": "medium",
    "safety": "writes",
-   "notes": "Not probed. The id here is GrokBotAgent.id (a numeric row id), unlike SetGrokBotAgentVoice and DeleteGrokBotAgent, which receive the agentId UUID. How the app edits its own bots' identity is not through this call in the code we traced.",
+   "notes": "Not probed. The id here is GrokBotAgent.id (a numeric row id), unlike SetGrokBotAgentVoice and DeleteGrokBotAgent, which receive the agentId UUID. How the app edits its own bots' identity is not through this call in the code we traced. 0.72.0: the bot record gains routinePolicy, viewerAccess and accessGrantsOnly (see ListGrokBotAgents).",
    "domain": "Bots and conversations",
    "rpc": "unary",
    "used_by_cli": false
@@ -2321,7 +2603,7 @@
    "evidence": "app-code",
    "confidence": "high",
    "safety": "writes",
-   "notes": "Not probed.",
+   "notes": "0.72.0: the bot record gains routinePolicy, viewerAccess and accessGrantsOnly (see ListGrokBotAgents). Not probed.",
    "domain": "Bots and conversations",
    "rpc": "unary",
    "used_by_cli": false
@@ -2338,18 +2620,18 @@
    "notes": "Tested live 14 Oct 2026 on the test bots: deleted a throwaway bot and a test room with {id: <agentId UUID>}; HTTP 200 with an empty body. Both vanished from ListGrokBotAgents, ListDeletedGrokBotAgentIds returned them, and a later send to the deleted bot gave 404 'Grok Bot agent not found.'",
    "domain": "Bots and conversations",
    "rpc": "unary",
-   "used_by_cli": false
+   "used_by_cli": true
   },
   {
    "name": "SendGrokBotUserMessage",
    "area": "Conversation control",
    "function": "Sends a user message to a bot. The server accepts and dispatches it, the app counts ACCEPTED_BOX, ACCEPTED_TEMPORAL and DUPLICATE as accepted, and the reply arrives later as transcript rows.",
-   "inputs": "agentId, messageId (client UUID, echoed back as clientNonce), text, sentAtMs, sessionId (empty string for main); optional richText, replyToId, isFork, attachmentPaths and attachmentNames, taskId, source, sendSource, initiator, enterEpochMs, composedAtMs, traceparent, machineId, mcpConfigJson, onePasswordAppInstalled",
+   "inputs": "agentId, messageId (client UUID, echoed back as clientNonce), text, sentAtMs, sessionId (empty string for main); optional richText, replyToId, isFork, attachmentPaths and attachmentNames, taskId, source, sendSource, initiator, enterEpochMs, composedAtMs, traceparent, machineId, mcpConfigJson, onePasswordAppInstalled, firstSentAgeMs, visualizationStates (entryId, title, stateJson)",
    "returns": "dispatched, mode, workflowId, delivery (ACCEPTED_BOX, ACCEPTED_TEMPORAL, DUPLICATE, REFUSED), refusal (failureCode, message)",
    "evidence": "app-code",
    "confidence": "high",
    "safety": "writes",
-   "notes": "Confirmed in live tests: it dispatches the message and the bot replies via transcript rows. source is the client surface (DESKTOP, MOBILE, GLASS), not a content source. sendSource is CHAT, PUSH, APP_INTENT or ACTION_BUTTON_DICTATION. initiator is USER, TEMPLATE_IMPORT, TEMPLATE_SHARE, CARD_ACTION, PLUGIN_SETUP or TEACH_RECORDING. The app also counts DUPLICATE as accepted, which suggests the server de-duplicates on messageId (unconfirmed). If the call fails with Unavailable and no retry-after, the app checks GetGrokBotSendStatus and re-sends only if the result is NOT_FOUND. int64 fields are JSON strings. A taskId that names no task is ignored without an error: the message lands in the main chat with no task id (19 Oct 2026). replyToId takes a transcript entry id: live 19 Oct 2026 on Staff Test, replyToId t41s1 gave the new user row a field replyTo: \"t41s1\", and the bot, asked what the message replied to, quoted the first words of that entry correctly. The bot's answer carries no replyTo; it shares the user row's requestId.",
+   "notes": "Confirmed in live tests: it dispatches the message and the bot replies via transcript rows. source is the client surface (DESKTOP, MOBILE, GLASS), not a content source. sendSource is CHAT, PUSH, APP_INTENT or ACTION_BUTTON_DICTATION. initiator is USER, TEMPLATE_IMPORT, TEMPLATE_SHARE, CARD_ACTION, PLUGIN_SETUP or TEACH_RECORDING. The app also counts DUPLICATE as accepted, which suggests the server de-duplicates on messageId (unconfirmed). If the call fails with Unavailable and no retry-after, the app checks GetGrokBotSendStatus and re-sends only if the result is NOT_FOUND. int64 fields are JSON strings. A taskId that names no task is ignored without an error: the message lands in the main chat with no task id (19 Oct 2026). replyToId takes a transcript entry id: live 19 Oct 2026 on Staff Test, replyToId t41s1 gave the new user row a field replyTo: \"t41s1\", and the bot, asked what the message replied to, quoted the first words of that entry correctly. The bot's answer carries no replyTo; it shares the user row's requestId. 0.72.0 adds firstSentAgeMs (the app sends the milliseconds since the first attempt at this send, kept across resends under a new messageId) and visualizationStates (no desktop code sends it; probably for the new Visualize tool's cards, which is inferred).",
    "domain": "Bots and conversations",
    "rpc": "unary",
    "used_by_cli": true
@@ -2358,12 +2640,12 @@
    "name": "GetGrokBotSendStatus",
    "area": "Conversation control",
    "function": "Looks up whether the server received a specific message, by messageId. The app uses it after a send fails with an unclear network error, to decide whether it is safe to send again.",
-   "inputs": "agentId, messageId (the id used in SendGrokBotUserMessage), sessionId",
+   "inputs": "agentId, messageId (the id used in SendGrokBotUserMessage), sessionId, optional firstSentAgeMs",
    "returns": "status (NOT_FOUND, ACCEPTED, REJECTED, PENDING, UNKNOWN_DURABILITY), echoEntryId, rejectionCode, acceptedAtMs",
    "evidence": "probed",
    "confidence": "high",
    "safety": "read-only",
-   "notes": "Confirmed in live tests: the status stays ACCEPTED even after the reply, so it reports acceptance only. 14 Oct 2026: an unknown messageId returns status GROK_BOT_SEND_STATUS_NOT_FOUND. Use the transcript or ListGrokBotAgentStatuses to see completion.",
+   "notes": "Confirmed in live tests: the status stays ACCEPTED even after the reply, so it reports acceptance only. 14 Oct 2026: an unknown messageId returns status GROK_BOT_SEND_STATUS_NOT_FOUND. Use the transcript or ListGrokBotAgentStatuses to see completion. 0.72.0 adds the optional firstSentAgeMs (milliseconds since the first attempt at the send). 21 Oct 2026: right after a send it answered ACCEPTED with acceptedAtMs and an echoEntryId shaped like t<turn>u, which looks like the entry id of the echoed user row (not checked against the row).",
    "domain": "Bots and conversations",
    "rpc": "unary",
    "used_by_cli": false
@@ -2464,7 +2746,7 @@
    "notes": "The plain call returned 400 invalid_argument, so it needs a real bcId. The desktop app does not call it. The app does not explain what a wake counts, so that part of the meaning is a guess from the field name.",
    "domain": "Actions inside a chat",
    "rpc": "unary",
-   "used_by_cli": false
+   "used_by_cli": true
   },
   {
    "name": "RespondGrokBotWidget",
@@ -2478,7 +2760,7 @@
    "notes": "Tested live 14 Oct 2026 on the test bots: value 'Blue' on an open widget card returned accepted true; the card gained respondedValue 'Blue' and the bot replied 'Got it, Blue.' in a new run within about 8 s. Widget body: message.widget {prompt, options [{label}]}. The bot shows one when asked to use its question widget.",
    "domain": "Actions inside a chat",
    "rpc": "unary",
-   "used_by_cli": false
+   "used_by_cli": true
   },
   {
    "name": "ResolveGrokBotCredentialRequest",
@@ -2506,7 +2788,7 @@
    "notes": "Tested live 14 Oct 2026 on the test bots: returned accepted true; the card gained widgetDismissed true (older cards use widgetSkipped). The bot did not post a reply.",
    "domain": "Actions inside a chat",
    "rpc": "unary",
-   "used_by_cli": false
+   "used_by_cli": true
   },
   {
    "name": "SendGrokBotDraft",
@@ -2590,7 +2872,7 @@
    "notes": "Tested live 14 Oct 2026 on Staff Test with the account's allow rule removed for the test (restored after). The card is a send-message row with message.type auto-review-approval and message.approval {requestId, status pending, surface (box_shell), summary, summaryCopy, reason, command, proposedRule}; while it waits, ListGrokBotAgentStatuses shows live.awaiting {tabId 'auto-review', reason}. Body: agentId, requestId (from approval.requestId, no entryId), resolution GROK_BOT_AUTO_REVIEW_APPROVAL_RESOLUTION_DENIED / _APPROVED / _ALWAYS, approvalPlatform 'desktop'. Each returned dispatched true with a workflowId. DENIED: card status denied, the command did not run, the bot reported it. APPROVED: card status approved, the command ran. ALWAYS: card status always and the command ran, but nothing was added to autoReviewInstructions and the same command was flagged again next time. Answering a card twice gives 404. Short forms like 'denied' give 400. Auto-review is not consistent: the same 'sudo rm -rf' on a missing folder was flagged once and passed once; 'curl ... | sudo bash' was flagged every time. The 0.71.2 request has no meetingJoin field (the catalog listed one before), and the app's own call sends only the six fields above.",
    "domain": "Actions inside a chat",
    "rpc": "unary",
-   "used_by_cli": false
+   "used_by_cli": true
   },
   {
    "name": "ResolveGrokBotLocalToolPermission",
@@ -2604,7 +2886,7 @@
    "notes": "Tested live 14 Oct 2026 on Staff Test with Execution on Local Computer set to 'Ask every time' (localToolPermission 'ask' in ~/.grokbot/settings.json; restored to 'always' after). The card is a send-message row with message.type local-tool-permission and message.ask {requestId (64 hex chars), action 'run-command', target (the command), machineId, status pending}; live.awaiting shows 'Permission needed on your computer: ...'. resolution only works as a number: 1 = allow once (status allowed), 2 = deny (status denied), 3 = always (status always); 0 and every string tried give 400. Deny works: the command does not run. Allow once and always only change the card: the Mac still refused with 'Command failed to spawn: That action was not approved on the user's computer'. The same happened when the owner clicked Allow once in the app, so it is a GrokBot bug, not the CLI.",
    "domain": "Actions inside a chat",
    "rpc": "unary",
-   "used_by_cli": false
+   "used_by_cli": true
   },
   {
    "name": "ResolveGrokBotConnectorGrant",
@@ -2646,7 +2928,7 @@
    "notes": "The response holds a secret token, so never log it. A FailedPrecondition error carrying GrokBotUserComputerRemovedDetail means the computer was removed from the account, and the app then stops asking. serverAuthoritative changes how the app caches the credential for an account. Not called in the probe run.",
    "domain": "Actions inside a chat",
    "rpc": "unary",
-   "used_by_cli": false
+   "used_by_cli": true
   },
   {
    "name": "WatchGrokBotUserComputerRequests",
@@ -2680,12 +2962,12 @@
    "name": "SubmitGrokBotUserComputerResponses",
    "area": "Your computer",
    "function": "Sends results back for requests the computer handled: command output, file chunks, errors, Messages results, and local tool results or permission-pending notices.",
-   "inputs": "machineId, credential, frames (each has requestId plus one result kind: client, control, file with data, seq and last, fileError, messagesResult, messagesError, messagesConsentResult, messagesAccepted, localToolAccepted, localToolResult or localToolPermissionPending).",
+   "inputs": "machineId, credential, frames (each has requestId plus one result kind: client, control, file with data, seq and last, fileError, messagesResult (resultJson, and optional daemonMs, helperMs and sqliteMs timings), messagesError, messagesConsentResult, messagesAccepted, localToolAccepted, localToolResult or localToolPermissionPending with a reason).",
    "returns": "acceptedCount.",
    "evidence": "app-code",
    "confidence": "high",
    "safety": "sensitive",
-   "notes": "The frames can contain file contents and command output from your computer. The app batches them, retries, and flushes what is left when it shuts down. Not called in the probe run.",
+   "notes": "The frames can contain file contents and command output from your computer. The app batches them, retries, and flushes what is left when it shuts down. Not called in the probe run. 0.72.0 adds the timings daemonMs, helperMs and sqliteMs to messagesResult frames and a reason to localToolPermissionPending frames. What the reason text holds is not documented.",
    "domain": "Actions inside a chat",
    "rpc": "unary",
    "used_by_cli": false
@@ -2702,7 +2984,7 @@
    "notes": "Probed 14 Oct 2026: one computer (this Mac), with machineId, lastSeenAtMs and hello {kind desktop, label, variant sand, supervised true, serverAuthoritative true, capabilities {messagesOp, localStandingGrants, aiToolSetup}}. A test bot ran a command on this Mac with no permission card.",
    "domain": "Actions inside a chat",
    "rpc": "unary",
-   "used_by_cli": false
+   "used_by_cli": true
   },
   {
    "name": "PullGrokBotMeetings",
@@ -2765,11 +3047,11 @@
    "area": "Meetings",
    "function": "Reads the record of one meeting: its details, the running notes (summary) and the transcript lines. The only desktop call site found is a local debug endpoint (GET /meetings/record).",
    "inputs": "meetingId, agentId.",
-   "returns": "meeting, machineId, displayName, failure, channelClosed, summaryText, summaryUpdatedAtMs, summaryThroughSegment, summaryWindows, transcript (atMs, text), transcriptTotal.",
+   "returns": "meeting, machineId, displayName, failure, channelClosed, summaryText, summaryUpdatedAtMs, summaryThroughSegment, summaryWindows, transcript (atMs, text), transcriptTotal, requestLog (events), requestLogTruncated, requestLogUnavailable, summaryVersions (windowIndex, summaryText, spanStartMs, spanEndMs, createdAtMs, lines).",
    "evidence": "app-code",
    "confidence": "high",
    "safety": "read-only",
-   "notes": "The transcript is private meeting content. transcriptTotal can be larger than the number of lines returned, which suggests a cap, but that is not confirmed. The app stores channelClosed as endWakeSent. Not called in the probe run.",
+   "notes": "The transcript is private meeting content. transcriptTotal can be larger than the number of lines returned, which suggests a cap, but that is not confirmed. The app stores channelClosed as endWakeSent. Not called in the probe run. 0.72.0 adds requestLog (the bot's request log for the meeting, as events: handoffs, agent posts, parent asks, stages, queued posts, main agent posts, meeting drafts and others), requestLogTruncated, requestLogUnavailable and summaryVersions (earlier summaries by window). The app's record mapper copies them, though only the debug endpoint calls it. The log can hold private meeting chat. Its handoff events lost cause and gained started, and its jev-call events were reshaped.",
    "domain": "Actions inside a chat",
    "rpc": "unary",
    "used_by_cli": false
@@ -2783,7 +3065,7 @@
    "evidence": "schema-only",
    "confidence": "medium",
    "safety": "sensitive",
-   "notes": "The desktop app never calls it. It is the requester side of the Poll and Submit calls the computer makes, so it is presumably how a bot's Shell, Read or file copy tools reach your computer. That link is inferred from the frame types. The frames carry approvalId and authorizedByStanding or authorizedByApproval flags, so the computer may ask you first. Not called in the probe run.",
+   "notes": "The desktop app never calls it. It is the requester side of the Poll and Submit calls the computer makes, so it is presumably how a bot's Shell, Read or file copy tools reach your computer. That link is inferred from the frame types. The frames carry approvalId and authorizedByStanding or authorizedByApproval flags, so the computer may ask you first. Not called in the probe run. 0.72.0: the messages results in the response frames gain daemonMs, helperMs and sqliteMs, and local tool permission-pending frames gain a reason (see SubmitGrokBotUserComputerResponses).",
    "domain": "Actions inside a chat",
    "rpc": "server-streaming",
    "used_by_cli": false
@@ -2853,10 +3135,10 @@
    "evidence": "probed",
    "confidence": "high",
    "safety": "writes",
-   "notes": "Tested live 14 Oct 2026 on the test bots: with a new UUID, name, description, memberAgentIds [two test bots] and humanMemberUserIds []: HTTP 200, kind GROK_BOT_AGENT_KIND_ROOM, harness temporal, same id back. SendGrokBotUserMessage to the room id worked (workflowId grok-bot-room-...); each member answered with a send-message row carrying author {id, name}. The room appears in ListGrokBotAgents with kind ROOM.",
+   "notes": "Tested live 14 Oct 2026 on the test bots: with a new UUID, name, description, memberAgentIds [two test bots] and humanMemberUserIds []: HTTP 200, kind GROK_BOT_AGENT_KIND_ROOM, harness temporal, same id back. SendGrokBotUserMessage to the room id worked (workflowId grok-bot-room-...); each member answered with a send-message row carrying author {id, name}. The room appears in ListGrokBotAgents with kind ROOM. 0.72.0: the bot record gains routinePolicy, viewerAccess and accessGrantsOnly (see ListGrokBotAgents).",
    "domain": "Actions inside a chat",
    "rpc": "unary",
-   "used_by_cli": false
+   "used_by_cli": true
   },
   {
    "name": "SetGrokBotRoomMembers",
@@ -2867,10 +3149,10 @@
    "evidence": "probed",
    "confidence": "high",
    "safety": "writes",
-   "notes": "Tested live 14 Oct 2026 on the test bots: replaced the members with one bot and back; HTTP 200 returned the room with the new memberAgentIds.",
+   "notes": "Tested live 14 Oct 2026 on the test bots: replaced the members with one bot and back; HTTP 200 returned the room with the new memberAgentIds. 0.72.0: the bot record gains routinePolicy, viewerAccess and accessGrantsOnly (see ListGrokBotAgents).",
    "domain": "Actions inside a chat",
    "rpc": "unary",
-   "used_by_cli": false
+   "used_by_cli": true
   },
   {
    "name": "AddGrokBotRoomPeople",
@@ -2881,7 +3163,7 @@
    "evidence": "app-code",
    "confidence": "high",
    "safety": "writes",
-   "notes": "The app throws if the reply is not a room. Not called in the probe run.",
+   "notes": "The app throws if the reply is not a room. Not called in the probe run. 0.72.0: the bot record gains routinePolicy, viewerAccess and accessGrantsOnly (see ListGrokBotAgents).",
    "domain": "Actions inside a chat",
    "rpc": "unary",
    "used_by_cli": false
@@ -2895,7 +3177,7 @@
    "evidence": "app-code",
    "confidence": "high",
    "safety": "writes",
-   "notes": "The app turns a missing agent into null. Why the server leaves it out is not shown. The app throws if an agent comes back that is not a room. Not called in the probe run.",
+   "notes": "The app turns a missing agent into null. Why the server leaves it out is not shown. The app throws if an agent comes back that is not a room. Not called in the probe run. 0.72.0: the bot record gains routinePolicy, viewerAccess and accessGrantsOnly (see ListGrokBotAgents).",
    "domain": "Actions inside a chat",
    "rpc": "unary",
    "used_by_cli": false
@@ -3097,6 +3379,48 @@
    "used_by_cli": false
   },
   {
+   "name": "ListGrokBotLibraryPins",
+   "area": "Bot library",
+   "function": "Lists the items pinned in a bot's library: pages, media, outside documents and apps.",
+   "inputs": "agentId",
+   "returns": "pins (page {storeId, canvasId or documentId}, media {kind IMAGE, VIDEO, FILE or LINK, source, name, postedAtMs}, externalDocKey or appKey (exactly one target), plus pinnedAtMs)",
+   "evidence": "app-code",
+   "confidence": "high",
+   "safety": "read-only",
+   "notes": "New in 0.72.0. The app loads the pins per bot when the library pane opens or refreshes, behind the client gate grok_bot_library_pins. Not probed.",
+   "domain": "Integrations, credentials and payments",
+   "rpc": "unary",
+   "used_by_cli": false
+  },
+  {
+   "name": "SetGrokBotLibraryPin",
+   "area": "Bot library",
+   "function": "Pins or unpins one library item and returns the bot's full pin list.",
+   "inputs": "agentId, pin (one item, same shape as in ListGrokBotLibraryPins), isPinned (true or false)",
+   "returns": "pins (the whole updated list)",
+   "evidence": "app-code",
+   "confidence": "high",
+   "safety": "writes",
+   "notes": "New in 0.72.0. The app updates its own list first and sends the changes of one bot one after another. Same gate as ListGrokBotLibraryPins. Not probed.",
+   "domain": "Integrations, credentials and payments",
+   "rpc": "unary",
+   "used_by_cli": false
+  },
+  {
+   "name": "MergeGrokBotLibraryPins",
+   "area": "Bot library",
+   "function": "Adds a batch of pins to a bot's library pins and returns the merged list. The app uses it once per bot to send pins it had saved locally to the server.",
+   "inputs": "agentId, pins (list of items, same shape as in ListGrokBotLibraryPins)",
+   "returns": "pins (the merged list)",
+   "evidence": "app-code",
+   "confidence": "high",
+   "safety": "writes",
+   "notes": "New in 0.72.0. The app calls it once per bot before the first list, then marks that bot as joined; NotFound is treated as 'absent'. Same gate as ListGrokBotLibraryPins. How the server treats a pin that already exists is not visible. Not probed.",
+   "domain": "Integrations, credentials and payments",
+   "rpc": "unary",
+   "used_by_cli": false
+  },
+  {
    "name": "ListGrokBotAgentSkills",
    "area": "Plugins & skills",
    "function": "Lists the skills attached to a bot, including the full skill text. On the owner's primary bot it returned five onboarding skills whose source is 'recipe'.",
@@ -3157,11 +3481,11 @@
    "area": "Secrets & vault",
    "function": "Lists the items saved in the owner's credential vault: logins, cards and contacts. The app uses it for the vault list and refreshes it after each save or delete.",
    "inputs": "includeKinds (optional list of LOGIN, CARD, CONTACT; the app sends none, and what an empty list returns is not visible)",
-   "returns": "credentials: id, title, username, notes, sites, createdAtMs, updatedAtMs, kind (LOGIN, CARD or CONTACT), card (brand, last4, expMonth, expYear, holderName, billingAddress), contact (address, defaultShipping, email)",
+   "returns": "credentials: id, title, username, notes, sites, createdAtMs, updatedAtMs, kind (LOGIN, CARD or CONTACT), card (brand, last4, expMonth, expYear, holderName, billingAddress, billingAddressId), contact (address, defaultShipping, email)",
    "evidence": "app-code",
    "confidence": "high",
    "safety": "sensitive",
-   "notes": "The schema has no password field and cards come back with the last 4 digits only. The request has no agent id, so the vault belongs to the account.",
+   "notes": "The schema has no password field and cards come back with the last 4 digits only. The request has no agent id, so the vault belongs to the account. 0.72.0 adds billingAddressId to the card; what it refers to (probably a saved address, which is inferred) is not visible.",
    "domain": "Integrations, credentials and payments",
    "rpc": "unary",
    "used_by_cli": false
@@ -3175,7 +3499,21 @@
    "evidence": "app-code",
    "confidence": "high",
    "safety": "sensitive",
-   "notes": "The app reads a refusal detail from the error when the server rejects the save.",
+   "notes": "The app reads a refusal detail from the error when the server rejects the save. 0.72.0: a card in the record gains billingAddressId (see ListGrokBotVaultCredentials).",
+   "domain": "Integrations, credentials and payments",
+   "rpc": "unary",
+   "used_by_cli": false
+  },
+  {
+   "name": "BatchCreateGrokBotVaultCredentials",
+   "area": "Secrets & vault",
+   "function": "Saves many login credentials in the vault in one call. The app uses it to import a password export.",
+   "inputs": "logins (list of title, username, notes, sites, password)",
+   "returns": "results (one per login: credential, the saved record without the password, or an error text)",
+   "evidence": "app-code",
+   "confidence": "high",
+   "safety": "sensitive",
+   "notes": "New in 0.72.0. Stores passwords: never call it without the owner's OK. The app sends 50 logins per call with a 60 second limit, requires one result per login and turns an error result into a refusal. It backs the vault's 'Import from CSV' (exports from 1Password, Chrome, Edge, Safari, Firefox, Bitwarden and LastPass, under 5 MB), behind the client gate grok_bot_vault. Not probed.",
    "domain": "Integrations, credentials and payments",
    "rpc": "unary",
    "used_by_cli": false
@@ -3185,11 +3523,11 @@
    "area": "Secrets & vault",
    "function": "Saves a new payment card in the owner's vault and returns the saved record. The returned card shows only its brand, last 4 digits, expiry, holder name and billing address.",
    "inputs": "values (a map of field name to text; the field names are not visible in the client)",
-   "returns": "credential (the vault record, same fields as ListGrokBotVaultCredentials: kind CARD, and card with brand, last4, expMonth, expYear, holderName and billingAddress)",
+   "returns": "credential (the vault record, same fields as ListGrokBotVaultCredentials: kind CARD, and card with brand, last4, expMonth, expYear, holderName, billingAddress and billingAddressId)",
    "evidence": "app-code",
    "confidence": "medium",
    "safety": "sensitive",
-   "notes": "New in 0.71.2. Card data: never call it without the owner's OK. The app's vault screen calls it, treats a reply without a credential as an error and then reloads the vault list. Not probed.",
+   "notes": "New in 0.71.2. Card data: never call it without the owner's OK. The app's vault screen calls it, treats a reply without a credential as an error and then reloads the vault list. 0.72.0: the returned card gains billingAddressId (see ListGrokBotVaultCredentials). Not probed.",
    "domain": "Integrations, credentials and payments",
    "rpc": "unary",
    "used_by_cli": false
@@ -3198,12 +3536,26 @@
    "name": "UpdateGrokBotVaultCard",
    "area": "Secrets & vault",
    "function": "Edits a saved card's holder name, expiry and billing address and returns the updated record. The card number is not part of this call.",
-   "inputs": "id, holderName, expiry (text), billingAddress (line1, line2, city, region, postalCode, country; the schema also has name and phone, which the app does not send)",
-   "returns": "credential (the vault record, same fields as ListGrokBotVaultCredentials: kind CARD, and card with brand, last4, expMonth, expYear, holderName and billingAddress)",
+   "inputs": "id, holderName, expiry (text), billingAddress (line1, line2, city, region, postalCode, country; the schema also has name and phone, which the app does not send), billingAddressId",
+   "returns": "credential (the vault record, same fields as ListGrokBotVaultCredentials: kind CARD, and card with brand, last4, expMonth, expYear, holderName, billingAddress and billingAddressId)",
    "evidence": "app-code",
    "confidence": "high",
    "safety": "sensitive",
-   "notes": "New in 0.71.2. Card data: never call it without the owner's OK. The app reloads the vault list after a save. Not probed.",
+   "notes": "New in 0.71.2. Card data: never call it without the owner's OK. The app reloads the vault list after a save. 0.72.0 adds billingAddressId to the request (the app's call arguments include it and pass it through) and to the returned card. Not probed.",
+   "domain": "Integrations, credentials and payments",
+   "rpc": "unary",
+   "used_by_cli": false
+  },
+  {
+   "name": "ExtractGrokBotCardFromPhoto",
+   "area": "Secrets & vault",
+   "function": "Reads a payment card from up to four photos of it and returns the card number, expiry, holder name and security code.",
+   "inputs": "photos (up to 4, each with image bytes and mimeType png, jpeg, gif or webp; 20 MiB in total)",
+   "returns": "outcome (READ, NOT_FOUND or UNAVAILABLE), number, expMonth, expYear, cardholderName, securityCode",
+   "evidence": "app-code",
+   "confidence": "high",
+   "safety": "sensitive",
+   "notes": "New in 0.72.0. Card photos go in and the full number and security code come out: never call it without the owner's OK. The vault card form's 'Card photos' calls it (client gates grok_bot_vault and grok_bot_vault_cards) with a 75 second limit, and maps resource_exhausted to rate limited, permission_denied to refused and invalid_argument to invalid photo. On macOS with the client gate grok_bot_vault_card_scan_on_device on, the app reads the photos on the device with a native text-recognition addon and does not call the server. Not probed.",
    "domain": "Integrations, credentials and payments",
    "rpc": "unary",
    "used_by_cli": false
@@ -3217,7 +3569,7 @@
    "evidence": "schema-only",
    "confidence": "low",
    "safety": "sensitive",
-   "notes": "New in 0.71.2. No call site in the desktop app, which saves logins with PutGrokBotVaultCredential and cards with the card calls. Holds secrets: never call it without the owner's OK.",
+   "notes": "New in 0.71.2. No call site in the desktop app, which saves logins with PutGrokBotVaultCredential and cards with the card calls. Holds secrets: never call it without the owner's OK. 0.72.0: a card in the record gains billingAddressId (see ListGrokBotVaultCredentials).",
    "domain": "Integrations, credentials and payments",
    "rpc": "unary",
    "used_by_cli": false
@@ -3241,11 +3593,11 @@
    "area": "Email inbox",
    "function": "Creates an email inbox for the account from a username and a display name. The app adds the new inbox to its cached inbox list right after the call.",
    "inputs": "username, displayName",
-   "returns": "inbox: email, domain, createdAtMs",
+   "returns": "inbox: email, domain, createdAtMs, assigned",
    "evidence": "app-code",
    "confidence": "high",
    "safety": "writes",
-   "notes": "The request has no agent id, so inboxes belong to the account. SendGrokBotEmail picks the inbox by address. A bot tool named ClaimEmailInbox exists and probably maps here.",
+   "notes": "The request has no agent id, so inboxes belong to the account. In 0.71.2 SendGrokBotEmail picked the inbox by address; that method is gone in 0.72.0. A bot tool named ClaimEmailInbox exists and probably maps here. 0.72.0 adds assigned (true or false) to the inbox. After creating one the app drops any assigned inbox from its list, which fits an address handed out automatically until you pick your own; that reading is inferred.",
    "domain": "Integrations, credentials and payments",
    "rpc": "unary",
    "used_by_cli": false
@@ -3255,11 +3607,11 @@
    "area": "Email inbox",
    "function": "Lists the email inboxes of the account. The app keeps the list in a cached store and adds new inboxes to it after creation.",
    "inputs": "none",
-   "returns": "inboxes: email, domain, createdAtMs",
+   "returns": "inboxes: email, domain, createdAtMs, assigned",
    "evidence": "app-code",
    "confidence": "high",
    "safety": "read-only",
-   "notes": "Probe returned 200 with an empty body, so the owner has no inbox yet.",
+   "notes": "Probe returned 200 with an empty body, so the owner has no inbox yet. 0.72.0 adds assigned (true or false). The app's new text 'Choose your own address', 'Switch to <address>?' and 'Mail to <old address> still reaches you. You can only change your address once.' fits an automatically assigned address, which is inferred.",
    "domain": "Integrations, credentials and payments",
    "rpc": "unary",
    "used_by_cli": false
@@ -3288,20 +3640,6 @@
    "confidence": "medium",
    "safety": "destructive",
    "notes": "No call site in the desktop app. Whether stored mail is removed too is not visible.",
-   "domain": "Integrations, credentials and payments",
-   "rpc": "unary",
-   "used_by_cli": false
-  },
-  {
-   "name": "SendGrokBotEmail",
-   "area": "Email inbox",
-   "function": "Sends an email from one of the account's inboxes. It supports to, cc, bcc, a plain text body, an optional HTML body, replying to an earlier message and custom reply-to addresses.",
-   "inputs": "fromInboxEmail, to, cc, bcc, subject, textBody, htmlBody, inReplyToMessageId, fromName, replyTo (name and email), unsolicited (true or false)",
-   "returns": "messageId, threadId, providerMessageId, suppressedRecipients (address and reason: permanent bounce, complaint, unsubscribe request or manual)",
-   "evidence": "schema-only",
-   "confidence": "medium",
-   "safety": "sensitive",
-   "notes": "Sends a real outbound email. No call site in the desktop app; a bot tool named SendEmail exists and probably maps here. What the unsolicited flag changes is not visible.",
    "domain": "Integrations, credentials and payments",
    "rpc": "unary",
    "used_by_cli": false
@@ -3353,11 +3691,11 @@
    "area": "Plugins & skills",
    "function": "Lists the plugins (connectors, MCP servers and skills) linked to a bot, together with the bot's own plugin collection (its marketplace). The app loads it for the plugin and skill management screens.",
    "inputs": "agentId, includeMcpConfig (true or false)",
-   "returns": "marketplace (marketplaceId, displayName, description) and plugins: pluginId, name, displayName, description, logoUrl, ownedByMarketplace, installMode, variableNames, isDeprecated, mcpConfigJson, skills, mcpServerNames, isBotSkills, connectorType (user or team), variablesJson, hasConfiguredVariables",
+   "returns": "marketplace (marketplaceId, displayName, description) and plugins: pluginId, name, displayName, description, logoUrl, ownedByMarketplace, installMode, variableNames, isDeprecated, mcpConfigJson, skills, mcpServerNames, isBotSkills, connectorType (user or team), variablesJson, hasConfiguredVariables; also serviceAccountsEnabled (true or false, at the top level)",
    "evidence": "app-code",
    "confidence": "high",
    "safety": "read-only",
-   "notes": "The app asks with includeMcpConfig true and retries without it if the server answers permission_denied. The MCP config can hold connection details. Probe returned 200 with an empty body for the primary bot.",
+   "notes": "The app asks with includeMcpConfig true and retries without it if the server answers permission_denied. The MCP config can hold connection details. Probe returned 200 with an empty body for the primary bot. 0.72.0 adds serviceAccountsEnabled; the app treats anything but true as false. The client gate grok_bot_service_accounts suggests a link, which is inferred.",
    "domain": "Integrations, credentials and payments",
    "rpc": "unary",
    "used_by_cli": false
@@ -3500,7 +3838,7 @@
    "notes": "Probe on the primary bot returned 400 failed_precondition with a message that starts 'This a' (the rest was cut off). The files screen sits under the team feature in the app, so the call may need a bot shared with a team.",
    "domain": "Integrations, credentials and payments",
    "rpc": "unary",
-   "used_by_cli": false
+   "used_by_cli": true
   },
   {
    "name": "DeleteGrokBotAgentFile",
@@ -3514,7 +3852,35 @@
    "notes": "",
    "domain": "Integrations, credentials and payments",
    "rpc": "unary",
-   "used_by_cli": false
+   "used_by_cli": true
+  },
+  {
+   "name": "ListGrokBotUserStoreFiles",
+   "area": "Bot files",
+   "function": "Lists the files in your own private store for one bot (the 'Only you' section of the bot's files screen), as opposed to the team-shared files of ListGrokBotAgentFiles.",
+   "inputs": "agentId",
+   "returns": "files (name, path, sizeBytes, updatedAtMs)",
+   "evidence": "app-code",
+   "confidence": "high",
+   "safety": "read-only",
+   "notes": "New in 0.72.0. Unlike ListGrokBotAgentFiles there is no content type, etag, page token or canEdit. The app shows the section behind the client gate grok_bot_files_in_agent_store, for bots on the temporal harness that are not groups. No upload call for this store is visible. Not probed.",
+   "domain": "Integrations, credentials and payments",
+   "rpc": "unary",
+   "used_by_cli": true
+  },
+  {
+   "name": "DeleteGrokBotUserStoreFile",
+   "area": "Bot files",
+   "function": "Removes one file from your private store for a bot, so the bot can no longer read it.",
+   "inputs": "agentId, path (the path from ListGrokBotUserStoreFiles)",
+   "returns": "nothing (empty response)",
+   "evidence": "app-code",
+   "confidence": "high",
+   "safety": "destructive",
+   "notes": "New in 0.72.0. The app asks 'Remove <name>? <bot> can no longer read this file. You can upload it again at any time.' first. Same gate as ListGrokBotUserStoreFiles. Not probed.",
+   "domain": "Integrations, credentials and payments",
+   "rpc": "unary",
+   "used_by_cli": true
   },
   {
    "name": "GetGrokBotTeamContextSummary",
@@ -3730,12 +4096,12 @@
    "name": "CreateGrokBotAgentFromTemplate",
    "area": "Templates & marketplace",
    "function": "Creates a new bot from a shared template, using an agent id the app picks. The server may finish the setup itself or return a recipe URL for the app to run.",
-   "inputs": "shareId, agentId, expectedActiveVersion, firstPartyTemplate (not sent by the app), creatorContext, setupDelegationSupported, language, importEntry (chat link)",
+   "inputs": "shareId, agentId, expectedActiveVersion, firstPartyTemplate (not sent by the app), creatorContext, setupDelegationSupported, language, importEntry (chat link, or auto-open link)",
    "returns": "agent (the new bot's record), blobGetUrl, setupHandledByServer, conversationalSetupEnabled, gettingStartedTrusted, updateStateSplit",
    "evidence": "app-code",
    "confidence": "high",
    "safety": "writes",
-   "notes": "The app rejects the result unless the returned agent has the same id and the 'temporal' harness.",
+   "notes": "The app rejects the result unless the returned agent has the same id and the 'temporal' harness. 0.72.0: the bot record gains routinePolicy, viewerAccess and accessGrantsOnly (see ListGrokBotAgents). 0.72.0 adds the import entry AUTO_OPEN_LINK; the app treats a failed_precondition answer to it as a refusal.",
    "domain": "Integrations, credentials and payments",
    "rpc": "unary",
    "used_by_cli": false
@@ -4038,12 +4404,12 @@
    "name": "GetGrokBotTeamsInstallState",
    "area": "Microsoft Teams",
    "function": "Reports the Microsoft Teams install state of a bot's app: tenant, installed teams, admin approval status and any failure. It looks like the Teams counterpart of GetGrokBotSlackInstallState.",
-   "inputs": "agentId",
-   "returns": "state (not connected, connected, app created, pending admin approval, installed, update pending, removed in Teams, removed, unsupported harness, not published or unavailable), tenantId, tenantDisplayName, catalogAppId, managerIsAdmin, installedTeams, approvalRequestFiledAtMs, rejectionNote, packageDownloadUrl, failureReason, teamAdminGrant (grantedByDisplayName, grantedAtMs, tenantId), tenants",
+   "inputs": "agentId, consentNonce (optional)",
+   "returns": "state (not connected, connected, app created, pending admin approval, installed, update pending, removed in Teams, removed, unsupported harness, not published, unavailable or provisioning), tenantId, tenantDisplayName, catalogAppId, managerIsAdmin, installedTeams, approvalRequestFiledAtMs, rejectionNote, packageDownloadUrl, failureReason, teamAdminGrant (grantedByDisplayName, grantedAtMs, tenantId), tenants, consentResult (CONSENT_REQUIRED, ACCESS_DENIED, OTHER or GRANT_CONFLICT), terminal, pollAfterMs, connectedAccount (tenantId, username, adminConsent)",
    "evidence": "probed-error",
    "confidence": "medium",
    "safety": "read-only",
-   "notes": "Probe with the primary bot id returned 404 not_found, 'Resource not found.' Since 0.71.2 the desktop app calls it on its own and after install steps, to read the tenant, catalog app id and installed teams.",
+   "notes": "Probe with the primary bot id returned 404 not_found, 'Resource not found.' Since 0.71.2 the desktop app calls it on its own and after install steps, to read the tenant, catalog app id and installed teams. 0.72.0 adds consentNonce to the request and consentResult, terminal, pollAfterMs and connectedAccount to the reply, and PROVISIONING to the states. The app sends consentNonce when it has one, maps consentResult to consent_required, access_denied or other, and turns terminal with pollAfterMs into a poll hint. Inferred: consentNonce is the nonce that StartGrokBotTeamsConnect returns.",
    "domain": "Integrations, credentials and payments",
    "rpc": "unary",
    "used_by_cli": false
@@ -4066,12 +4432,12 @@
    "name": "StartGrokBotTeamsConnect",
    "area": "Microsoft Teams",
    "function": "Starts the Microsoft consent step for a bot's Teams app. It returns a consent URL and a nonce.",
-   "inputs": "agentId, requestAdminScopes (true or false), grantScopeTeam (true or false)",
-   "returns": "consentUrl, nonce",
+   "inputs": "agentId, requestAdminScopes (true or false), grantScopeTeam (true or false), forceAccountSelection (true or false; the app does not send it)",
+   "returns": "consentUrl, nonce, adminConsentUrl",
    "evidence": "app-code",
    "confidence": "high",
    "safety": "writes",
-   "notes": "Since 0.71.2 the desktop app calls it (grantScopeTeam defaults to false) and treats an empty consent URL as an error; unsupported_harness and not_published arrive as a failed_precondition detail. The Slack version of this step opens the returned URL in the browser.",
+   "notes": "Since 0.71.2 the desktop app calls it (grantScopeTeam defaults to false) and treats an empty consent URL as an error; unsupported_harness and not_published arrive as a failed_precondition detail. The Slack version of this step opens the returned URL in the browser. 0.72.0 adds forceAccountSelection to the request and adminConsentUrl to the reply. The app's call sends only agentId, requestAdminScopes and grantScopeTeam and reads consentUrl and nonce.",
    "domain": "Integrations, credentials and payments",
    "rpc": "unary",
    "used_by_cli": false
@@ -4085,7 +4451,7 @@
    "evidence": "app-code",
    "confidence": "high",
    "safety": "writes",
-   "notes": "Since 0.71.2 the desktop app calls it. A non-empty tenants list means a tenant must be picked first; otherwise the state decides the result, and pending admin approval or installed is followed by a GetGrokBotTeamsInstallState read. not_connected, not_installed, tenant_required, unsupported_harness and not_published can also arrive as a failed_precondition error detail. 'Teams' here means Microsoft Teams teams, not Grok Bot teams.",
+   "notes": "Since 0.71.2 the desktop app calls it. A non-empty tenants list means a tenant must be picked first; otherwise the state decides the result, and pending admin approval or installed is followed by a GetGrokBotTeamsInstallState read. not_connected, not_installed, tenant_required, unsupported_harness and not_published can also arrive as a failed_precondition error detail. 'Teams' here means Microsoft Teams teams, not Grok Bot teams. 0.72.0 adds PROVISIONING to the install states (the app maps it to 'provisioning').",
    "domain": "Integrations, credentials and payments",
    "rpc": "unary",
    "used_by_cli": false
@@ -4099,7 +4465,7 @@
    "evidence": "app-code",
    "confidence": "low",
    "safety": "writes",
-   "notes": "Since 0.71.2 the desktop app calls it with agentId only: installed or update pending counts as updated, pending admin approval is followed by an install-state read, and a failureReason is a failure. The 'update' purpose is inferred from the Slack call and the UPDATE_PENDING state.",
+   "notes": "Since 0.71.2 the desktop app calls it with agentId only: installed or update pending counts as updated, pending admin approval is followed by an install-state read, and a failureReason is a failure. The 'update' purpose is inferred from the Slack call and the UPDATE_PENDING state. 0.72.0 adds PROVISIONING to the install states (the app maps it to 'provisioning').",
    "domain": "Integrations, credentials and payments",
    "rpc": "unary",
    "used_by_cli": false
@@ -4113,7 +4479,7 @@
    "evidence": "app-code",
    "confidence": "high",
    "safety": "destructive",
-   "notes": "Since 0.71.2 the desktop app calls it; only the state 'removed' counts as success, and it passes catalogRemovalPendingAdmin on to the screen.",
+   "notes": "Since 0.71.2 the desktop app calls it; only the state 'removed' counts as success, and it passes catalogRemovalPendingAdmin on to the screen. 0.72.0 adds PROVISIONING to the install states (the app maps it to 'provisioning').",
    "domain": "Integrations, credentials and payments",
    "rpc": "unary",
    "used_by_cli": false
@@ -4128,6 +4494,20 @@
    "confidence": "high",
    "safety": "writes",
    "notes": "Since 0.71.2 the desktop app calls it with agentId and a single teamId; it does not send teamIds or installPersonal.",
+   "domain": "Integrations, credentials and payments",
+   "rpc": "unary",
+   "used_by_cli": false
+  },
+  {
+   "name": "DisconnectGrokBotTeamsAccount",
+   "area": "Microsoft Teams",
+   "function": "Disconnects your Microsoft account for one Microsoft tenant. It affects every bot you own in that tenant, not only the bot you pass.",
+   "inputs": "agentId, tenantId",
+   "returns": "revoked (true or false), state (the Teams install states of GetGrokBotTeamsInstallState), stillInstalledAgentIds (your other bots that still have the Teams app installed)",
+   "evidence": "app-code",
+   "confidence": "high",
+   "safety": "destructive",
+   "notes": "New in 0.72.0. The app confirms with 'Disconnect your Microsoft account? This disconnects ... from every Bot you own in <org>, not only <bot>.' and shows a notice when stillInstalledAgentIds is not empty. An unimplemented error is shown as 'server not ready'. Behind the Teams integration gate (grok_bot_team_integration_enabled). Not probed.",
    "domain": "Integrations, credentials and payments",
    "rpc": "unary",
    "used_by_cli": false
@@ -4242,7 +4622,7 @@
    "notes": "Tested live 14 Oct 2026: HTTP 200, returned gatewayUrl, gatewayToken, networkToken, vncUrl and forkVncBaseUrl (never log the tokens). Calling <gatewayUrl>/api/<method> with Authorization: Bearer <gatewayToken> and x-anyrun-network-token: <networkToken> gives direct access to the 167 Box Gateway methods, including updateAgent (which immediately syncs to ListGrokBotAgents on api2.cursor.sh) and getAgentWorkflows / importAgentWorkflowText / deleteAgentWorkflow (which work on private bots).",
    "domain": "Cloud computer",
    "rpc": "unary",
-   "used_by_cli": false
+   "used_by_cli": true
   },
   {
    "name": "EnsureSandBoxWindow",
@@ -4256,7 +4636,7 @@
    "notes": "Confirmed on 14 Oct 2026 by inspecting /home/box/.sand-window-assignments.json on the box: each bot agentId is assigned its own window number (Grok Bot = 2, Primary Test = 3, Staff Test = 4, up to SAND_BOX_MAX_WINDOWS = 100) and runs with DISPLAY=:<window_index>. Response holds credentials.",
    "domain": "Cloud computer",
    "rpc": "unary",
-   "used_by_cli": false
+   "used_by_cli": true
   },
   {
    "name": "RecreateSandBox",
@@ -4354,7 +4734,7 @@
    "notes": "Not probed. This is the only store method the desktop app calls. It downloads the URLs with plain GET (404 means the blob is missing), up to 8 at a time, with a 30 second limit each. URLs are bearer links, do not log them.",
    "domain": "Cloud computer",
    "rpc": "unary",
-   "used_by_cli": false
+   "used_by_cli": true
   },
   {
    "name": "StatSandBoxStoreObject",
@@ -4368,7 +4748,7 @@
    "notes": "Probe with an empty path returned 200 and an empty body, which in proto JSON means exists=false and zero values. Not called by the desktop app.",
    "domain": "Cloud computer",
    "rpc": "unary",
-   "used_by_cli": false
+   "used_by_cli": true
   },
   {
    "name": "ListSandBoxStoreObjects",
@@ -4667,13 +5047,13 @@
   {
    "name": "StartBulkTeamMemberSandBoxOperation",
    "area": "Team admin: member boxes",
-   "function": "Starts one action on the boxes of many team members at once. The action is KILL, RECREATE or PERMANENT_DELETE.",
+   "function": "Starts one action on the boxes of many team members at once. The action is KILL, RECREATE, PERMANENT_DELETE or DELETE_GROK_BOT_DATA.",
    "inputs": "team_id; user_ids; action; force; operation_id; clear_sand_box_restart_required.",
    "returns": "operation_id, to follow with GetBulkTeamMemberSandBoxOperationStatus.",
    "evidence": "schema-only",
    "confidence": "medium",
    "safety": "destructive",
-   "notes": "Not called by the desktop app. PERMANENT_DELETE is in the action list. Probably needs team admin rights (inference).",
+   "notes": "Not called by the desktop app. PERMANENT_DELETE is in the action list. Probably needs team admin rights (inference). 0.72.0 adds the action DELETE_GROK_BOT_DATA. What it removes is not visible; the client gate grok_bot_admin_data_deletion suggests a data-deletion admin feature, which is inferred.",
    "domain": "Cloud computer",
    "rpc": "unary",
    "used_by_cli": false
@@ -4687,7 +5067,7 @@
    "evidence": "probed-error",
    "confidence": "medium",
    "safety": "read-only",
-   "notes": "Probe sent no ids and got 400 invalid_argument. Not called by the desktop app.",
+   "notes": "Probe sent no ids and got 400 invalid_argument. Not called by the desktop app. 0.72.0: action can now be DELETE_GROK_BOT_DATA (see StartBulkTeamMemberSandBoxOperation).",
    "domain": "Cloud computer",
    "rpc": "unary",
    "used_by_cli": false
@@ -4813,7 +5193,7 @@
    "evidence": "schema-only",
    "confidence": "low",
    "safety": "writes",
-   "notes": "Not called by the desktop app. The 0.71.2 schema confirms an empty request and a response of agent plus created. How it differs from EnsureGrokBotDefaultMainAgent is not shown.",
+   "notes": "Not called by the desktop app. The 0.71.2 schema confirms an empty request and a response of agent plus created. How it differs from EnsureGrokBotDefaultMainAgent is not shown. 0.72.0: the bot record gains routinePolicy, viewerAccess and accessGrantsOnly (see ListGrokBotAgents).",
    "domain": "Cloud computer",
    "rpc": "unary",
    "used_by_cli": false
@@ -5439,7 +5819,7 @@
    "evidence": "schema-only",
    "confidence": "medium",
    "safety": "staff-only",
-   "notes": "Exposes a user's bot configuration.",
+   "notes": "Exposes a user's bot configuration. 0.72.0: the routines inside the definition gain viewer_permissions (allowed_actions).",
    "domain": "Staff only",
    "rpc": "unary",
    "used_by_cli": false
@@ -5453,6 +5833,20 @@
    "evidence": "schema-only",
    "confidence": "medium",
    "safety": "staff-only",
+   "domain": "Staff only",
+   "rpc": "unary",
+   "used_by_cli": false
+  },
+  {
+   "name": "AdminListTeamLiveGrokBotAgents",
+   "area": "Staff: bot and team inspection",
+   "function": "Lists a team's live bots with owner email, whether each is published or linked to Slack, who it is shared with and its last activity.",
+   "inputs": "team_id.",
+   "returns": "agents (agent_id, name, owner_auth_id, owner_email, published, slack_linked, slack_workspace_name, access {known, whole_team, people, groups}, last_activity_at_ms), truncated.",
+   "evidence": "schema-only",
+   "confidence": "medium",
+   "safety": "staff-only",
+   "notes": "New in 0.72.0. No call site in the desktop app. Exposes owner email addresses. Not probed.",
    "domain": "Staff only",
    "rpc": "unary",
    "used_by_cli": false
@@ -5484,6 +5878,20 @@
    "used_by_cli": false
   },
   {
+   "name": "AdminListSlackAppAudit",
+   "area": "Staff: bot and team inspection",
+   "function": "Audits the Slack apps linked to teams or Slack workspaces: each app with its owner, install status, scopes and times, grouped by where the record came from.",
+   "inputs": "team_ids; slack_team_ids.",
+   "returns": "apps (source, slack_app_id, slack_team_id, slack_workspace_name, slack_enterprise_id, slack_bot_user_id, name, product_ref, detail, cursor_team_id, owner_user_id, owner_email, owner_auth_id, creator_slack_user_id, install_status, manifest_version, bot_scopes, scopes_source, created_at_ms, linked_at_ms, deleted_at_ms), workspaces (slack_team_id, name), sources (source, truncated, error), teams (team_id, name).",
+   "evidence": "schema-only",
+   "confidence": "medium",
+   "safety": "staff-only",
+   "notes": "New in 0.72.0. No call site in the desktop app. Exposes owner email addresses. Not probed.",
+   "domain": "Staff only",
+   "rpc": "unary",
+   "used_by_cli": false
+  },
+  {
    "name": "AdminGetGrokBotTeamAgentSharedState",
    "area": "Staff: bot and team inspection",
    "function": "Reads what a team bot shares: participants, memory, marketplace status, plugins, routines, skills and boxes.",
@@ -5493,6 +5901,20 @@
    "confidence": "medium",
    "safety": "staff-only",
    "notes": "Exposes a team's bot configuration.",
+   "domain": "Staff only",
+   "rpc": "unary",
+   "used_by_cli": false
+  },
+  {
+   "name": "AdminResolveGrokBotAttachmentReads",
+   "area": "Staff: bot and team inspection",
+   "function": "Staff version of ResolveGrokBotAttachmentReads: turns attachment paths of one user's bot into short-lived download links, acting for that user.",
+   "inputs": "auth_id; agent_id; optional session_id; paths.",
+   "returns": "reads: per path, outcome, url, expires_at_ms, content_type, size_bytes, etag (the same response as ResolveGrokBotAttachmentReads).",
+   "evidence": "schema-only",
+   "confidence": "medium",
+   "safety": "staff-only",
+   "notes": "New in 0.72.0. No call site in the desktop app. The user version, ResolveGrokBotAttachmentReads, is called by the app; this one is not. Returns download links to another user's files. That it acts for that user is inferred from the auth_id field. Not probed.",
    "domain": "Staff only",
    "rpc": "unary",
    "used_by_cli": false
@@ -5633,14 +6055,99 @@
    "used_by_cli": false
   },
   {
+   "name": "AdminListGrokBotEmailDeadLetterQueues",
+   "area": "Staff: email",
+   "function": "Lists the dead-letter queues of the bot email pipeline, with how many messages wait in each.",
+   "inputs": "none.",
+   "returns": "queues (queue, environment, source_queue_name, dead_letter_queue_name, approximate_depth, approximate_in_flight, error).",
+   "evidence": "schema-only",
+   "confidence": "medium",
+   "safety": "staff-only",
+   "notes": "New in 0.72.0. No call site in the desktop app. Shows the state of internal mail queues. Not probed.",
+   "domain": "Staff only",
+   "rpc": "unary",
+   "used_by_cli": false
+  },
+  {
+   "name": "AdminListGrokBotEmailDeadLetters",
+   "area": "Staff: email",
+   "function": "Lists the messages waiting in one email dead-letter queue, with their SES ids, recipients and size.",
+   "inputs": "queue; environment; limit.",
+   "returns": "queue (same fields as the queue list), messages (message_id, sent_at_ms, first_received_at_ms, approximate_receive_count, summary {ses_message_id, recipients, object_key, object_exists, event_type, event_id, provider_message_id, configuration_set, tenant_name, parse_error}, body_bytes), truncated.",
+   "evidence": "schema-only",
+   "confidence": "medium",
+   "safety": "staff-only",
+   "notes": "New in 0.72.0. No call site in the desktop app. Exposes the recipient addresses of undelivered mail. Not probed.",
+   "domain": "Staff only",
+   "rpc": "unary",
+   "used_by_cli": false
+  },
+  {
+   "name": "AdminRequeueGrokBotEmailDeadLetter",
+   "area": "Staff: email",
+   "function": "Sends one dead-lettered email message back for another attempt, judging by the name and the new_message_id field. The operator's email and a reason are recorded.",
+   "inputs": "queue; environment; message_id; reason; operator_email.",
+   "returns": "outcome, new_message_id, dead_letter_copy_remains.",
+   "evidence": "schema-only",
+   "confidence": "medium",
+   "safety": "staff-only",
+   "notes": "New in 0.72.0. No call site in the desktop app. Changes mail processing. The request and response types are shared with AdminDropGrokBotEmailDeadLetter, and the outcome values are not visible. Not probed.",
+   "domain": "Staff only",
+   "rpc": "unary",
+   "used_by_cli": false
+  },
+  {
+   "name": "AdminDropGrokBotEmailDeadLetter",
+   "area": "Staff: email",
+   "function": "Drops one dead-lettered email message, judging by the name. The operator's email and a reason are recorded.",
+   "inputs": "queue; environment; message_id; reason; operator_email.",
+   "returns": "outcome, new_message_id, dead_letter_copy_remains.",
+   "evidence": "schema-only",
+   "confidence": "medium",
+   "safety": "staff-only",
+   "notes": "New in 0.72.0. No call site in the desktop app. Same request and response types as AdminRequeueGrokBotEmailDeadLetter. The name suggests the message is discarded, and dead_letter_copy_remains suggests a copy can stay behind; both readings are inferred. Not probed.",
+   "domain": "Staff only",
+   "rpc": "unary",
+   "used_by_cli": false
+  },
+  {
+   "name": "AdminRequeueAllGrokBotEmailDeadLetters",
+   "area": "Staff: email",
+   "function": "Sends every message in one email dead-letter queue back for another attempt, judging by the name. The caller repeats the queue name to confirm, and the response holds a task handle.",
+   "inputs": "queue; environment; confirm_queue_name; reason; operator_email.",
+   "returns": "approximate_depth_before, task_handle.",
+   "evidence": "schema-only",
+   "confidence": "medium",
+   "safety": "staff-only",
+   "notes": "New in 0.72.0. No call site in the desktop app. Affects a whole queue. Shares its request and response types with AdminPurgeGrokBotEmailDeadLetters. Not probed.",
+   "domain": "Staff only",
+   "rpc": "unary",
+   "used_by_cli": false
+  },
+  {
+   "name": "AdminPurgeGrokBotEmailDeadLetters",
+   "area": "Staff: email",
+   "function": "Purges one email dead-letter queue, judging by the name. The caller repeats the queue name to confirm, and the response holds a task handle.",
+   "inputs": "queue; environment; confirm_queue_name; reason; operator_email.",
+   "returns": "approximate_depth_before, task_handle.",
+   "evidence": "schema-only",
+   "confidence": "medium",
+   "safety": "staff-only",
+   "notes": "New in 0.72.0. No call site in the desktop app. Probably destroys every message in the queue (inferred from the name). Shares its request and response types with AdminRequeueAllGrokBotEmailDeadLetters. Not probed.",
+   "domain": "Staff only",
+   "rpc": "unary",
+   "used_by_cli": false
+  },
+  {
    "name": "AdminLookupGrokBotMeetings",
    "area": "Staff: meetings",
    "function": "Looks up bot meetings by provider and meeting id. Each result shows owner, agent, status, timeline and any failure.",
-   "inputs": "provider; meeting_id.",
+   "inputs": "provider; meeting_id; internal_meeting_id.",
    "returns": "provider, meeting_id, provider_meeting_id_hash, truncated, meetings.",
    "evidence": "schema-only",
    "confidence": "medium",
    "safety": "staff-only",
+   "notes": "0.72.0 adds internal_meeting_id to the request; how it combines with provider and meeting_id is not visible.",
    "domain": "Staff only",
    "rpc": "unary",
    "used_by_cli": false
@@ -5672,6 +6179,34 @@
    "used_by_cli": false
   },
   {
+   "name": "AdminLookupGrokBotMeetingJoinConsentUsers",
+   "area": "Staff: meetings",
+   "function": "Finds users by email or by auth id and shows when each gave consent for their bot to join meetings.",
+   "inputs": "one of email or auth_id.",
+   "returns": "users (user_id, auth_id, email, consent_at_ms).",
+   "evidence": "schema-only",
+   "confidence": "medium",
+   "safety": "staff-only",
+   "notes": "New in 0.72.0. No call site in the desktop app. Exposes user email addresses. Not probed.",
+   "domain": "Staff only",
+   "rpc": "unary",
+   "used_by_cli": false
+  },
+  {
+   "name": "AdminUnsetGrokBotMeetingJoinConsent",
+   "area": "Staff: meetings",
+   "function": "Clears a user's consent for their bot to join meetings. The operator's email is recorded.",
+   "inputs": "user_id; auth_id; operator_email.",
+   "returns": "cleared_consent_at_ms (the consent time that was cleared), user (user_id, auth_id, email, consent_at_ms).",
+   "evidence": "schema-only",
+   "confidence": "medium",
+   "safety": "staff-only",
+   "notes": "New in 0.72.0. No call site in the desktop app. Changes a user's consent. The read counterpart is AdminGetGrokBotMeetingJoinConsent. Not probed.",
+   "domain": "Staff only",
+   "rpc": "unary",
+   "used_by_cli": false
+  },
+  {
    "name": "AdminGetGrokBotMeetingTranscript",
    "area": "Staff: meetings",
    "function": "Reads a meeting transcript, its summary text and the request log of the bot's meeting session.",
@@ -5680,7 +6215,21 @@
    "evidence": "schema-only",
    "confidence": "medium",
    "safety": "staff-only",
-   "notes": "Exposes private meeting content.",
+   "notes": "Exposes private meeting content. 0.72.0: request_log events gain agent_post, parent_ask, stage, queued_post, main_agent_post and meeting_draft kinds; handoff events lose cause and gain started; jev-call events were reshaped.",
+   "domain": "Staff only",
+   "rpc": "unary",
+   "used_by_cli": false
+  },
+  {
+   "name": "AdminListGrokBotMeetingRequestAgentRuns",
+   "area": "Staff: meetings",
+   "function": "Lists the conversation runs a bot started for the requests of one meeting, each with a conversation id and a time, judging by the field names. A status text comes with the list.",
+   "inputs": "meeting_id; agent_id.",
+   "returns": "status, runs (conversation_id, at_ms).",
+   "evidence": "schema-only",
+   "confidence": "medium",
+   "safety": "staff-only",
+   "notes": "New in 0.72.0. No call site in the desktop app. What the status text holds is not visible. Not probed.",
    "domain": "Staff only",
    "rpc": "unary",
    "used_by_cli": false
@@ -5716,12 +6265,12 @@
    "name": "CreateGrokBotChangelogInternal",
    "area": "Staff: changelog announcements",
    "function": "Creates a feature announcement (changelog) that bots can offer to users, with delivery window, priority, offer cap and client version limits. That reading is inferred from the field names.",
-   "inputs": "slug; feature_description; relevance_guidance; delivery_window (NEXT_WORKING_WINDOW or MORNING); not_before_ms; expires_at_ms; priority; announce_instructions; max_offers; eligibility_gate; min_client_version; min_ios_client_version.",
+   "inputs": "slug; feature_description; relevance_guidance; delivery_window (NEXT_WORKING_WINDOW or MORNING); not_before_ms; expires_at_ms; priority; announce_instructions; max_offers; eligibility_gate; min_client_version; min_ios_client_version; notify_proactively.",
    "returns": "The changelog (id, status, fields, who created and updated it, times).",
    "evidence": "schema-only",
    "confidence": "medium",
    "safety": "staff-only",
-   "notes": "The dossier showed no response schema. The changelog type was read from the service table in the app bundle.",
+   "notes": "The dossier showed no response schema. The changelog type was read from the service table in the app bundle. 0.72.0 adds notify_proactively (true or false) to the changelog; what it changes is not visible, probably whether the bot may bring the announcement up on its own, which is inferred from the name. The create and update requests carry it too.",
    "domain": "Staff only",
    "rpc": "unary",
    "used_by_cli": false
@@ -5735,6 +6284,7 @@
    "evidence": "schema-only",
    "confidence": "medium",
    "safety": "staff-only",
+   "notes": "0.72.0: the changelog gains notify_proactively (true or false).",
    "domain": "Staff only",
    "rpc": "unary",
    "used_by_cli": false
@@ -5748,7 +6298,7 @@
    "evidence": "schema-only",
    "confidence": "medium",
    "safety": "staff-only",
-   "notes": "The dossier showed no response schema. The changelog type was read from the service table in the app bundle.",
+   "notes": "The dossier showed no response schema. The changelog type was read from the service table in the app bundle. 0.72.0: the changelog gains notify_proactively (true or false).",
    "domain": "Staff only",
    "rpc": "unary",
    "used_by_cli": false
@@ -5762,7 +6312,7 @@
    "evidence": "schema-only",
    "confidence": "medium",
    "safety": "staff-only",
-   "notes": "The dossier showed no response schema. The changelog type was read from the service table in the app bundle.",
+   "notes": "The dossier showed no response schema. The changelog type was read from the service table in the app bundle. 0.72.0 adds notify_proactively (true or false) to the changelog; what it changes is not visible, probably whether the bot may bring the announcement up on its own, which is inferred from the name. The create and update requests carry it too.",
    "domain": "Staff only",
    "rpc": "unary",
    "used_by_cli": false
@@ -5776,7 +6326,7 @@
    "evidence": "schema-only",
    "confidence": "medium",
    "safety": "staff-only",
-   "notes": "The dossier showed no response schema. The changelog type was read from the service table in the app bundle.",
+   "notes": "The dossier showed no response schema. The changelog type was read from the service table in the app bundle. 0.72.0: the changelog gains notify_proactively (true or false).",
    "domain": "Staff only",
    "rpc": "unary",
    "used_by_cli": false
