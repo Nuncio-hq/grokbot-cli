@@ -9,7 +9,7 @@ import { GrokBotError, type JsonObject } from "./contracts.js";
 import type { Routine } from "./workforce-routines.js";
 
 /** What a routine should be after a create or update. */
-export interface RoutineSpec {
+interface RoutineSpec {
   readonly name: string;
   readonly prompt: string;
   readonly trigger: JsonObject;
@@ -17,28 +17,16 @@ export interface RoutineSpec {
 }
 
 /**
- * Bots on GrokBot's servers ("temporal" harness, every bot as of 17 Oct 2026) keep their
- * routines on the server. The Box Gateway's routine calls never reach those (a create
- * wrote a Box file the server never listed, an update changed nothing, run-now was
- * refused), so only the bot itself can save them, with its UpdateRoutine tool.
+ * Bots on GrokBot's servers keep their routines on the server, and only the bot itself
+ * can save them, with its UpdateRoutine tool. A room has no routines of its own.
  */
-export function routinesViaChat(agent: Agent): boolean {
+export function assertHasRoutines(agent: Agent): void {
   if (agent.kind === "room") {
     throw new GrokBotError(
       "not-found",
       `${agent.name} is a room, which has no routines of its own. Pass one of its bots.`,
     );
   }
-  if (agent.harness === "temporal") return true;
-  // The Box Gateway path left orphan routine files on temporal bots, so it is used only
-  // for a bot that names another harness, never for one whose harness is unknown.
-  if (agent.harness === "") {
-    throw new GrokBotError(
-      "protocol",
-      `${agent.name} reports no harness, so grokbot cannot tell where its routines live. Ask the bot in chat.`,
-    );
-  }
-  return false;
 }
 
 /** The message that asks a bot to save a routine exactly as specified. */

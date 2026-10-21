@@ -24,16 +24,14 @@ describe("listing commands in human mode", () => {
     const run = await runCli(["agents"], {
       outputs: { agents: { agents: AGENTS } },
     });
-    expect(run).toMatchObject({
-      stdout: lines(
-        "NAME          ID        KIND   HARNESS",
-        "Primary Test  f882ec52  agent  temporal",
-        "Staff Test    201a8cb2  agent  cursor-agent",
-        "GB Test Room  7c0d1e2f  room   -",
-      ),
-      stderr: "",
-      code: 0,
-    });
+    const [header, ...rows] = run.stdout.trimEnd().split("\n");
+    expect(header?.split(/\s{2,}/)).toEqual(["NAME", "ID", "KIND", "HARNESS"]);
+    expect(rows.map((r) => r.split(/\s{2,}/))).toEqual([
+      ["Primary Test", "f882ec52", "agent", "temporal"],
+      ["Staff Test", "201a8cb2", "agent", "cursor-agent"],
+      ["GB Test Room", "7c0d1e2f", "room", "-"],
+    ]);
+    expect([run.stderr, run.code]).toEqual(["", 0]);
   });
 
   it("prints team status labels", async () => {

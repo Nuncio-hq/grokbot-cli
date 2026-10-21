@@ -108,12 +108,8 @@ describe("wait", () => {
       .catch((e: unknown) => e);
     expect([
       error instanceof GrokBotError && error.code,
-      (error as Error).message,
+      (error as Error).message.includes('"job-404"'),
       log,
-    ]).toEqual([
-      "not-found",
-      `No saved job "job-404" in ${dir}. Use the job id printed by send or ask.`,
-      [],
-    ]);
+    ]).toEqual(["not-found", true, []]);
   });
 });

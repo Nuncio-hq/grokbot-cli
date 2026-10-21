@@ -1,8 +1,9 @@
-import type {
-  CommandName,
-  CommandOutputs,
-  LiveStatus,
-  TranscriptEntry,
+import {
+  type CommandName,
+  type CommandOutputs,
+  describeReply,
+  type LiveStatus,
+  type TranscriptEntry,
 } from "grokbot-core";
 
 /** Human-mode text of one command: `stdout` is the result, `note` a hint for stderr. */
@@ -89,14 +90,9 @@ const TAIL_PARTS: {
     label: e.toAgent ? `assistant to ${e.toAgent.name}` : "assistant",
     text: e.content,
   }),
-  // Attachment URLs may be signed links, so only the file name is shown.
-  reply: (e) => ({
-    label: "reply",
-    text:
-      e.reply.type === "text"
-        ? e.reply.content
-        : `${e.reply.fileName} [attachment]`.trim(),
-  }),
+  // describeReply never shows a link: attachment URLs may be signed, and map and
+  // product links stay in --json.
+  reply: (e) => ({ label: "reply", text: describeReply(e.reply) }),
   card: (e) => ({ label: "card", text: e.cardType }),
   blob: (e) => ({ label: "blob", text: e.blobHash }),
   unknown: (e) => ({ label: e.entryKind || "unknown" }),

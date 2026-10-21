@@ -1,4 +1,6 @@
 import { GrokBotError } from "./contracts.js";
+import { proxyFetch } from "./network-fetch.js";
+import { ProxyError } from "./proxy-config.js";
 import type { FetchLike } from "./server-transport.js";
 
 /** The pair every sign-in path returns. Both are JWTs; never print either. */
@@ -7,10 +9,10 @@ export interface TokenPair {
   readonly refreshToken: string;
 }
 
-export const DEFAULT_API_URL = "https://api2.cursor.sh";
-export const DEFAULT_WEBSITE_URL = "https://cursor.com";
+const DEFAULT_API_URL = "https://api2.cursor.sh";
+const DEFAULT_WEBSITE_URL = "https://cursor.com";
 /** No single auth request may hang a long-running host (e.g. grokbot-mcp). */
-export const AUTH_REQUEST_TIMEOUT_MS = 15_000;
+const AUTH_REQUEST_TIMEOUT_MS = 15_000;
 
 /**
  * Where the auth endpoints live. Overrides use GROKBOT_-prefixed variables so a
@@ -55,7 +57,7 @@ function safeBaseUrl(raw: string): string {
 }
 
 function fetchOf(endpoints: AuthEndpoints): FetchLike {
-  return endpoints.fetch ?? ((url, init) => globalThis.fetch(url, init));
+  return endpoints.fetch ?? proxyFetch;
 }
 
 /**
@@ -76,8 +78,10 @@ export async function authFetch(
   const signal = caller ? AbortSignal.any([caller, timer]) : timer;
   try {
     return await fetchOf(endpoints)(url, { ...init, signal });
-  } catch {
+  } catch (error) {
     if (caller?.aborted) throw caller.reason;
+    // A proxy refusal or bad proxy setting: its message names only the proxy's host:port.
+    if (error instanceof ProxyError) throw error;
     throw new GrokBotError(
       "http",
       timer.aborted

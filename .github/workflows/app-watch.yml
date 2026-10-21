@@ -1,0 +1,58 @@
+name: App watch
+
+# Weekly: ask the Grok Bot update feed for a build newer than the catalog's app_version.
+# Nothing newer: the job ends green. Newer: one open `app-update` issue is created or
+# edited with a summary of what the new build changed. The job never commits or pushes.
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: app-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    # macOS: the check needs codesign and ditto.
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - name: Check for a newer Grok Bot build
+        id: check
+        run: |
+          bun run check:app --diff --current latest --json \
+            --summary "$RUNNER_TEMP/summary.md" > "$RUNNER_TEMP/result.json"
+          version="$(jq -r '.current.version // empty' "$RUNNER_TEMP/result.json")"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [ -z "$version" ]; then
+            echo "The update feed has nothing newer than the catalog."
+          fi
+      - name: Create or update the app-update issue
+        if: steps.check.outputs.version != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.check.outputs.version }}
+        run: |
+          title="Grok Bot $VERSION is out"
+          gh label create app-update --force \
+            --description "A newer Grok Bot desktop build than the catalog"
+          # At most one open app-update issue exists: a rerun, or a still newer build,
+          # edits it instead of opening another.
+          number="$(gh issue list --label app-update --state open --limit 1 \
+            --json number --jq '.[0].number // empty')"
+          if [ -n "$number" ]; then
+            gh issue edit "$number" --title "$title" --body-file "$RUNNER_TEMP/summary.md"
+          else
+            gh issue create --label app-update --title "$title" \
+              --body-file "$RUNNER_TEMP/summary.md"
+          fi

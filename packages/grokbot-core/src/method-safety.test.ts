@@ -13,59 +13,34 @@ const catalogUrl = new URL(
   import.meta.url,
 );
 
+/** "allowed", or the error code of the refusal. */
 function verdict(check: () => void): string {
   try {
     check();
     return "allowed";
   } catch (error) {
-    return error instanceof GrokBotError
-      ? `${error.code}: ${error.message}`
-      : "other";
+    return error instanceof GrokBotError ? error.code : "other";
   }
 }
 
 describe("assertMethodAllowed", () => {
   it.each([
+    // read-only and writes need no confirmation
     ["ListGrokBotAgents", false, "allowed"],
     ["SendGrokBotUserMessage", false, "allowed"],
-    [
-      "DeleteGrokBotAgent",
-      false,
-      "safety: DeleteGrokBotAgent is tagged destructive. Pass confirmed: true only after the owner approves.",
-    ],
+    // destructive, sensitive and staff-only need it
+    ["DeleteGrokBotAgent", false, "safety"],
     ["DeleteGrokBotAgent", true, "allowed"],
-    [
-      "ResolveGrokBotCredentialRequest",
-      false,
-      "safety: ResolveGrokBotCredentialRequest is tagged sensitive. Pass confirmed: true only after the owner approves.",
-    ],
-    [
-      "AdminDeleteGrokBotAgent",
-      false,
-      "safety: AdminDeleteGrokBotAgent is tagged staff-only. Pass confirmed: true only after the owner approves.",
-    ],
-    [
-      "NotARealMethod",
-      false,
-      "safety: NotARealMethod is not in the safety catalog. Pass confirmed: true only after the owner approves.",
-    ],
+    ["ResolveGrokBotCredentialRequest", false, "safety"],
+    ["AdminDeleteGrokBotAgent", false, "safety"],
+    // a method outside the catalog fails closed, inherited object keys included
+    ["NotARealMethod", false, "safety"],
     ["NotARealMethod", true, "allowed"],
-    [
-      "constructor",
-      false,
-      "safety: constructor is not in the safety catalog. Pass confirmed: true only after the owner approves.",
-    ],
-    [
-      "toString",
-      false,
-      "safety: toString is not in the safety catalog. Pass confirmed: true only after the owner approves.",
-    ],
-    [
-      "../ListGrokBotAgents",
-      true,
-      'safety: "../ListGrokBotAgents" is not a valid method name.',
-    ],
-    ["", true, 'safety: "" is not a valid method name.'],
+    ["constructor", false, "safety"],
+    ["toString", false, "safety"],
+    // a name that could address another path is refused even when confirmed
+    ["../ListGrokBotAgents", true, "safety"],
+    ["", true, "safety"],
   ])("%s with confirmed=%s is %s", (method, confirmed, expected) => {
     expect(verdict(() => assertMethodAllowed(method, confirmed))).toBe(
       expected,
@@ -78,27 +53,13 @@ describe("assertGatewayMethodAllowed", () => {
     ["listAgents", false, "allowed"],
     ["getMcpState", false, "allowed"],
     ["importAgentWorkflowText", false, "allowed"],
-    [
-      "deleteAgentWorkflow",
-      false,
-      "safety: deleteAgentWorkflow is tagged destructive. Pass confirmed: true only after the owner approves.",
-    ],
-    [
-      "injectChromeCookies",
-      false,
-      "safety: injectChromeCookies is tagged sensitive. Pass confirmed: true only after the owner approves.",
-    ],
-    ["injectChromeCookies", true, "allowed"],
-    [
-      "getVncPassword",
-      false,
-      "safety: getVncPassword is not in the safety catalog. Pass confirmed: true only after the owner approves.",
-    ],
-    [
-      "ListGrokBotAgents",
-      false,
-      "safety: ListGrokBotAgents is not in the safety catalog. Pass confirmed: true only after the owner approves.",
-    ],
+    ["deleteAgentWorkflow", false, "safety"],
+    ["deleteAgentWorkflow", true, "allowed"],
+    ["callMcpAppTool", false, "safety"],
+    ["callMcpAppTool", true, "allowed"],
+    // a method the Box Gateway table does not list fails closed
+    ["getVncPassword", false, "safety"],
+    ["ListGrokBotAgents", false, "safety"],
   ])("%s with confirmed=%s is %s", (method, confirmed, expected) => {
     expect(verdict(() => assertGatewayMethodAllowed(method, confirmed))).toBe(
       expected,

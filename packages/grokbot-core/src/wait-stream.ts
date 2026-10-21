@@ -1,4 +1,3 @@
-import { setTimeout as delay } from "node:timers/promises";
 import {
   GrokBotError,
   type JsonObject,
@@ -8,14 +7,18 @@ import type { DoneVerdict } from "./done-rule.js";
 import { type StreamEvent, watchTranscripts } from "./transcript-stream.js";
 import { abortable } from "./wait-reconnect.js";
 import type { SettledVerdict, WaitSession } from "./wait-session.js";
+import { settlementFailure } from "./wait-turn-failure.js";
 
 export type StreamEnd =
   | { readonly type: "verdict"; readonly verdict: SettledVerdict }
   | { readonly type: "ended" }
   | { readonly type: "cursor-too-old" }
-  | { readonly type: "turn-failed"; readonly raw: JsonObject };
+  /** A turnFailed frame: fails the turn once the bot is idle with no final reply. */
+  | { readonly type: "turn-failed"; readonly raw: JsonObject }
+  /** The server settled the turn with an error or a cancellation and no reply answers it. */
+  | { readonly type: "settled-failure"; readonly raw: JsonObject };
 
-export interface StreamFollowOptions {
+interface StreamFollowOptions {
   readonly server: ServerTransport;
   readonly signal: AbortSignal;
   /** How long a done verdict seen on the stream must go without new rows. */
@@ -26,11 +29,14 @@ export interface StreamFollowOptions {
 /**
  * A streamed status can run ahead of the rows it covers, so a verdict seen on the
  * stream is only a candidate. A done (or ambiguous) must go the quiet window without
- * new rows, an approval needs no wait, and both are then confirmed by reading the rows again.
+ * new rows, an approval needs no wait, and both are then confirmed by reading the rows
+ * again. When the server has settled the turn's run, a done needs no quiet window, and a
+ * failure it settled the turn with is a candidate that waits for nothing either: the
+ * read confirms there is still no reply.
  */
 class Candidate {
   #deadline: number | undefined;
-  #status: DoneVerdict["status"] | undefined;
+  #key: string | undefined;
 
   constructor(private readonly quietMs: number) {}
 
@@ -38,20 +44,27 @@ class Candidate {
     return this.#deadline;
   }
 
-  consider(verdict: DoneVerdict): void {
-    if (verdict.status === "running") {
+  consider(
+    verdict: DoneVerdict,
+    server: Pick<WaitSession, "settled" | "failure">,
+  ): void {
+    const failed = server.failure !== undefined;
+    if (verdict.status === "running" && !failed) {
       this.drop();
       return;
     }
-    if (this.#status === verdict.status) return;
-    this.#status = verdict.status;
+    const key = failed
+      ? "failed"
+      : `${verdict.status}${server.settled ? "+settled" : ""}`;
+    if (this.#key === key) return;
+    this.#key = key;
     const ended = verdict.status === "done" || verdict.status === "ambiguous";
-    this.#deadline = Date.now() + (ended ? this.quietMs : 0);
+    this.#deadline = Date.now() + (ended && !server.settled ? this.quietMs : 0);
   }
 
   drop(): void {
     this.#deadline = undefined;
-    this.#status = undefined;
+    this.#key = undefined;
   }
 
   /** The stream ended, so no row can arrive on it: confirm now. */
@@ -74,13 +87,14 @@ async function until<T>(
   deadline: number | undefined,
 ): Promise<T | typeof DEADLINE> {
   if (deadline === undefined) return pending;
-  const timer = new AbortController();
-  const ms = Math.max(0, deadline - Date.now());
-  const elapsed = delay(ms, DEADLINE, { signal: timer.signal });
+  let timer: NodeJS.Timeout | undefined;
+  const elapsed = new Promise<typeof DEADLINE>((resolve) => {
+    timer = setTimeout(resolve, Math.max(0, deadline - Date.now()), DEADLINE);
+  });
   try {
     return await Promise.race([pending, elapsed]);
   } finally {
-    timer.abort();
+    clearTimeout(timer);
   }
 }
 
@@ -112,7 +126,7 @@ async function apply(
   }
   await session.syncDelegates();
   await session.confirmSubagentList();
-  candidate.consider(session.settle());
+  candidate.consider(session.settle(), session);
   return undefined;
 }
 
@@ -135,21 +149,33 @@ export async function followStream(
       if (candidate.due()) {
         const added = await session.readRows();
         const verdict = session.settle();
-        if (verdict.status !== "running" && !added)
-          return { type: "verdict", verdict };
+        if (!added) {
+          if (verdict.status !== "running") return { type: "verdict", verdict };
+          const { failure } = session;
+          if (failure)
+            return { type: "settled-failure", raw: settlementFailure(failure) };
+        }
         candidate.drop();
-        candidate.consider(verdict);
+        candidate.consider(verdict, session);
         continue;
       }
       if (session.delegatesDue()) {
         await session.syncDelegates(true);
-        candidate.consider(session.settle());
+        candidate.consider(session.settle(), session);
+        continue;
+      }
+      if (session.subagentsDue()) {
+        await session.syncSubagents();
+        candidate.consider(session.settle(), session);
         continue;
       }
       pending ??= abortable(events.next(), signal);
       const next = await until(
         pending,
-        earliest(candidate.deadline, session.delegatesDueAtMs),
+        earliest(
+          candidate.deadline,
+          earliest(session.delegatesDueAtMs, session.subagentsDueAtMs),
+        ),
       );
       if (next === DEADLINE) continue;
       pending = undefined;

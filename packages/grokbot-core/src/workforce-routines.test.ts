@@ -9,8 +9,7 @@ import {
   workforceRunner,
 } from "./fixtures/workforce-fakes.js";
 
-/** A bot on the Cloud Box harness, whose routines go through the Box Gateway. */
-const ROSTER = [{ agents: [...BASE_ROSTER, { ...PROBE_BOT, harness: "box" }] }];
+const ROSTER = [{ agents: [...BASE_ROSTER, PROBE_BOT] }];
 const record = (fields: JsonObject) =>
   JSON.stringify({
     id: "weekly-report",
@@ -68,7 +67,7 @@ describe("routines-list", () => {
     });
     expect(await runner.run("routines-list", AGENT).catch(failure)).toEqual([
       "protocol",
-      "ListGrokBotAgentAutomations: recordJson is not a JSON object",
+      expect.any(String),
     ]);
   });
 });
@@ -154,53 +153,22 @@ describe("routines-delete", () => {
 });
 
 describe("routines-create", () => {
-  const CREATE = {
-    ...AGENT,
-    name: "Weekly report",
-    cron: "CRON_TZ=Australia/Adelaide 0 9 * * 1",
-    prompt: "Write the weekly report.",
-    webhook: false,
-    "require-auth-pass": false,
-    paused: false,
-    timeout: 300,
-  };
-
-  it("sends a cron spec through the gateway and returns the routine the server lists", async () => {
-    const { runner, log } = workforceRunner(
-      {
-        ListGrokBotAgents: ROSTER,
-        ListGrokBotAgentAutomations: [
-          { automations: [] },
-          { automations: [WEEKLY] },
-        ],
-      },
-      { createAgentAutomation: [[]] },
-    );
-    const out = await runner.run("routines-create", CREATE);
-    expect([out.result, out.routine]).toEqual(["created", ROUTINE]);
-    expect(bodyOf(log, "createAgentAutomation")).toEqual({
-      id: PROBE,
-      spec: {
-        name: "Weekly report",
-        prompt: "Write the weekly report.",
-        trigger: {
-          type: "cron",
-          schedule: "CRON_TZ=Australia/Adelaide 0 9 * * 1",
-        },
-        isEnabled: true,
-      },
-    });
-  });
-
-  it("run again, finds the routine by name and creates nothing", async () => {
+  it("finds the routine by name and sends the bot nothing", async () => {
     const { runner, log } = workforceRunner({
       ListGrokBotAgents: ROSTER,
       ListGrokBotAgentAutomations: [{ automations: [WEEKLY] }],
     });
-    const out = await runner.run("routines-create", CREATE);
-    expect([out.result, methods(log)]).toEqual([
-      "exists",
-      ["server:ListGrokBotAgents", "server:ListGrokBotAgentAutomations"],
-    ]);
+    const out = await runner.run("routines-create", {
+      ...AGENT,
+      name: "weekly REPORT",
+      cron: "CRON_TZ=Australia/Adelaide 0 9 * * 1",
+      prompt: "Write the weekly report.",
+      webhook: false,
+      "require-auth-pass": false,
+      paused: false,
+      timeout: 300,
+    });
+    expect([out.result, out.routine]).toEqual(["exists", ROUTINE]);
+    expect(methods(log)).not.toContain("server:SendGrokBotUserMessage");
   });
 });

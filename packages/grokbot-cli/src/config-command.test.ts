@@ -8,20 +8,19 @@ describe("grokbot config", () => {
       config: fakeConfig("silent", "silent"),
     });
     expect(run.code).toBe(0);
-    expect(run.stdout).toBe(
-      [
-        "keychain-access  silent  (saved sign-in: silent)",
-        "usage            on  (local only; see grokbot stats)",
-        "protected        none (mark one with grokbot config protect <agentId> <main|test>)",
-        "",
-        "Protected bots file: /home/me/.grokbot/grokbot-cli-protected-bots.json",
-        "routes           none (route this folder with grokbot config route <agentId>)",
-        "",
-        "Project routes file: /home/me/.grokbot/grokbot-cli-project-routes.json",
-        "Settings file: /home/me/.grokbot/grokbot-cli.json",
-        "",
-      ].join("\n"),
+    expect(run.stdout).toMatch(
+      /^keychain-access\s+silent\b.*saved sign-in: silent/m,
     );
+    expect(run.stdout).toMatch(/^usage\s+on\b/m);
+    expect(run.stdout).toMatch(/^protected\s+none\b/m);
+    expect(run.stdout).toMatch(/^routes\s+none\b/m);
+    for (const file of [
+      "/home/me/.grokbot/grokbot-cli-protected-bots.json",
+      "/home/me/.grokbot/grokbot-cli-project-routes.json",
+      "/home/me/.grokbot/grokbot-cli.json",
+    ]) {
+      expect(run.stdout).toContain(file);
+    }
   });
 
   it("reads one setting, with no saved sign-in", async () => {

@@ -16,26 +16,30 @@ export type MethodSafety = keyof typeof REQUIRES_CONFIRMATION;
 export const GATEWAY_METHOD_SAFETY = {
   listAgents: "read-only",
   getAgentWorkflows: "read-only",
-  getHostSettings: "read-only",
   getMcpState: "read-only",
   updateAgent: "writes",
   importAgentWorkflowText: "writes",
   runAgentWorkflowNow: "writes",
-  createAgentAutomation: "writes",
-  updateAgentAutomation: "writes",
-  runAgentAutomationNow: "writes",
   // Runs any tool on any connected third-party MCP server with the owner's accounts.
   callMcpAppTool: "sensitive",
   deleteAgentWorkflow: "destructive",
-  deleteAgent: "destructive",
-  setHostSettings: "sensitive",
-  injectChromeCookies: "sensitive",
 } as const satisfies Readonly<Record<string, MethodSafety>>;
 
 /** aiserver.v1.DashboardService methods, on the same backend as GrokBotService. */
 export const DASHBOARD_METHOD_SAFETY = {
   // Mints a bearer key that lets anyone holding it start one webhook routine.
   CreateAutomationWebhookApiKey: "sensitive",
+} as const satisfies Readonly<Record<string, MethodSafety>>;
+
+/**
+ * aiserver.v1.BackgroundComposerService methods (Cursor cloud agents), on the same backend.
+ * Read-only reads only: GetBackgroundComposerArtifact is left out on purpose, it returns
+ * bearer download URLs.
+ */
+export const BACKGROUND_COMPOSER_METHOD_SAFETY = {
+  GetBackgroundComposerInfo: "read-only",
+  GetBackgroundComposerConversation: "read-only",
+  StreamBackgroundComposerUpdates: "read-only",
 } as const satisfies Readonly<Record<string, MethodSafety>>;
 
 const SERVER_TABLE: ReadonlyMap<string, MethodSafety> = new Map(
@@ -46,6 +50,9 @@ const GATEWAY_TABLE: ReadonlyMap<string, MethodSafety> = new Map(
 );
 const DASHBOARD_TABLE: ReadonlyMap<string, MethodSafety> = new Map(
   Object.entries(DASHBOARD_METHOD_SAFETY),
+);
+const BACKGROUND_COMPOSER_TABLE: ReadonlyMap<string, MethodSafety> = new Map(
+  Object.entries(BACKGROUND_COMPOSER_METHOD_SAFETY),
 );
 const METHOD_NAME = /^[A-Za-z][A-Za-z0-9]*$/;
 
@@ -68,6 +75,14 @@ export function assertDashboardMethodAllowed(
   confirmed: boolean,
 ): void {
   assertAllowed(DASHBOARD_TABLE, method, confirmed);
+}
+
+/** Throws unless a BackgroundComposerService method is safe to call (fails closed). */
+export function assertBackgroundComposerMethodAllowed(
+  method: string,
+  confirmed: boolean,
+): void {
+  assertAllowed(BACKGROUND_COMPOSER_TABLE, method, confirmed);
 }
 
 function assertAllowed(

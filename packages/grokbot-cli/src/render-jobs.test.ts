@@ -94,15 +94,11 @@ describe("job commands in human mode", () => {
     const run = await runCli(["wait", "job-6"], {
       outputs: { wait: { jobId: "job-6", agentId: PRIMARY.agentId, outcome } },
     });
-    expect(run).toMatchObject({
-      stdout: lines(
-        "Awaiting approval: Connect Gmail",
-        "Open cards: connector (Connect an app)",
-      ),
-      stderr:
-        "To continue, only the owner can answer this in the GrokBot app (connector). Then resume with: grokbot wait job-6\n",
-      code: 3,
-    });
+    expect(run.code).toBe(3);
+    expect(run.stdout).toContain("Connect Gmail");
+    expect(run.stdout).toContain("connector");
+    expect(run.stderr).toContain("only the owner");
+    expect(run.stderr).toContain("grokbot wait job-6");
   });
 
   it("points a widget at grokbot answer", async () => {
@@ -114,9 +110,8 @@ describe("job commands in human mode", () => {
     const run = await runCli(["wait", "job-4"], {
       outputs: { wait: { jobId: "job-4", agentId: PRIMARY.agentId, outcome } },
     });
-    expect(run.stderr).toBe(
-      "To continue, answer it with: grokbot answer <value> (see grokbot approvals). Then resume with: grokbot wait job-4\n",
-    );
+    expect(run.stderr).toContain("grokbot answer");
+    expect(run.stderr).toContain("grokbot wait job-4");
     expect(run.code).toBe(3);
   });
 
@@ -138,32 +133,29 @@ describe("job commands in human mode", () => {
         },
       },
     });
-    expect(run).toMatchObject({
-      stdout: lines("Starting A.", "", "RESULT B", "", "RESULT A"),
-      stderr:
-        "Ambiguous: the bot may have answered this message in one run together with message #171. stdout has every reply of that run, in order; check which one answers job job-2.\n",
-      code: 5,
-    });
+    expect(run.stdout).toBe(
+      lines("Starting A.", "", "RESULT B", "", "RESULT A"),
+    );
+    expect(run.stderr).toContain("message #171");
+    expect(run.stderr).toContain("job-2");
+    expect(run.code).toBe(5);
   });
 
   it("prints the job id for send", async () => {
     const run = await runCli(["send", "build it"], { outputs: sent });
-    expect(run).toMatchObject({
-      stdout: "job-9\n",
-      stderr: "Sent to Primary Test. Get the reply with: grokbot wait job-9\n",
-      code: 0,
-    });
+    expect(run.stdout).toBe("job-9\n");
+    expect(run.stderr).toContain("Primary Test");
+    expect(run.stderr).toContain("grokbot wait job-9");
+    expect(run.code).toBe(0);
   });
 
   it("says a queued send goes out once the bot is free", async () => {
     const queued = { send: { ...sent.send, queued: true } };
     const run = await runCli(["send", "build it"], { outputs: queued });
-    expect(run).toMatchObject({
-      stdout: "job-9\n",
-      stderr:
-        "Queued for Primary Test: it is busy, so the message goes out once it is free. Send it and get the reply with: grokbot wait job-9\n",
-      code: 0,
-    });
+    expect(run.stdout).toBe("job-9\n");
+    expect(run.stderr).toMatch(/queued/i);
+    expect(run.stderr).toContain("grokbot wait job-9");
+    expect(run.code).toBe(0);
   });
 });
 

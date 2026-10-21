@@ -24,9 +24,13 @@ export interface CommandRunnerOptions {
   readonly jobs?: JobStore;
   /** Default: createServerTransport for DashboardService, with the same sign-in as `server`. */
   readonly dashboard?: Pick<ServerTransport, "call">;
+  /** Default: createServerTransport for BackgroundComposerService (cloud agents), with the same sign-in as `server`. */
+  readonly composer?: ServerTransport;
+  /** Default: Date.now. */
+  readonly now?: () => number;
   /** Default: webhookKeyStore() in the macOS Keychain. */
   readonly webhookKeys?: WebhookKeyStore;
-  /** Default: createWebhookFirer() over global fetch. */
+  /** Default: createWebhookFirer() over proxy-aware fetch (see proxy-config.ts). */
   readonly fireWebhook?: WebhookFirer;
   /**
    * Used when a command gets no `agent` input. Hosts pass process.env.GROKBOT_AGENT.

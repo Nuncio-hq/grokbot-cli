@@ -1,6 +1,12 @@
 import type { BoxHandoff } from "./agent-status.js";
 import type { Agent } from "./agents.js";
 import type { GovernanceCard } from "./governance-cards.js";
+import type { CloudAgentOutcome } from "./governance-cloud-agent-updates.js";
+import type {
+  CloudAgentInfo,
+  CloudAgentMessage,
+  CloudAgentSummary,
+} from "./governance-cloud-agents.js";
 import type {
   McpCallResult,
   McpServer,
@@ -70,5 +76,24 @@ export interface GovernanceOutputs {
     readonly exitCode: number | null;
     /** How many times the FIFO handed out the token while the worker ran. */
     readonly tokenServes: number;
+  };
+  readonly "cloud-agents": {
+    readonly cloudAgents: readonly CloudAgentSummary[];
+    /** The account has more cloud agents than `--limit` listed; with --agent, ones past it may be missing. */
+    readonly hasMore: boolean;
+    /** The bot --agent filtered by; null when the list is the whole account's. */
+    readonly launchedBy: {
+      readonly agentId: string;
+      readonly name: string;
+    } | null;
+  };
+  readonly "cloud-agent": {
+    readonly cloudAgent: CloudAgentInfo;
+    /** The last `--messages` messages, oldest first. */
+    readonly messages: readonly CloudAgentMessage[];
+    /** Messages the conversation holds; null when none were read (`--messages 0`). */
+    readonly messageCount: number | null;
+    /** Set only under --wait: `done` once the agent stopped running, `needs-you` when it waits on the user, `pending` when the timeout came first. */
+    readonly outcome?: CloudAgentOutcome;
   };
 }

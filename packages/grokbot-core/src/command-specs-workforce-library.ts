@@ -101,4 +101,41 @@ export const LIBRARY_COMMANDS = {
       json: JSON_PARAM,
     },
   },
+  files: {
+    summary:
+      "List a bot's files: the ones shared with its team and your own private ('Only you') ones",
+    safety: "read-only",
+    methods: [ROSTER, "ListGrokBotAgentFiles", "ListGrokBotUserStoreFiles"],
+    params: { agent: AGENT, json: JSON_PARAM },
+  },
+  "files-remove": {
+    summary:
+      "Remove one file from a bot's files (the bot can no longer read it): your private file, or a team file when you may edit them",
+    safety: "destructive",
+    methods: [
+      ROSTER,
+      "ListGrokBotAgentFiles",
+      "ListGrokBotUserStoreFiles",
+      "DeleteGrokBotAgentFile",
+      "DeleteGrokBotUserStoreFile",
+    ],
+    params: {
+      agent: AGENT,
+      path: {
+        type: "string",
+        description:
+          "The file's path or name, as grokbot files lists it (a private file is removed by path, a team file by name)",
+        required: true,
+        position: 1,
+      },
+      section: {
+        type: "string",
+        description:
+          "Only look in one section: team or only-you (needed when both hold the name)",
+      },
+      "force-protected": FORCE_PROTECTED,
+      yes: YES_PARAM,
+      json: JSON_PARAM,
+    },
+  },
 } as const satisfies Record<string, CommandSpec>;

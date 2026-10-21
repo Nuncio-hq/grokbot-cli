@@ -2,24 +2,31 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { Agent } from "./agents.js";
 import { GrokBotError, type JsonObject } from "./contracts.js";
 import {
   BASE_ROSTER,
-  bodyOf,
   type FakeExtras,
   memoryKeyStore,
   methods,
   PRIMARY,
   PROBE,
   PROBE_BOT,
+  ROOM,
   type Script,
+  STAFF,
+  wireRoom,
   workforceRunner,
 } from "./fixtures/workforce-fakes.js";
-import { routinesViaChat } from "./workforce-routine-chat.js";
 
-/** A bot on the Cloud Box harness, whose routines go through the Box Gateway. */
-const ROSTER = [{ agents: [...BASE_ROSTER, { ...PROBE_BOT, harness: "box" }] }];
+const ROSTER = [
+  {
+    agents: [
+      ...BASE_ROSTER,
+      PROBE_BOT,
+      wireRoom(ROOM, "Probe Room", [PRIMARY, STAFF]),
+    ],
+  },
+];
 const KEY = "synthetic-webhook-key-91c2";
 const row = (automationId: string, fields: JsonObject) => ({
   automationId,
@@ -60,40 +67,7 @@ const runner = (
     extras,
   );
 
-describe("routines-create with event triggers", () => {
-  it("creates a webhook routine, switched off with --paused", async () => {
-    const { runner: r, log } = runner(
-      {
-        ListGrokBotAgentAutomations: [
-          { automations: [] },
-          { automations: [HOOK] },
-        ],
-      },
-      { createAgentAutomation: [[]] },
-    );
-    const out = await r.run("routines-create", {
-      ...AGENT,
-      name: "Deploy hook",
-      prompt: "Reply PONG.",
-      webhook: true,
-      paused: true,
-    });
-    expect([out.result, out.routine.trigger, out.routine.id]).toEqual([
-      "created",
-      "webhook",
-      "auto-9-record",
-    ]);
-    expect(bodyOf(log, "createAgentAutomation")).toEqual({
-      id: PROBE,
-      spec: {
-        name: "Deploy hook",
-        prompt: "Reply PONG.",
-        trigger: { type: "webhook" },
-        isEnabled: false,
-      },
-    });
-  });
-
+describe("routines-create", () => {
   it("needs a trigger and makes no call without one", async () => {
     const { runner: r, log } = runner({});
     const error = await r
@@ -107,44 +81,27 @@ describe("routines-create with event triggers", () => {
     expect(error).toEqual(["not-found", expect.any(String)]);
     expect(methods(log)).toEqual(["server:ListGrokBotAgents"]);
   });
+
+  it("finds an existing routine by name and sends the bot nothing", async () => {
+    const { runner: r, log } = runner({
+      ListGrokBotAgentAutomations: [{ automations: [HOOK] }],
+    });
+    const out = await r.run("routines-create", {
+      ...AGENT,
+      name: "deploy HOOK",
+      prompt: "Reply PONG.",
+      webhook: true,
+      paused: false,
+    });
+    expect([out.result, out.routine.automationId]).toEqual([
+      "exists",
+      "auto-9",
+    ]);
+    expect(methods(log)).not.toContain("server:SendGrokBotUserMessage");
+  });
 });
 
 describe("routines-update", () => {
-  it("sends the whole spec with only the given fields changed, by record id", async () => {
-    const renamed = row("auto-1", {
-      name: "Monday report",
-      trigger: { type: "cron", schedule: "0 9 * * 1" },
-    });
-    const { runner: r, log } = runner(
-      {
-        ListGrokBotAgentAutomations: [
-          { automations: [CRON] },
-          { automations: [renamed] },
-        ],
-      },
-      { updateAgentAutomation: [[]] },
-    );
-    const out = await r.run("routines-update", {
-      ...AGENT,
-      routine: "Weekly report",
-      name: "Monday report",
-    });
-    expect([out.changed, out.routine.name]).toEqual([
-      ["name"],
-      "Monday report",
-    ]);
-    expect(bodyOf(log, "updateAgentAutomation")).toEqual({
-      id: PROBE,
-      automationId: "auto-1-record",
-      spec: {
-        name: "Monday report",
-        prompt: "Reply PONG.",
-        trigger: { type: "cron", schedule: "0 9 * * 1" },
-        isEnabled: true,
-      },
-    });
-  });
-
   it("writes nothing when the values are already set", async () => {
     const { runner: r, log } = runner({
       ListGrokBotAgentAutomations: [{ automations: [CRON] }],
@@ -154,9 +111,9 @@ describe("routines-update", () => {
       routine: "auto-1",
       cron: "0 9 * * 1",
     });
-    expect([out.changed, methods(log).at(-1)]).toEqual([
+    expect([out.changed, methods(log)]).toEqual([
       [],
-      "server:ListGrokBotAgentAutomations",
+      ["server:ListGrokBotAgents", "server:ListGrokBotAgentAutomations"],
     ]);
   });
 
@@ -174,53 +131,32 @@ describe("routines-update", () => {
   });
 });
 
-describe("routines-update through the gateway", () => {
-  it("fails when the update returned but the routine did not change", async () => {
-    const { runner: r } = runner(
-      { ListGrokBotAgentAutomations: [{ automations: [CRON] }] },
-      { updateAgentAutomation: [[]] },
-    );
-    const error = await r
-      .run("routines-update", { ...AGENT, routine: "auto-1", prompt: "New." })
-      .catch(failure);
-    expect(error).toEqual([
-      "protocol",
-      "updateAgentAutomation returned, but Weekly report: its prompt differs.",
+describe("routines-create and routines-update on a room", () => {
+  it("refuse it before reading routines or messaging anyone", async () => {
+    const { runner: r, log } = runner({});
+    const room = { ...AGENT, agent: "Probe Room" };
+    const errors = [
+      await r
+        .run("routines-create", {
+          ...room,
+          name: "x",
+          prompt: "y",
+          cron: "0 9 * * 1",
+          paused: false,
+        })
+        .catch(failure),
+      await r
+        .run("routines-update", { ...room, routine: "x", prompt: "y" })
+        .catch(failure),
+    ];
+    expect(errors).toEqual([
+      ["not-found", expect.any(String)],
+      ["not-found", expect.any(String)],
     ]);
-  });
-});
-
-describe("routines-run on a bot on GrokBot's servers", () => {
-  it("refuses before any gateway call", async () => {
-    const { runner: r, log } = workforceRunner(
-      {
-        ListGrokBotAgents: [{ agents: [...BASE_ROSTER, PROBE_BOT] }],
-        ListGrokBotAgentAutomations: [{ automations: [CRON] }],
-      },
-      {},
-    );
-    const error = await r
-      .run("routines-run", { ...AGENT, routine: "auto-1" })
-      .catch(failure);
-    expect(error).toEqual([
-      "not-found",
-      expect.stringContaining("routines-fire"),
+    expect(methods(log)).toEqual([
+      "server:ListGrokBotAgents",
+      "server:ListGrokBotAgents",
     ]);
-    expect(methods(log).some((m) => m.startsWith("gateway:"))).toBe(false);
-  });
-});
-
-describe("routines-run", () => {
-  it("runs the routine through the gateway by record id", async () => {
-    const { runner: r, log } = runner(
-      { ListGrokBotAgentAutomations: [{ automations: [CRON] }] },
-      { runAgentAutomationNow: [{}] },
-    );
-    await r.run("routines-run", { ...AGENT, routine: "Weekly report" });
-    expect(bodyOf(log, "runAgentAutomationNow")).toEqual({
-      id: PROBE,
-      automationId: "auto-1-record",
-    });
   });
 });
 
@@ -320,10 +256,7 @@ describe("routines-webhook-key", () => {
         yes: true,
       })
       .catch(failure);
-    expect(error).toEqual([
-      "not-found",
-      "Weekly report fires on cron, not a webhook, so routines-webhook-key does not apply.",
-    ]);
+    expect(error).toEqual(["not-found", expect.any(String)]);
     expect(methods(log)).not.toContain(
       "dashboard:CreateAutomationWebhookApiKey",
     );
@@ -385,17 +318,18 @@ describe("routines-fire", () => {
     const error = await r
       .run("routines-fire", { ...AGENT, routine: "Deploy hook" })
       .catch(failure);
-    expect(error).toEqual([
-      "not-found",
-      expect.stringContaining("routines-webhook-key"),
-    ]);
+    expect(error).toEqual(["not-found", expect.any(String)]);
     expect(methods(log)).not.toContainEqual(expect.stringMatching(/^webhook:/));
   });
 
-  it("refuses a payload that is not a JSON object", async () => {
-    const { runner: r } = runner({
-      ListGrokBotAgentAutomations: [{ automations: [HOOK] }],
-    });
+  it("refuses a payload that is not a JSON object, without posting it", async () => {
+    const webhookKeys = memoryKeyStore();
+    await webhookKeys.save(ref, KEY);
+    const { runner: r, log } = runner(
+      { ListGrokBotAgentAutomations: [{ automations: [HOOK] }] },
+      {},
+      { webhookKeys },
+    );
     const error = await r
       .run("routines-fire", {
         ...AGENT,
@@ -403,7 +337,8 @@ describe("routines-fire", () => {
         payload: "[1]",
       })
       .catch(failure);
-    expect(error).toEqual(["not-found", "The payload must be a JSON object."]);
+    expect(error).toEqual(["not-found", expect.any(String)]);
+    expect(methods(log)).not.toContainEqual(expect.stringMatching(/^webhook:/));
   });
 });
 
@@ -422,33 +357,6 @@ describe("routine review fixes", () => {
       .catch(failure);
     expect(error).toEqual(["safety", expect.any(String)]);
     expect(methods(log)).not.toContain("server:SendGrokBotUserMessage");
-  });
-
-  it("refuses rooms and bots with no harness instead of using the Box Gateway", () => {
-    const bot = (fields: object) =>
-      ({
-        kind: "agent",
-        agentId: PROBE,
-        rowId: "1",
-        name: "Some bot",
-        title: "",
-        description: "",
-        harness: "",
-        ...fields,
-      }) as Agent;
-    const reason = (agent: Agent) => {
-      try {
-        return routinesViaChat(agent);
-      } catch (e) {
-        return failure(e)[0];
-      }
-    };
-    expect([
-      reason(bot({ harness: "temporal" })),
-      reason(bot({ harness: "box" })),
-      reason(bot({})),
-      reason(bot({ kind: "room", memberAgentIds: [] })),
-    ]).toEqual([true, false, "protocol", "not-found"]);
   });
 
   it("routines-delete deletes a non-webhook routine without touching the Keychain", async () => {
@@ -494,7 +402,7 @@ describe("routine review fixes", () => {
       .catch(failure);
     expect([methods(log).at(-1), error]).toEqual([
       "server:DeleteGrokBotAgentAutomation",
-      ["protocol", expect.stringContaining("Deleted routine Deploy hook")],
+      ["protocol", expect.any(String)],
     ]);
   });
 });

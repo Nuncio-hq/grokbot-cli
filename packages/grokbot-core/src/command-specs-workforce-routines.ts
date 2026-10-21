@@ -9,7 +9,7 @@ const ROUTINE = {
 } as const;
 const ROSTER = "ListGrokBotAgents";
 const ROUTINES = "ListGrokBotAgentAutomations";
-/** Sends and statuses for the chat path: bots on GrokBot's servers save routines themselves. */
+/** Sends and statuses for the chat path: a bot saves its own routines. */
 const CHAT = [
   "SendGrokBotUserMessage",
   "ListGrokBotAgentStatuses",
@@ -18,8 +18,7 @@ const CHAT = [
 ] as const;
 const CHAT_TIMEOUT = {
   type: "integer",
-  description:
-    "Seconds to wait for a bot on GrokBot's servers to save it in chat",
+  description: "Seconds to wait for the bot to save it in chat",
   default: 300,
   minimum: 1,
 } as const;
@@ -89,7 +88,7 @@ const routineToggle = (summary: string) =>
     },
   }) as const satisfies CommandSpec;
 
-/** Each bot's routines: list, switch, create, edit, run, and fire by webhook. */
+/** Each bot's routines: list, switch, create, edit, and fire by webhook. */
 export const ROUTINE_COMMANDS = {
   "routines-list": {
     summary: "List a bot's routines with trigger and next run",
@@ -116,7 +115,6 @@ export const ROUTINE_COMMANDS = {
       "Create a routine for a bot: on a schedule, webhook, email, GitHub event, or any trigger as JSON",
     safety: "writes",
     methods: [ROSTER, ROUTINES, ...CHAT],
-    gatewayMethods: ["createAgentAutomation"],
     params: {
       agent: AGENT,
       name: { type: "string", description: "Routine name", required: true },
@@ -140,7 +138,6 @@ export const ROUTINE_COMMANDS = {
     summary: "Change a bot's routine: its name, prompt, or trigger",
     safety: "writes",
     methods: [ROSTER, ROUTINES, ...CHAT],
-    gatewayMethods: ["updateAgentAutomation"],
     params: {
       agent: AGENT,
       routine: ROUTINE,
@@ -151,14 +148,6 @@ export const ROUTINE_COMMANDS = {
       timeout: CHAT_TIMEOUT,
       json: JSON_PARAM,
     },
-  },
-  "routines-run": {
-    summary:
-      "Run a routine now, with your sign-in; only bots on the Cloud Box (others: routines-fire)",
-    safety: "writes",
-    methods: [ROSTER, ROUTINES],
-    gatewayMethods: ["runAgentAutomationNow"],
-    params: { agent: AGENT, routine: ROUTINE, json: JSON_PARAM },
   },
   "routines-webhook-key": {
     summary:

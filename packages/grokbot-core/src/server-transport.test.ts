@@ -361,6 +361,62 @@ describe("ServerTransport.stream", () => {
   });
 });
 
+describe("BackgroundComposerService transport", () => {
+  const COMPOSER_URL =
+    "https://api2.cursor.sh/aiserver.v1.BackgroundComposerService";
+  const composerTransport = (respond: Responder) => {
+    const fake = fakeFetch(respond);
+    const transport = createServerTransport({
+      getToken: async () => TOKEN,
+      fetch: fake.fetch,
+      service: "BackgroundComposerService",
+    });
+    return { transport, requests: fake.requests };
+  };
+
+  it("posts a unary read and a stream to its own service path", async () => {
+    const { transport, requests } = composerTransport((request) =>
+      request.url.endsWith("/StreamBackgroundComposerUpdates")
+        ? streamResponse([frame(0, '{"snapshot":{}}'), frame(2, "{}")])
+        : Response.json({ composer: {} }),
+    );
+    await transport.call("GetBackgroundComposerInfo", { bcId: "bc-1" });
+    const frames = await collect(
+      transport.stream("StreamBackgroundComposerUpdates", { snapshotN: 5 }),
+    );
+    expect([frames, requests.map((r) => r.url)]).toEqual([
+      [{ snapshot: {} }],
+      [
+        `${COMPOSER_URL}/GetBackgroundComposerInfo`,
+        `${COMPOSER_URL}/StreamBackgroundComposerUpdates`,
+      ],
+    ]);
+  });
+
+  it("refuses a method outside its table before any request, including a GrokBotService one", async () => {
+    const { transport, requests } = composerTransport(() => Response.json({}));
+    // `call` rejects; `stream` throws on the spot.
+    await expect(
+      transport.call("GetBackgroundComposerArtifact", { bcId: "bc-1" }),
+    ).rejects.toMatchObject({ code: "safety" });
+    await expect(
+      transport.call("DeleteGrokBotAgent", { agentId: "a" }),
+    ).rejects.toMatchObject({ code: "safety" });
+    expect(() => transport.stream("WatchGrokBotTranscripts", {})).toThrow(
+      expect.objectContaining({ code: "safety" }),
+    );
+    expect(requests).toEqual([]);
+  });
+
+  it("lets the GrokBotService transport keep refusing a composer method", async () => {
+    const { transport, requests } = transportWith(() => Response.json({}));
+    await expect(
+      transport.call("GetBackgroundComposerInfo", { bcId: "bc-1" }),
+    ).rejects.toMatchObject({ code: "safety" });
+    expect(requests).toEqual([]);
+  });
+});
+
 describe("token redaction", () => {
   it("keeps the token out of every error message, even when echoed", async () => {
     const echo: Responder = (request) =>

@@ -2,6 +2,7 @@ import {
   type DispatchCommandName,
   describeBoxHandoff,
   describeCard,
+  describeReply,
   isActive,
   type JobOutcome,
   OWNER_ONLY_NOTE,
@@ -19,7 +20,7 @@ import {
  * Well under the ~300 s at which MCP hosts kill a tool call (Hermes), so ask and wait
  * return a still-running result with the job id first instead of dying mid-wait.
  */
-const MCP_WAIT_TIMEOUT_SECONDS = 45;
+export const MCP_WAIT_TIMEOUT_SECONDS = 45;
 
 /** What a finished result means, shared by every tool that waits on a job. */
 const OUTCOMES =
@@ -104,11 +105,10 @@ function entryText(entry: TranscriptEntry): string {
       return `user${entry.fromAgent ? ` (from ${entry.fromAgent.name})` : ""}: ${entry.content}`;
     case "assistant-message":
       return `assistant${entry.toAgent ? ` (to ${entry.toAgent.name})` : ""}: ${entry.content}`;
-    // Attachment URLs may be signed links, so only the file name is shown.
+    // describeReply never shows a link: attachment URLs may be signed, and map and
+    // product links stay in the structured output.
     case "reply":
-      return entry.reply.type === "text"
-        ? `reply: ${entry.reply.content}`
-        : `reply: ${`${entry.reply.fileName} [attachment]`.trim()}`;
+      return `reply: ${describeReply(entry.reply)}`;
     case "card":
       return `card ${entry.cardType}`;
     case "blob":

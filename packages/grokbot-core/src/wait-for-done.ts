@@ -18,7 +18,7 @@ import {
   WaitSession,
 } from "./wait-session.js";
 import { followStream, type StreamEnd } from "./wait-stream.js";
-import { turnFailedError } from "./wait-turn-failure.js";
+import { settlementFailure, turnFailedError } from "./wait-turn-failure.js";
 
 export type { WaitJob } from "./wait-session.js";
 
@@ -41,7 +41,7 @@ export interface WaitForDoneOptions {
   readonly backlogLimit?: number;
   /** How long a done seen on the stream must go without new rows. Default 1500 ms. */
   readonly quietWindowMs?: number;
-  /** Downloads a final reply stored as a blob. Default global fetch. */
+  /** Downloads a final reply stored as a blob. Default: global fetch, or the proxy tunnel when one is configured. */
   readonly fetch?: FetchLike;
 }
 
@@ -59,7 +59,8 @@ function verdictKey(v: DoneVerdict): string {
  * Each attempt reads the live status, then the rows, so the rows are never older than
  * the status; then it follows WatchGrokBotTranscripts from the highest updatedSeq seen.
  * Throws GrokBotError("protocol") when the bot reports a failed turn and then
- * sits idle without a final reply.
+ * sits idle without a final reply, and at once when the server settles the turn's run
+ * with an error or a cancellation (live.lastTurnSettlement) and no reply answers it.
  */
 export async function waitForDone(
   options: WaitForDoneOptions,
@@ -128,7 +129,8 @@ async function follow(
       if (verdict.status !== "running") return verdict;
       // Before our echo the failure is not ours yet, and an open delegation wakes
       // the bot again on the delegate's reply, so only a stalled final reply fails.
-      if (turnFailure && verdict.reason === "awaiting-final-reply")
+      if (session.failure) failed = settlementFailure(session.failure);
+      else if (turnFailure && verdict.reason === "awaiting-final-reply")
         failed = turnFailure;
       else {
         turnFailure = undefined;
@@ -140,6 +142,8 @@ async function follow(
       onEvent?.({ type: "reconnecting", reason });
     }
     if (failed) throw turnFailedError(job.agentId, failed);
+    if (end?.type === "settled-failure")
+      throw turnFailedError(job.agentId, end.raw);
     if (end?.type === "verdict") {
       const verdict = await session.finish(end.verdict);
       if (verdict.status !== "running") return verdict;

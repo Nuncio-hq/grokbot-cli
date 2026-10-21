@@ -33,6 +33,8 @@ describe("workforce tools over MCP", () => {
         "grokbot_fire",
         "grokbot_room_create",
         "grokbot_skills_remove",
+        "grokbot_files_remove",
+        "grokbot_files",
         "grokbot_skills_push",
         "grokbot_routines_list",
       ].map((n) => [n, byName.get(n)?.annotations]),
@@ -41,6 +43,8 @@ describe("workforce tools over MCP", () => {
       ["grokbot_fire", { readOnlyHint: false, destructiveHint: true }],
       ["grokbot_room_create", { readOnlyHint: false, destructiveHint: false }],
       ["grokbot_skills_remove", { readOnlyHint: false, destructiveHint: true }],
+      ["grokbot_files_remove", { readOnlyHint: false, destructiveHint: true }],
+      ["grokbot_files", { readOnlyHint: true, destructiveHint: false }],
       ["grokbot_skills_push", { readOnlyHint: false, destructiveHint: true }],
       ["grokbot_routines_list", { readOnlyHint: true, destructiveHint: false }],
     ]);
@@ -99,6 +103,8 @@ describe("workforce tools hide CLI-only and file-path params", () => {
       props(tools, "grokbot_skills_push"),
       props(tools, "grokbot_skills_remove"),
       props(tools, "grokbot_skills_run"),
+      props(tools, "grokbot_files"),
+      props(tools, "grokbot_files_remove"),
       props(tools, "grokbot_routines_delete"),
       props(tools, "grokbot_routines_enable"),
       props(tools, "grokbot_routines_disable"),
@@ -109,6 +115,8 @@ describe("workforce tools hide CLI-only and file-path params", () => {
       ["agent", "markdown", "name", "replace", "yes"],
       ["agent", "skill", "yes"],
       ["agent", "skill"],
+      ["agent"],
+      ["agent", "path", "section", "yes"],
       ["agent", "routine", "yes"],
       ["agent", "routine"],
       ["agent", "routine"],
@@ -147,6 +155,16 @@ describe("workforce tools hide CLI-only and file-path params", () => {
         "include-managed": true,
       },
       "grokbot_skills_remove: include-managed cannot be set over MCP; use the grokbot CLI.",
+    ],
+    [
+      "grokbot_files_remove",
+      {
+        agent: "Grok Bot",
+        path: "notes/todo.txt",
+        yes: true,
+        "force-protected": "0a1b2c3d-1111-4111-8111-111111111111",
+      },
+      "grokbot_files_remove: force-protected cannot be set over MCP; use the grokbot CLI.",
     ],
   ])("%s refuses a hidden param without running", async (name, args, text) => {
     const [response] = await exchange(unusedRunner, {

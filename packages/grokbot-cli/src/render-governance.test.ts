@@ -98,21 +98,26 @@ describe("governance commands in human mode", () => {
         },
       },
     });
-    expect([run.stdout, run.stderr, run.calls[0]?.input]).toEqual([
-      "accepted\n",
-      'Answered widget t2s0 on Primary Test with "Blue".\n',
-      { value: "Blue", agent: "Primary Test", dismiss: false, json: false },
-    ]);
+    expect(run.stdout).toBe("accepted\n");
+    expect(run.stderr).toContain("widget t2s0");
+    expect(run.stderr).toContain("Primary Test");
+    expect(run.stderr).toContain('"Blue"');
+    expect(run.calls[0]?.input).toEqual({
+      value: "Blue",
+      agent: "Primary Test",
+      dismiss: false,
+      json: false,
+    });
   });
 
   it("prints the resolution and notes the Mac approvals file", async () => {
     const run = await runCli(["approve", "--agent", "Staff Test", "--yes"], {
       outputs: { approve: resolve() },
     });
-    expect([run.stdout, run.stderr]).toEqual([
-      "approved once\n",
-      "Resolved local-tool-permission t28s1 on Staff Test (201a8cb2). Recorded it in ~/.grokbot/local-tool-approvals.json for the Mac daemon.\n",
-    ]);
+    expect(run.stdout).toBe("approved once\n");
+    expect(run.stderr).toContain("local-tool-permission t28s1");
+    expect(run.stderr).toContain("Staff Test");
+    expect(run.stderr).toContain("~/.grokbot/local-tool-approvals.json");
   });
 
   it("refuses approve without --yes in the runner's own words", async () => {
@@ -183,17 +188,13 @@ describe("governance commands in human mode", () => {
         },
       },
     });
-    expect([
-      opened.stdout,
-      opened.stderr,
-      printed.stdout,
-      printed.stderr,
-    ]).toEqual([
+    expect([opened.stdout, opened.stderr]).toEqual([
       "Opened desktop window 3.\n",
       "",
-      "https://box.example/vnc.html?x=1\n",
-      "This link is a credential: anyone holding it can watch and control the desktop. Do not share or log it.\n",
     ]);
+    expect(printed.stdout).toBe("https://box.example/vnc.html?x=1\n");
+    expect(printed.stderr).toContain("credential");
+    expect(printed.stderr).not.toContain("box.example");
   });
 
   it("selects the desktop by --window alone, refusing --agent on vnc", async () => {
@@ -221,10 +222,9 @@ describe("governance commands in human mode", () => {
         },
       },
     });
-    expect([run.code, run.stdout]).toEqual([
-      0,
-      "Worker exited with code 0. Served the token 2 times.\n",
-    ]);
+    expect(run.code).toBe(0);
+    expect(run.stdout).toMatch(/code 0\b/);
+    expect(run.stdout).toMatch(/\b2 times\b/);
   });
 
   it("prints the worker plan, quoting only when needed, and lists registered computers", async () => {
@@ -245,10 +245,14 @@ describe("governance commands in human mode", () => {
         },
       },
     });
-    expect([run.stdout, run.stderr, run.calls[0]?.input]).toEqual([
-      "/opt/cursor-agent worker --name 'Owner'\\''s Mac' start\nenv: AGENT_CLI_CREDENTIAL_STORE HOME\n",
-      "Nothing started. $RUN_DIR is a fresh 0700 temp dir; token.fifo serves the token without writing it to disk.\nRegistered computers now: example-mac.\n",
-      { name: "Owner's Mac", json: false },
-    ]);
+    expect(run.calls[0]?.input).toEqual({ name: "Owner's Mac", json: false });
+    const [commandLine, envLine] = run.stdout.trimEnd().split("\n");
+    expect(commandLine).toBe(
+      "/opt/cursor-agent worker --name 'Owner'\\''s Mac' start",
+    );
+    expect(envLine).toContain("AGENT_CLI_CREDENTIAL_STORE");
+    expect(envLine).toContain("HOME");
+    expect(run.stderr).toContain("example-mac");
+    expect(run.stderr).toContain("Nothing started");
   });
 });

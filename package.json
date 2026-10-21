@@ -23,6 +23,7 @@
     "format": "biome check --write .",
     "gen:safety": "bun packages/grokbot-core/scripts/generate-method-safety-table.ts",
     "gen:skill": "bun packages/grokbot-cli/scripts/render-skill-commands.ts",
+    "check:app": "bun packages/grokbot-core/scripts/app-update-check.ts",
     "typecheck": "tsc -b packages/grokbot-core packages/grokbot-cli packages/grokbot-mcp",
     "test:unit": "vitest run",
     "check:docs": "d=$(mktemp -d) && cp docs/build-reference.py docs/grokbot-tools-and-api.json \"$d\" && python3 \"$d/build-reference.py\" >/dev/null && diff -q \"$d/reference.html\" docs/reference.html >/dev/null; s=$?; rm -rf \"$d\"; [ $s -eq 0 ] || echo 'docs/reference.html is out of date: run python3 docs/build-reference.py' >&2; exit $s",

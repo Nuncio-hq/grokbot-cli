@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { apiUrlOf, authFetch, websiteUrlOf } from "./auth-http.js";
 import { GrokBotError } from "./contracts.js";
+import { ProxyError } from "./proxy-config.js";
 
 const saved = {
   api: process.env.GROKBOT_API_BASE_URL,
@@ -72,5 +73,27 @@ describe("authFetch", () => {
       "Testing",
     ).catch((e: unknown) => e);
     expect(error).toBe(controller.signal.reason);
+  });
+
+  it("keeps a proxy error, which names only the proxy, and still flattens any other failure", async () => {
+    const refused = new ProxyError(
+      "The proxy 127.0.0.1:3128 refused the tunnel (HTTP 403).",
+    );
+    const viaProxy = await authFetch(
+      { fetch: () => Promise.reject(refused) },
+      "https://api2.cursor.sh/x",
+      {},
+      "Testing",
+    ).catch((e: unknown) => e);
+    expect(viaProxy).toBe(refused);
+    const other = await authFetch(
+      { fetch: () => Promise.reject(new Error("token=secret_value")) },
+      "https://api2.cursor.sh/x",
+      {},
+      "Testing",
+    ).catch((e: unknown) => e);
+    expect((other as GrokBotError).message).toBe(
+      "Testing failed on the network.",
+    );
   });
 });

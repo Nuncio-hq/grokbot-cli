@@ -8,28 +8,29 @@ import {
   type JsonObject,
   type ServerTransport,
 } from "./contracts.js";
-import { createHttp2Fetch } from "./http2-fetch.js";
 import {
+  assertBackgroundComposerMethodAllowed,
   assertDashboardMethodAllowed,
   assertMethodAllowed,
 } from "./method-safety.js";
+import { createBackendFetch } from "./network-fetch.js";
 
 /** The GrokBot backend: both RPC services and the routine webhooks live here. */
 export const BACKEND_URL = "https://api2.cursor.sh";
 
 /** The aiserver.v1 service a transport calls; each has its own safety table. */
-export type BackendService = "GrokBotService" | "DashboardService";
+type BackendService =
+  | "GrokBotService"
+  | "DashboardService"
+  | "BackgroundComposerService";
 
 export type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 
-let backendFetch: FetchLike | undefined;
-
-/** Backend calls share one HTTP/2 connection per process; other hosts use global fetch. */
-const defaultFetch: FetchLike = (url, init) => {
-  if (!url.startsWith(`${BACKEND_URL}/`)) return globalThis.fetch(url, init);
-  backendFetch ??= createHttp2Fetch();
-  return backendFetch(url, init);
-};
+/**
+ * Backend calls share one HTTP/2 connection per process; other hosts use global fetch.
+ * Both go through the proxy only when the proxy environment variables name one.
+ */
+const defaultFetch: FetchLike = createBackendFetch(BACKEND_URL);
 
 export interface ServerTransportOptions {
   /** Called before every request. The transport never keeps the token. */
@@ -42,7 +43,7 @@ export interface ServerTransportOptions {
 }
 
 /** One POST to either backend. Shared with the gateway transport. */
-export interface HttpRequest {
+interface HttpRequest {
   readonly fetch: FetchLike;
   readonly method: string;
   readonly url: string;
@@ -66,10 +67,11 @@ export function createServerTransport({
   service = "GrokBotService",
 }: ServerTransportOptions): ServerTransport {
   const root = `${baseUrl.replace(/\/+$/, "")}/aiserver.v1.${service}`;
-  const assertAllowed =
-    service === "DashboardService"
-      ? assertDashboardMethodAllowed
-      : assertMethodAllowed;
+  const assertAllowed = {
+    GrokBotService: assertMethodAllowed,
+    DashboardService: assertDashboardMethodAllowed,
+    BackgroundComposerService: assertBackgroundComposerMethodAllowed,
+  }[service];
   const prepare = async (
     method: string,
     options: CallOptions,

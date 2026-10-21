@@ -79,13 +79,13 @@ describe("runner gateway", () => {
     const { server, log } = fakeServer({});
     const ctx = createRunnerContext({ server, jobs, gateway });
     const reply = await ctx.gateway.call(
-      "deleteAgent",
-      { agentId: "a" },
+      "callMcpAppTool",
+      { tool: "t" },
       { confirmed: true },
     );
     expect([reply, seen, log]).toStrictEqual([
       { agents: [] },
-      [["deleteAgent", { agentId: "a" }, { confirmed: true }]],
+      [["callMcpAppTool", { tool: "t" }, { confirmed: true }]],
       [],
     ]);
   });

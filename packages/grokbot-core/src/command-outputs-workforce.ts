@@ -1,5 +1,6 @@
 import type { Agent } from "./agents.js";
 import type { KeychainItem } from "./keychain-items.js";
+import type { BotFile, TeamSection } from "./workforce-files.js";
 import type { ProfileField } from "./workforce-profile.js";
 import type { Routine } from "./workforce-routines.js";
 import type { ListedSkill, Skill } from "./workforce-skills.js";
@@ -48,6 +49,16 @@ export interface WorkforceOutputs {
     readonly remaining: number;
   };
   readonly "skills-run": { readonly agent: Agent; readonly skill: Skill };
+  readonly files: {
+    readonly agent: Agent;
+    /** Team files first, then the user's private ones; each carries its section. */
+    readonly files: readonly BotFile[];
+    readonly team: TeamSection;
+  };
+  readonly "files-remove": {
+    readonly agent: Agent;
+    readonly file: BotFile;
+  };
   readonly "routines-list": {
     readonly agent: Agent;
     readonly routines: readonly Routine[];
@@ -82,7 +93,6 @@ export interface WorkforceOutputs {
     /** Set when the bot saved it in chat: the job of that message. */
     readonly jobId?: string;
   };
-  readonly "routines-run": { readonly agent: Agent; readonly routine: Routine };
   readonly "routines-webhook-key": {
     readonly agent: Agent;
     readonly routine: Routine;

@@ -30,6 +30,13 @@ export interface Turn {
   readonly openCards: readonly CardEntry[];
   /** Rows of the latest run after its last delegate reply or card: where the final reply lives. */
   readonly tail: readonly TranscriptEntry[];
+  /**
+   * `requestId` of the run the final reply may come from: the turn's latest run, or each
+   * linked message's run. Empty when our echo has no requestId.
+   */
+  readonly lastRuns: readonly string[];
+  /** No later run has joined the turn: the latest run is that of our own message. */
+  readonly onOwnRun: boolean;
   /** Our echo's `timestampMs`: when this turn started. */
   readonly startMs: number | undefined;
   /**
@@ -199,6 +206,8 @@ export function findTurn(
     delegations: report,
     openCards: cards.filter((c) => c.open && !resumed.has(c)),
     tail,
+    lastRuns: [...latestRuns].filter((r): r is string => r !== undefined),
+    onOwnRun: shared.echoes.some((e) => latestRuns.has(runOf(e))),
     startMs: echo.timestampMs,
     endMs:
       nextOwner && isOwnerMessage(nextOwner)

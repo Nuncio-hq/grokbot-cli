@@ -140,16 +140,13 @@ describe("GatewayTransport.call", () => {
     expect(ensures.length).toBe(1);
   });
 
-  it("blocks a destructive method before ensuring a sandbox", async () => {
+  it("blocks a sensitive method before ensuring a sandbox", async () => {
     const { server, ensures } = fakeServer([sandbox(1)]);
     const { fetch, requests } = fakeFetch([]);
     const gateway = createGatewayTransport({ server, fetch });
-    await expect(gateway.call("deleteAgent", { agentId: "a" })).rejects.toEqual(
-      new GrokBotError(
-        "safety",
-        "deleteAgent is tagged destructive. Pass confirmed: true only after the owner approves.",
-      ),
-    );
+    await expect(
+      gateway.call("callMcpAppTool", { tool: "t" }),
+    ).rejects.toMatchObject({ code: "safety" });
     expect([ensures.length, requests.length]).toEqual([0, 0]);
   });
 

@@ -17,15 +17,23 @@ import {
   resolveCard,
 } from "./governance-card-handlers.js";
 import {
+  defaultSleep,
+  listCloudAgents,
+  type Sleep,
+  showCloudAgent,
+} from "./governance-cloud-agent-handlers.js";
+import {
   defaultGovernanceDeps,
   type GovernanceDeps,
 } from "./governance-deps.js";
 import { previewWorker, startWorker } from "./governance-worker-handlers.js";
 
 /** Options a test passes to replace every governance side effect. */
-export interface GovernanceHandlerOptions {
+interface GovernanceHandlerOptions {
   readonly deps?: GovernanceDeps;
   readonly cliPath?: string;
+  /** Pauses between `cloud-agent --wait` polls; a test passes a fake clock's. */
+  readonly sleep?: Sleep;
 }
 
 export function governanceHandlers(
@@ -33,6 +41,7 @@ export function governanceHandlers(
   options: GovernanceHandlerOptions = {},
 ): CommandHandlers<GovernanceCommandName> {
   const deps = options.deps ?? defaultGovernanceDeps();
+  const sleep = options.sleep ?? defaultSleep;
   const cliPath =
     options.cliPath ?? join(homedir(), ".local", "bin", "cursor-agent");
   return {
@@ -48,5 +57,8 @@ export function governanceHandlers(
       previewWorker(ctx, deps, input, cliPath, signal),
     "worker-start": (input, { signal }) =>
       startWorker(deps, input, cliPath, signal),
+    "cloud-agents": (input, { signal }) => listCloudAgents(ctx, input, signal),
+    "cloud-agent": (input, { signal }) =>
+      showCloudAgent(ctx, sleep, input, signal),
   };
 }

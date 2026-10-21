@@ -1,6 +1,7 @@
 import { Buffer } from "node:buffer";
 import { type AgentRef, parseAgentRef } from "./agent-ref.js";
 import { GrokBotError, type JsonObject } from "./contracts.js";
+import { parseReplyCards, type ReplyCard } from "./reply-cards.js";
 
 /** int64 transcript position, kept as a decimal string and compared with BigInt. */
 export type Seq = string & { readonly __brand: "Seq" };
@@ -9,7 +10,10 @@ export type Generation = string & { readonly __brand: "Generation" };
 
 /**
  * send-message types that wait on the owner. The first six were seen live (14 Oct); the
- * rest come from the GrokBot app 0.71.2 renderer, each with the open test it uses.
+ * rest come from the GrokBot app 0.71.2 renderer, each with the open test it uses, and
+ * are unchanged in 0.72.0. The 0.72.0 type `visualization` is a reply (an inline visual),
+ * and `notifications-enable` (a prompt to allow notifications) asks for no decision, so
+ * it stays an unknown row.
  */
 export const CARD_TYPES = [
   "widget",
@@ -29,11 +33,22 @@ export const CARD_TYPES = [
 export type CardType = (typeof CARD_TYPES)[number];
 
 export type Reply =
-  | { readonly type: "text"; readonly content: string }
+  | {
+      readonly type: "text";
+      readonly content: string;
+      /** 0.72.0 `message.cards` (places, shopping), tolerantly parsed; absent when none parse. */
+      readonly cards?: readonly ReplyCard[];
+    }
   | {
       readonly type: "attachment";
       readonly url: string;
       readonly fileName: string;
+    }
+  | {
+      /** 0.72.0 inline visual: the document is addressed by hash; `heightPx` is dropped. */
+      readonly type: "visualization";
+      readonly title: string;
+      readonly documentSha256: string;
     };
 
 interface EntryBase {
@@ -188,13 +203,26 @@ const ROLE_PARSERS: Record<string, BodyParser> = {
 
 function parseReply(message: JsonObject): Reply | undefined {
   const type = readString(message, "type");
-  if (type === "text")
-    return { type, content: readString(message, "content") ?? "" };
+  if (type === "text") {
+    const cards = parseReplyCards(message.cards);
+    return {
+      type,
+      content: readString(message, "content") ?? "",
+      ...(cards && { cards }),
+    };
+  }
   if (type === "attachment") {
     return {
       type,
       url: readString(message, "url") ?? "",
       fileName: readString(message, "file_name") ?? "",
+    };
+  }
+  if (type === "visualization") {
+    return {
+      type,
+      title: readString(message, "title") ?? "",
+      documentSha256: readString(message, "documentSha256") ?? "",
     };
   }
   return undefined;

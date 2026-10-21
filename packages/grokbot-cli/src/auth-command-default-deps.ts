@@ -1,10 +1,12 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import {
+  CATALOG_APP_VERSION,
   createTokenSource,
   credentialStore,
   loginWithApiKey,
   loginWithBrowser,
+  readInstalledAppVersion,
 } from "grokbot-core";
 import { renderUnicodeCompact } from "uqr";
 import type { AuthDeps } from "./auth-command.js";
@@ -21,6 +23,10 @@ export function defaultAuthDeps(): AuthDeps {
     loginWithApiKey: (apiKey) => loginWithApiKey(apiKey, { store }),
     clear: () => store.clear(),
     describe: () => createTokenSource({ store }).describe(),
+    appVersions: async () => ({
+      installed: await readInstalledAppVersion(),
+      catalog: CATALOG_APP_VERSION,
+    }),
     openUrl: async (url) => {
       await run("open", [url]);
     },

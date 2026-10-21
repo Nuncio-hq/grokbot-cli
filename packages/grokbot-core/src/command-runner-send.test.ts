@@ -94,23 +94,22 @@ describe("send", () => {
       out.agent.name,
       out.queued,
     ]).toEqual([true, true, false, "Primary Test", false]);
-    expect(log.map((c) => [c.method, c.body])).toEqual([
-      ["ListGrokBotAgents", {}],
-      [
-        "ListGrokBotTranscriptEntries",
-        { agentId: AGENT, sessionId: "", limit: 20 },
-      ],
-      ["ListGrokBotAgentStatuses", { agentIds: [AGENT] }],
-      [
-        "SendGrokBotUserMessage",
-        {
+    const methods = log.map((c) => c.method);
+    expect(methods.indexOf("ListGrokBotTranscriptEntries")).toBeLessThan(
+      methods.indexOf("SendGrokBotUserMessage"),
+    );
+    expect(log.filter((c) => c.method === "SendGrokBotUserMessage")).toEqual([
+      {
+        kind: "call",
+        method: "SendGrokBotUserMessage",
+        body: {
           agentId: AGENT,
           messageId: out.sentMessageId,
           text: "ping",
           sentAtMs: "1791948600000",
           sessionId: "",
         },
-      ],
+      },
     ]);
     expect(await jobStore(dir).list()).toEqual([record]);
   });

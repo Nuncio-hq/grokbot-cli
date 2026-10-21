@@ -1,4 +1,9 @@
-import { type BoxHandoff, isActive, type LiveStatus } from "./agent-status.js";
+import {
+  type BoxHandoff,
+  isActive,
+  type LiveStatus,
+  type TurnSettlement,
+} from "./agent-status.js";
 import { describeBoxHandoff, describeCard } from "./card-descriptions.js";
 import type { DelegationContext } from "./delegations.js";
 import {
@@ -10,6 +15,7 @@ import {
   type TranscriptEntry,
 } from "./transcript.js";
 import { findTurn, type Turn } from "./turn-model.js";
+import { settlementOfTurn } from "./turn-settlement.js";
 import type { BusyAtSend } from "./turn-sharing.js";
 
 export type { CardEntry } from "./transcript.js";
@@ -55,7 +61,7 @@ export type DoneVerdict =
       readonly blobHash?: string;
     };
 
-export interface DoneRuleInput {
+interface DoneRuleInput {
   readonly entries: readonly TranscriptEntry[];
   /** The messageId we sent; the server echoes it back as the user row's clientNonce. */
   readonly sentMessageId: string;
@@ -72,6 +78,26 @@ export interface DoneRuleInput {
    * delegation stays open until its bot sends a message back, paired by agent.
    */
   readonly delegations?: DelegationContext;
+  /**
+   * Every settlement the caller has seen for this bot, in any order. The server clears
+   * `live.lastTurnSettlement` when the next run starts, so a wait keeps what it saw;
+   * the one in `status` counts too.
+   */
+  readonly settlements?: Iterable<TurnSettlement>;
+  /**
+   * Every subagent the caller saw running since it began, finished ones included. A
+   * finished subagent wakes the bot in a new run of the same turn (see findTurn), so once
+   * one ran in the turn a settlement of an earlier run ends nothing (see reportTurn).
+   */
+  readonly subagentsSeen?: SubagentsSeen;
+}
+
+/** The subagents of one bot that a wait has seen running. */
+export interface SubagentsSeen {
+  /** `startedAtMs` of each subagent a list read showed. */
+  readonly startedAtMs: readonly number[];
+  /** A status had subagents running that no list read covered: when they started is unknown. */
+  readonly unknownStart: boolean;
 }
 
 /** Clock slack before the echo. A subagent this close still counts as ours. */
@@ -106,12 +132,26 @@ function subagentsBlockTurn(
   );
 }
 
+/** A subagent ran in this turn (or may have): its end can start the run that answers us. */
+function subagentsRanInTurn(
+  turn: Turn,
+  seen: SubagentsSeen | undefined,
+): boolean {
+  if (seen === undefined) return false;
+  return (
+    seen.unknownStart ||
+    seen.startedAtMs.some((start) =>
+      subagentInTurn(start, turn.startMs, turn.endMs),
+    )
+  );
+}
+
 const running = (reason: RunningReason): DoneVerdict => ({
   status: "running",
   reason,
 });
 
-export function blobReplyMarker(blobHash: string): string {
+function blobReplyMarker(blobHash: string): string {
   return `[reply stored as blob ${blobHash}; run grokbot tail]`;
 }
 
@@ -124,6 +164,12 @@ type TextReplyEntry = ReplyEntry & {
   readonly reply: Extract<ReplyEntry["reply"], { type: "text" }>;
 };
 
+type MediaReply = Extract<
+  ReplyEntry["reply"],
+  { type: "attachment" | "visualization" }
+>;
+type MediaReplyEntry = ReplyEntry & { readonly reply: MediaReply };
+
 function isFinalCandidate(e: TranscriptEntry): e is TextReplyEntry | BlobEntry {
   if (e.kind === "blob") return e.entryKind === "send-message";
   return e.kind === "reply" && e.reply.type === "text";
@@ -131,6 +177,28 @@ function isFinalCandidate(e: TranscriptEntry): e is TextReplyEntry | BlobEntry {
 
 const isStreaming = (e: TranscriptEntry): boolean =>
   "isStreaming" in e && e.isStreaming === true;
+
+function isFinishedMedia(e: TranscriptEntry): e is MediaReplyEntry {
+  return (
+    e.kind === "reply" &&
+    (e.reply.type === "attachment" || e.reply.type === "visualization") &&
+    !isStreaming(e)
+  );
+}
+
+/**
+ * What stands for a visual or a file in `finalReply`: `[visual: <title>]` or
+ * `[file: <fileName>]`, without the name when the row has none. Attachment links may be
+ * signed, so only the file name is ever shown.
+ */
+function mediaReplyMarker(reply: MediaReply): string {
+  const [word, label] =
+    reply.type === "visualization"
+      ? (["visual", reply.title] as const)
+      : (["file", reply.fileName] as const);
+  const name = label.replace(/\s+/g, " ").trim();
+  return name === "" ? `[${word}]` : `[${word}: ${name}]`;
+}
 
 /** A room turn: each member's last text reply as `name: text`, in reply order. */
 function roomReplyText(replies: readonly ReplyEntry[]): string | undefined {
@@ -144,15 +212,18 @@ function roomReplyText(replies: readonly ReplyEntry[]): string | undefined {
   return byMember.size === 0 ? undefined : [...byMember.values()].join("\n");
 }
 
-/** Every reply of a shared turn: its text replies in order, a blob final reply as its marker. */
+/**
+ * Every reply of a shared turn: its text replies in order, then the marker of a final
+ * reply that is not text (a blob, a visual or a file).
+ */
 function sharedReplyText(
   turn: readonly TranscriptEntry[],
-  blobHash: string | undefined,
+  marker: string | undefined,
 ): string {
   const texts = turn.flatMap((e) =>
     e.kind === "reply" && e.reply.type === "text" ? [e.reply.content] : [],
   );
-  if (blobHash !== undefined) texts.push(blobReplyMarker(blobHash));
+  if (marker !== undefined) texts.push(marker);
   return texts.join("\n\n");
 }
 
@@ -220,18 +291,65 @@ function blockingCards(turn: Turn, status: LiveStatus): readonly CardEntry[] {
  * subagentsBlockTurn). The caller passes start times when it could read them.
  * Pure: the caller supplies every transcript row it has, the latest live status,
  * and, when known, when the bot's running subagents started.
+ *
+ * The server reports which run it settled (`live.lastTurnSettlement`, see
+ * settlementOfTurn). Once a settlement of the turn's latest run is known, live status
+ * no longer decides whether that run ended: a bot busy with a later run does not hold
+ * the turn, and a quiet window is not needed. Open cards, delegations, the turn's
+ * subagents, box hand-offs and the final reply still decide. Without a settlement of
+ * the latest run, or when a subagent ran in the turn (its end starts the run that
+ * answers, which no row shows yet), the rule is exactly as before.
  */
-export function evaluateDoneRule({
-  entries,
-  sentMessageId,
-  status,
-  busyAtSend,
-  subagentStartedAtMs,
-  delegations,
-}: DoneRuleInput): DoneVerdict {
+export function evaluateDoneRule(input: DoneRuleInput): DoneVerdict {
+  return reportTurn(input).verdict;
+}
+
+/** The Done Rule's verdict with what the server's settlement of the turn added to it. */
+export interface TurnReport {
+  readonly verdict: DoneVerdict;
+  /** The server settled the turn's latest run, whatever the outcome. */
+  readonly settled: boolean;
+  /**
+   * The error or cancellation the server ended the turn's latest run with, while no reply
+   * of that run answers it. Set only when the verdict is running, awaiting-final-reply:
+   * the same stall a turnFailed frame fails, but the server said so itself.
+   */
+  readonly failure?: TurnSettlement;
+}
+
+/** {@link evaluateDoneRule} that also reports the settlement of the turn. */
+export function reportTurn(input: DoneRuleInput): TurnReport {
+  const { entries, sentMessageId, status, busyAtSend, delegations } = input;
   const turn = findTurn(entries, sentMessageId, busyAtSend, delegations);
-  if (!turn) return running("awaiting-echo");
-  const cards = blockingCards(turn, status);
+  if (!turn) return { verdict: running("awaiting-echo"), settled: false };
+  const settlement = subagentsRanInTurn(turn, input.subagentsSeen)
+    ? undefined
+    : settlementOfTurn(turn, sentMessageId, [
+        ...(input.settlements ?? []),
+        ...(status.lastTurnSettlement ? [status.lastTurnSettlement] : []),
+      ]);
+  const verdict = judgeTurn(turn, input, settlement !== undefined);
+  const stalled =
+    verdict.status === "running" && verdict.reason === "awaiting-final-reply";
+  return {
+    verdict,
+    settled: settlement !== undefined,
+    ...(stalled &&
+      settlement !== undefined &&
+      settlement.outcome !== "success" && { failure: settlement }),
+  };
+}
+
+/** The Done Rule over a found turn; `ended` when the server settled its latest run. */
+function judgeTurn(
+  turn: Turn,
+  { status, subagentStartedAtMs }: DoneRuleInput,
+  ended: boolean,
+): DoneVerdict {
+  const live = ended
+    ? { ...status, isRunning: false, isComposing: false, isRetrying: false }
+    : status;
+  const cards = blockingCards(turn, live);
   const handoff = blockingHandoff(status, turn);
 
   if (status.awaiting && cards.length > 0) {
@@ -242,9 +360,11 @@ export function evaluateDoneRule({
       ...(handoff && { handoff }),
     };
   }
-  if (status.awaiting && !handoff) return running("target-active");
-  if (status.isRunning || status.isComposing || status.isRetrying)
-    return running("target-active");
+  if (!ended) {
+    if (status.awaiting && !handoff) return running("target-active");
+    if (status.isRunning || status.isComposing || status.isRetrying)
+      return running("target-active");
+  }
   if (handoff) {
     const reason = describeBoxHandoff(handoff);
     return { status: "awaiting-approval", reason, cards, handoff };
@@ -258,15 +378,23 @@ export function evaluateDoneRule({
   const [card] = cards;
   if (card)
     return { status: "awaiting-approval", reason: cardReason(card), cards };
-  const final = turn.tail.filter(isFinalCandidate).at(-1);
+  const final =
+    turn.tail.filter(isFinalCandidate).at(-1) ??
+    turn.tail.filter(isFinishedMedia).at(-1);
   if (!final || isStreaming(final)) return running("awaiting-final-reply");
   const replies = turn.rows.filter((e): e is ReplyEntry => e.kind === "reply");
   if (turn.sharedReason !== undefined) {
     const blobHash = final.kind === "blob" ? final.blobHash : undefined;
+    const marker =
+      final.kind === "blob"
+        ? blobReplyMarker(final.blobHash)
+        : final.reply.type === "text"
+          ? undefined
+          : mediaReplyMarker(final.reply);
     return {
       status: "ambiguous",
       reason: turn.sharedReason,
-      replyText: sharedReplyText(turn.rows, blobHash),
+      replyText: sharedReplyText(turn.rows, marker),
       replies,
       ...(blobHash !== undefined && { blobHash }),
     };
@@ -278,6 +406,13 @@ export function evaluateDoneRule({
       finalReply: blobReplyMarker(blobHash),
       replies,
       blobHash,
+    };
+  }
+  if (final.reply.type !== "text") {
+    return {
+      status: "done",
+      finalReply: mediaReplyMarker(final.reply),
+      replies,
     };
   }
   const finalReply = roomReplyText(replies) ?? final.reply.content;

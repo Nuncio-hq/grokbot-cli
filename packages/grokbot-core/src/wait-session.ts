@@ -2,6 +2,7 @@ import {
   IDLE_STATUS,
   type LiveStatus,
   parseAgentStatusesResponse,
+  type TurnSettlement,
 } from "./agent-status.js";
 import type { JsonObject, ServerTransport } from "./contracts.js";
 import { readDelegationTargets } from "./delegation-reads.js";
@@ -12,8 +13,9 @@ import type {
 } from "./delegations.js";
 import {
   type DoneVerdict,
-  evaluateDoneRule,
   type ReplyEntry,
+  reportTurn,
+  type TurnReport,
 } from "./done-rule.js";
 import type { FetchLike } from "./server-transport.js";
 import { asJsonObject, parseSeq, type TranscriptEntry } from "./transcript.js";
@@ -38,7 +40,7 @@ export interface WaitJob {
   readonly busyAtSend?: BusyAtSend;
 }
 
-export interface WaitSessionConfig {
+interface WaitSessionConfig {
   readonly server: ServerTransport;
   readonly job: WaitJob;
   readonly signal: AbortSignal;
@@ -52,8 +54,11 @@ export interface WaitSessionConfig {
   readonly now?: () => number;
 }
 
-/** Reuse a successful subagent list only while it is younger than this. */
+/** A successful subagent list is reused at least this long, and always when it carries no lease. */
 const SUBAGENT_READ_MIN_MS = 5_000;
+
+/** A leased list is reused until its earliest lease, but never longer than this. */
+const SUBAGENT_READ_MAX_MS = 60_000;
 
 /** While a delegation to another bot is open, read that bot again this often. */
 const DELEGATE_POLL_MS = 5_000;
@@ -65,23 +70,50 @@ function readMs(value: unknown): number | undefined {
   return undefined;
 }
 
+/** What one ListGrokBotSubagents body tells the wait. */
+interface SubagentList {
+  /** `startedAtMs` of each running subagent. */
+  readonly startedAtMs: readonly number[];
+  /**
+   * The earliest `freshUntilMs` among the subagents that carry a lease (above 0), in
+   * epoch ms. Undefined when none does: 0 or an absent field means no lease.
+   */
+  readonly leaseEndsAtMs: number | undefined;
+}
+
 /**
- * Start times from ListGrokBotSubagents. Undefined when the body is not a list,
- * so the Done Rule keeps waiting. An empty object means none are running.
+ * The running subagents from ListGrokBotSubagents. Undefined when the body is not a
+ * list, so the Done Rule keeps waiting. An empty object means none are running.
+ * A lease that is not a number is ignored: the list is still good.
  */
-function parseSubagentStartedAtMs(raw: unknown): readonly number[] | undefined {
+function parseSubagentList(raw: unknown): SubagentList | undefined {
   const body = asJsonObject(raw);
   if (!body) return undefined;
-  if (body.subagents === undefined) return [];
+  if (body.subagents === undefined)
+    return { startedAtMs: [], leaseEndsAtMs: undefined };
   if (!Array.isArray(body.subagents)) return undefined;
-  const times: number[] = [];
+  const startedAtMs: number[] = [];
+  let leaseEndsAtMs: number | undefined;
   for (const item of body.subagents) {
     const row: JsonObject | undefined = asJsonObject(item);
     const started = row && readMs(row.startedAtMs);
-    if (started === undefined) return undefined;
-    times.push(started);
+    if (row === undefined || started === undefined) return undefined;
+    startedAtMs.push(started);
+    const lease = readMs(row.freshUntilMs);
+    if (lease !== undefined && lease > 0)
+      leaseEndsAtMs =
+        leaseEndsAtMs === undefined ? lease : Math.min(leaseEndsAtMs, lease);
   }
-  return times;
+  return { startedAtMs, leaseEndsAtMs };
+}
+
+/** How long a list read at `now` may be reused: until its earliest lease, within the bounds. */
+function reuseWindowMs(leaseEndsAtMs: number | undefined, now: number): number {
+  if (leaseEndsAtMs === undefined) return SUBAGENT_READ_MIN_MS;
+  return Math.min(
+    SUBAGENT_READ_MAX_MS,
+    Math.max(SUBAGENT_READ_MIN_MS, leaseEndsAtMs - now),
+  );
 }
 
 /** What one wait knows about its agent: rows above the baseline, the latest status, read blobs. */
@@ -95,10 +127,19 @@ export class WaitSession {
    * off, the list was not read, or the read failed.
    */
   #subagentStartedAtMs: readonly number[] | undefined;
-  /** `now()` of the last successful list. Undefined when there is nothing to reuse. */
-  #subagentListedAtMs: number | undefined;
+  /**
+   * `now()` until which the last successful list is reused. Undefined when there is
+   * nothing to reuse.
+   */
+  #subagentReuseUntilMs: number | undefined;
+  /** True when the last successful list carried a lease, so it is read again when it runs out. */
+  #subagentLeased = false;
   /** Set while the previous status had `hasRunningSubagents`, so a rising edge reads at once. */
   #subagentsWereRunning = false;
+  /** `startedAtMs` of every subagent a list read showed since the wait began, finished ones included. */
+  readonly #subagentsSeen = new Set<number>();
+  /** A list read failed while subagents ran, so when they started is unknown. */
+  #subagentStartUnknown = false;
   /** True when the current status read the list, so a finish does not need another read. */
   #subagentReadForStatus = false;
   /** Reads of the bots our bot delegated to (see delegations.ts); empty when none are followed. */
@@ -111,6 +152,10 @@ export class WaitSession {
   #changes = 0;
   /** The `#changes` value the last delegate read started at. */
   #delegatesAtChange = -1;
+  /** Every settlement seen on a status of this bot, by turnId: the server clears it when the next run starts. */
+  readonly #settlements = new Map<string, TurnSettlement>();
+  /** What the last `settle()` found about the server's settlement of the turn. */
+  #report: TurnReport | undefined;
   #needsBacklog = true;
 
   constructor(config: WaitSessionConfig) {
@@ -184,15 +229,46 @@ export class WaitSession {
   /**
    * Stores a live status from a status read or a stream frame. While subagents
    * run, also reads when each one started. A rising edge reads at once; otherwise
-   * a successful list is reused for `SUBAGENT_READ_MIN_MS`. A failed read leaves
-   * that list unknown and is not reused. A reused list is read again before a
-   * verdict other than running.
+   * a successful list is reused until its earliest lease (`freshUntilMs`), at least
+   * `SUBAGENT_READ_MIN_MS` and at most `SUBAGENT_READ_MAX_MS`, or for
+   * `SUBAGENT_READ_MIN_MS` when it has no lease. A failed read leaves that list
+   * unknown and is not reused. A reused list is read again before a verdict other
+   * than running.
    */
   async recordStatus(status: LiveStatus): Promise<void> {
     this.status = status;
+    const seen = status.lastTurnSettlement;
+    if (
+      seen &&
+      seen.settledAtMs >= (this.#settlements.get(seen.turnId)?.settledAtMs ?? 0)
+    )
+      this.#settlements.set(seen.turnId, seen);
     this.#changes++;
     await this.#readSubagentStarts();
     await this.confirmSubagentList();
+  }
+
+  /** `now()` when a leased list runs out and must be read again; undefined when none waits. */
+  get subagentsDueAtMs(): number | undefined {
+    return this.status.hasRunningSubagents && this.#subagentLeased
+      ? this.#subagentReuseUntilMs
+      : undefined;
+  }
+
+  /** The list of a lease-bearing read has run out, with no status update to trigger the read. */
+  subagentsDue(): boolean {
+    const due = this.subagentsDueAtMs;
+    return due !== undefined && this.#now() >= due;
+  }
+
+  /**
+   * Reads the list again when a lease has run out, so a subagent that finished or
+   * whose lease lapsed stops holding the wait without the next status update. A
+   * failed read leaves the list unknown, as after a status update.
+   */
+  async syncSubagents(): Promise<void> {
+    if (!this.subagentsDue()) return;
+    await this.#fetchSubagentStarts(this.#now());
   }
 
   #now(): number {
@@ -201,8 +277,7 @@ export class WaitSession {
 
   async #readSubagentStarts(): Promise<void> {
     if (!this.status.hasRunningSubagents) {
-      this.#subagentStartedAtMs = undefined;
-      this.#subagentListedAtMs = undefined;
+      this.#clearSubagentList();
       this.#subagentsWereRunning = false;
       this.#subagentReadForStatus = true;
       return;
@@ -210,19 +285,21 @@ export class WaitSession {
     const now = this.#now();
     const rising = !this.#subagentsWereRunning;
     this.#subagentsWereRunning = true;
-    const listedAt = this.#subagentListedAtMs;
-    if (
-      !rising &&
-      listedAt !== undefined &&
-      now - listedAt < SUBAGENT_READ_MIN_MS
-    ) {
+    const reuseUntil = this.#subagentReuseUntilMs;
+    if (!rising && reuseUntil !== undefined && now < reuseUntil) {
       this.#subagentReadForStatus = false;
       return;
     }
     await this.#fetchSubagentStarts(now);
   }
 
-  /** Reads the list, bypassing the throttle. A failed read stays unknown. */
+  #clearSubagentList(): void {
+    this.#subagentStartedAtMs = undefined;
+    this.#subagentReuseUntilMs = undefined;
+    this.#subagentLeased = false;
+  }
+
+  /** Reads the list, bypassing the reuse window. A failed read stays unknown. */
   async #fetchSubagentStarts(now: number): Promise<void> {
     const { server, signal } = this.#config;
     try {
@@ -234,13 +311,21 @@ export class WaitSession {
         ),
         signal,
       );
-      const started = parseSubagentStartedAtMs(raw);
-      this.#subagentStartedAtMs = started;
-      this.#subagentListedAtMs = started === undefined ? undefined : now;
+      const list = parseSubagentList(raw);
+      if (list === undefined) {
+        this.#clearSubagentList();
+        this.#subagentStartUnknown = true;
+      } else {
+        this.#subagentStartedAtMs = list.startedAtMs;
+        for (const start of list.startedAtMs) this.#subagentsSeen.add(start);
+        this.#subagentReuseUntilMs =
+          now + reuseWindowMs(list.leaseEndsAtMs, now);
+        this.#subagentLeased = list.leaseEndsAtMs !== undefined;
+      }
     } catch (error) {
       if (signal.aborted || isFatal(error)) throw error;
-      this.#subagentStartedAtMs = undefined;
-      this.#subagentListedAtMs = undefined;
+      this.#clearSubagentList();
+      this.#subagentStartUnknown = true;
     }
     this.#subagentReadForStatus = true;
   }
@@ -252,7 +337,7 @@ export class WaitSession {
    */
   async confirmSubagentList(): Promise<void> {
     if (!this.status.hasRunningSubagents || this.#subagentReadForStatus) return;
-    if (this.#evaluate().status === "running") return;
+    if (this.#evaluate().verdict.status === "running") return;
     await this.#fetchSubagentStarts(this.#now());
   }
 
@@ -264,15 +349,20 @@ export class WaitSession {
       );
   }
 
-  #evaluate(): DoneVerdict {
+  #evaluate(): TurnReport {
     const { sentMessageId, busyAtSend } = this.#config.job;
     const { status } = this;
     const subagentStartedAtMs = this.#subagentStartedAtMs;
     const delegations = this.#delegationContext();
-    return evaluateDoneRule({
+    return reportTurn({
       entries: this.#entries(),
       sentMessageId,
       status,
+      settlements: this.#settlements.values(),
+      subagentsSeen: {
+        startedAtMs: [...this.#subagentsSeen],
+        unknownStart: this.#subagentStartUnknown,
+      },
       ...(busyAtSend && { busyAtSend }),
       ...(status.hasRunningSubagents &&
         subagentStartedAtMs !== undefined && { subagentStartedAtMs }),
@@ -379,15 +469,32 @@ export class WaitSession {
    */
   async confirmDelegates(): Promise<void> {
     if (!this.#delegatesStale()) return;
-    if (this.#evaluate().status === "running") return;
+    if (this.#evaluate().verdict.status === "running") return;
     await this.syncDelegates(true);
   }
 
   /** Evaluates the Done Rule; a running verdict is reported at once, others only by finish. */
   settle(): DoneVerdict {
-    const verdict = this.#evaluate();
+    this.#report = this.#evaluate();
+    const { verdict } = this.#report;
     if (verdict.status === "running") this.#config.report(verdict);
     return verdict;
+  }
+
+  /**
+   * As of the last `settle()`: the server settled the turn's latest run, so a verdict
+   * other than running needs no quiet window (the caller still reads the rows again).
+   */
+  get settled(): boolean {
+    return this.#report?.settled ?? false;
+  }
+
+  /**
+   * As of the last `settle()`: the error or cancellation the server ended the turn with
+   * while no reply answers it. Only set with a running, awaiting-final-reply verdict.
+   */
+  get failure(): TurnSettlement | undefined {
+    return this.#report?.failure;
   }
 
   /**

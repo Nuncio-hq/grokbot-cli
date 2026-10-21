@@ -8,6 +8,7 @@ import {
 } from "./command-catalog.js";
 import { commandJsonSchema, parseCommandInput } from "./command-input.js";
 import {
+  BACKGROUND_COMPOSER_METHOD_SAFETY,
   DASHBOARD_METHOD_SAFETY,
   GATEWAY_METHOD_SAFETY,
 } from "./method-safety.js";
@@ -187,6 +188,9 @@ describe("catalog against docs/grokbot-tools-and-api.json", () => {
     ...command.methods.map((m) => safetyOf.get(m)),
     ...(command.gatewayMethods ?? []).map((m) => GATEWAY_METHOD_SAFETY[m]),
     ...(command.dashboardMethods ?? []).map((m) => DASHBOARD_METHOD_SAFETY[m]),
+    ...(command.composerMethods ?? []).map(
+      (m) => BACKGROUND_COMPOSER_METHOD_SAFETY[m],
+    ),
     ...(command.firesWebhook ? ["writes"] : []),
   ];
 

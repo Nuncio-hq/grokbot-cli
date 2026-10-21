@@ -1,5 +1,6 @@
 import type { ServerTransport } from "./contracts.js";
 import type { ReplyEntry } from "./done-rule.js";
+import { proxyFetch } from "./network-fetch.js";
 import type { FetchLike } from "./server-transport.js";
 import {
   asJsonObject,
@@ -31,7 +32,7 @@ function presignedUrl(raw: unknown, relPath: string): string | undefined {
   return undefined;
 }
 
-export interface BlobReadOptions {
+interface BlobReadOptions {
   readonly server: ServerTransport;
   readonly signal: AbortSignal;
   readonly fetch?: FetchLike;
@@ -44,7 +45,7 @@ export interface BlobReadOptions {
  */
 export async function readBlobReply(
   blob: BlobEntry,
-  { server, signal, fetch = globalThis.fetch }: BlobReadOptions,
+  { server, signal, fetch = proxyFetch }: BlobReadOptions,
 ): Promise<ReplyEntry | undefined> {
   const relPath = `blobs/${blob.blobHash}`;
   try {

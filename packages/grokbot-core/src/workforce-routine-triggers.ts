@@ -1,8 +1,8 @@
 import { GrokBotError, type JsonObject } from "./contracts.js";
 import { readInputFile } from "./workforce-handler-helpers.js";
 
-/** GitHub events a `github` trigger can name (Grok Bot 0.71.2). */
-export const GITHUB_EVENTS = [
+/** GitHub events a `github` trigger can name (Grok Bot 0.71.2, unchanged in 0.72.0). */
+const GITHUB_EVENTS = [
   "pr-opened",
   "pr-pushed",
   "pr-merged",
@@ -21,7 +21,7 @@ export const GITHUB_EVENTS = [
 ] as const;
 
 /** The trigger flags `routines-create` and `routines-update` share. */
-export interface TriggerFlags {
+interface TriggerFlags {
   readonly cron?: string;
   readonly webhook?: boolean;
   readonly email?: string;

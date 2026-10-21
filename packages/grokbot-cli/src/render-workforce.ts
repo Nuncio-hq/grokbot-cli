@@ -28,6 +28,18 @@ const pushed = (
     exists: `The Box-wide (all bots) skill library already has ${it}; its content could not be compared, so nothing was imported. Add --replace --yes to import this file over it.\n`,
   };
 };
+const SIZE_UNITS = ["B", "KB", "MB", "GB"] as const;
+/** `1536` -> `1.5 KB`; whole bytes below 1 KB. */
+const size = (bytes: number) => {
+  const unit = Math.min(
+    Math.floor(Math.log2(Math.max(bytes, 1)) / 10),
+    SIZE_UNITS.length - 1,
+  );
+  const value = bytes / 1024 ** unit;
+  return `${unit === 0 || value >= 10 ? Math.round(value) : value.toFixed(1)} ${SIZE_UNITS[unit]}`;
+};
+const filesNote = (team: CommandOutputs["files"]["team"]) =>
+  `Team files: ${size(team.totalBytes)} used; you ${team.canEdit ? "can" : "cannot"} edit them.${team.complete ? "" : " The team listing is cut short; more files exist."}\n`;
 
 export const WORKFORCE_RENDERERS: HumanRenderers<WorkforceCommandName> = {
   hire: ({ agent, folder, result }) =>
@@ -77,6 +89,25 @@ export const WORKFORCE_RENDERERS: HumanRenderers<WorkforceCommandName> = {
     plain(
       `Started skill ${skill.name} (${skill.id}) from ${LIBRARY} on ${agent.name}.\n`,
     ),
+  files: ({ agent, files, team }) =>
+    plain(
+      files.length === 0
+        ? `${agent.name} has no files.\n`
+        : `Files of ${agent.name}:\n${table(
+            ["SECTION", "NAME", "PATH", "SIZE", "UPDATED"],
+            files.map((f) => [
+              f.section,
+              f.name,
+              f.path,
+              size(f.sizeBytes),
+              f.updatedAt ?? "-",
+            ]),
+          )}${filesNote(team)}`,
+    ),
+  "files-remove": ({ agent, file }) =>
+    plain(
+      `Removed ${file.section} file ${file.path} from ${agent.name}; it can no longer read it.\n`,
+    ),
   "routines-list": ({ agent, routines }) =>
     plain(
       routines.length === 0
@@ -111,10 +142,6 @@ export const WORKFORCE_RENDERERS: HumanRenderers<WorkforceCommandName> = {
       changed.length === 0
         ? `Routine ${routine.name} (${routine.automationId}) already has those values; nothing changed.\n`
         : routineLine(`Changed ${changed.join(", ")} of`, routine, agent),
-    ),
-  "routines-run": ({ agent, routine }) =>
-    plain(
-      `Started routine ${routine.name} (${routine.automationId}) on ${agent.name}.\n`,
     ),
   "routines-webhook-key": ({ agent, routine, url, keychainItem, result }) =>
     plain(

@@ -19,6 +19,16 @@ export {
   resolveAgent,
 } from "./agents.js";
 export {
+  compareVersions,
+  INSTALLED_APP_PATH,
+  isNewerVersion,
+  isVersion,
+  parseBundleVersion,
+  parseCatalogAppVersion,
+  readBundleVersion,
+  readInstalledAppVersion,
+} from "./app-version.js";
+export {
   type CredentialStore,
   credentialStore,
   type TokenPairStore,
@@ -115,11 +125,14 @@ export {
   readGrokBotAccessToken,
 } from "./keychain-token.js";
 export {
+  assertBackgroundComposerMethodAllowed,
   assertGatewayMethodAllowed,
   assertMethodAllowed,
+  BACKGROUND_COMPOSER_METHOD_SAFETY,
   GATEWAY_METHOD_SAFETY,
   type MethodSafety,
 } from "./method-safety.js";
+export { CATALOG_APP_VERSION } from "./method-safety-table.js";
 export { readPrimaryAgentId } from "./primary-agent.js";
 export {
   type MatchedRoute,
@@ -144,6 +157,17 @@ export {
   type ProtectedRole,
   protectedBotsStore,
 } from "./protected-bots-store.js";
+export {
+  describeProxy,
+  type ProxyConfig,
+  resolveProxy,
+} from "./proxy-config.js";
+export type {
+  PlaceSummary,
+  ProductSummary,
+  ReplyCard,
+} from "./reply-cards.js";
+export { describeReply } from "./reply-summary.js";
 export {
   createServerTransport,
   type FetchLike,

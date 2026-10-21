@@ -32,6 +32,10 @@ export const WORKFORCE_OVERRIDES: McpOverrides<WorkforceCommandName> = {
     hiddenParams: [MANAGED, FORCE],
   },
   "skills-run": { hiddenParams: [MANAGED] },
+  "files-remove": {
+    note: "Removes one file: your private file, or a team file when you may edit the team files",
+    hiddenParams: [FORCE],
+  },
   "routines-enable": { hiddenParams: [FORCE] },
   "routines-disable": { hiddenParams: [FORCE] },
   "routines-delete": { hiddenParams: [FORCE] },
@@ -88,6 +92,16 @@ export const WORKFORCE_SUMMARIES: ToolSummaries<WorkforceCommandName> = {
     `Removed skill ${skill.name} (${skill.id}) from the Box-wide (all bots) skill library, through ${agent.name}; ${plural(remaining, "skill", "skills")} left.`,
   "skills-run": ({ agent, skill }) =>
     `Started skill ${skill.name} (${skill.id}) from the Box-wide (all bots) skill library on ${agent.name}.`,
+  files: ({ agent, files, team }) =>
+    [
+      `${agent.name} has ${plural(files.length, "file", "files")}${team.canEdit ? " (you can edit the team files)" : ""}${team.complete ? "" : "; the team listing is cut short"}:`,
+      ...files.map(
+        (f) =>
+          `- ${f.section}: ${f.path} (${f.sizeBytes} bytes${f.updatedAt ? `, updated ${f.updatedAt}` : ""})`,
+      ),
+    ].join("\n"),
+  "files-remove": ({ agent, file }) =>
+    `Removed ${file.section} file ${file.path} from ${agent.name}.`,
   "routines-list": ({ agent, routines }) =>
     [
       `${agent.name} has ${plural(routines.length, "routine", "routines")}:`,
@@ -105,8 +119,6 @@ export const WORKFORCE_SUMMARIES: ToolSummaries<WorkforceCommandName> = {
     changed.length === 0
       ? `${agent.name}'s routine ${routine.name} already had those values; nothing changed.`
       : `Changed ${changed.join(", ")} of ${agent.name}'s routine ${routineText(routine)}.`,
-  "routines-run": ({ agent, routine }) =>
-    `Started ${agent.name}'s routine ${routine.name} (${routine.automationId}).`,
   "routines-webhook-key": ({ routine, url, result }) =>
     `${result === "exists" ? "Already had" : result === "minted" ? "Minted" : "Minted an additional"} webhook key for ${routine.name} in the Keychain${result === "replaced" ? "; earlier keys stay valid until the routine is deleted" : ""}. URL: ${url}`,
   "routines-fire": ({ agent, routine, status, reply }) =>

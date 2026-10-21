@@ -1,3 +1,4 @@
+import type { TurnSettlement } from "./agent-status.js";
 import { GrokBotError, type JsonObject } from "./contracts.js";
 import { asJsonObject } from "./transcript.js";
 
@@ -24,6 +25,17 @@ function failureReason(raw: JsonObject): string {
       /\d/.test(run) && /[a-z]/i.test(run) ? "[redacted]" : run,
     )
     .slice(0, REASON_MAX_CHARS);
+}
+
+/**
+ * The payload turnFailedError reads for a turn the server settled with an error or a
+ * cancellation: the error code and domain it reported, or `cancelled`.
+ */
+export function settlementFailure(settlement: TurnSettlement): JsonObject {
+  if (settlement.outcome === "cancelled") return { message: "cancelled" };
+  const { errorCode, errorDomain } = settlement;
+  const parts = ["error", errorCode, errorDomain && `(${errorDomain})`];
+  return { message: parts.filter(Boolean).join(" ") };
 }
 
 export function turnFailedError(

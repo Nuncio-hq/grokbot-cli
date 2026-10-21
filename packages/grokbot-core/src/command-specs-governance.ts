@@ -181,6 +181,69 @@ export const GOVERNANCE_COMMANDS = {
     methods: ["IssueGrokBotUserComputerCredential"],
     params: { name: WORKER_NAME, yes: YES_PARAM, json: JSON_PARAM },
   },
+  "cloud-agents": {
+    // The list is the first frame of the app's own update stream; the stream is closed
+    // after it. --agent reads each agent's launch watchers: the bot that started a cloud
+    // agent holds a LAUNCH watch on it (an agent's triggeredPrincipal is the account's
+    // user, never the bot).
+    summary: "List the account's Cursor cloud agents, newest activity first",
+    safety: "read-only",
+    methods: [AGENTS, "GetGrokBotCloudAgentWatchers"],
+    composerMethods: ["StreamBackgroundComposerUpdates"],
+    params: {
+      limit: {
+        type: "integer",
+        description: "Number of cloud agents to list",
+        default: 20,
+        minimum: 1,
+        alias: "n",
+      },
+      agent: {
+        type: "string",
+        description:
+          "Only the cloud agents this bot launched (name, slug, or agentId); default: every cloud agent on the account",
+      },
+      json: JSON_PARAM,
+    },
+  },
+  "cloud-agent": {
+    summary:
+      "Show one Cursor cloud agent: status, repo, pull request, and its last messages",
+    safety: "read-only",
+    methods: [],
+    composerMethods: [
+      "GetBackgroundComposerInfo",
+      "GetBackgroundComposerConversation",
+      "StreamBackgroundComposerUpdates",
+    ],
+    params: {
+      bcId: {
+        type: "string",
+        description: "Cloud agent id, bc-… (from grokbot cloud-agents)",
+        required: true,
+        position: 0,
+      },
+      messages: {
+        type: "integer",
+        description: "Number of recent messages to show (0: none)",
+        default: 10,
+        minimum: 0,
+      },
+      wait: {
+        type: "boolean",
+        description:
+          "Follow the agent until it stops running (exit 0), needs you (exit 3) or --timeout passes (exit 4)",
+        default: false,
+      },
+      timeout: {
+        type: "integer",
+        description: "With --wait: seconds to follow before giving up",
+        default: 600,
+        minimum: 1,
+      },
+      json: JSON_PARAM,
+    },
+  },
 } as const satisfies Record<string, CommandSpec>;
 
 export type GovernanceCommandName = keyof typeof GOVERNANCE_COMMANDS;

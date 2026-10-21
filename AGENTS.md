@@ -13,13 +13,14 @@
 | `packages/grokbot-cli/skills/grokbot/SKILL.md` | Agent skill shipped in the CLI package, for any agent runtime; its command table is generated (`bun run gen:skill`) and a test fails on drift |
 | `grokbot` | Legacy Python stdlib CLI prototype (kept for the owner; agents use the TS CLI) |
 | `docs/index.html` | Visual source of truth (decisions, roadmap, verified facts, rules, log) |
-| `docs/grokbot-tools-and-api.json` | Canonical data for 130 bot tools & 313 RPC methods (`python3 docs/build-reference.py` generates `docs/reference.html`) |
+| `docs/grokbot-tools-and-api.json` | Canonical data for 148 bot tools & 338 RPC methods (`python3 docs/build-reference.py` generates `docs/reference.html`) |
 
 ## One-way Dependencies & Verification Gate
 
 - **Dependency rule**: `packages/grokbot-cli` and `packages/grokbot-mcp` depend on `packages/grokbot-core`, never the reverse. Tool definitions live once in `packages/grokbot-core`.
 - **Single verify gate**: Run `bun run verify` (Biome lint/format check, TypeScript `tsc -b`, Vitest unit tests, `docs/reference.html` sync check, and package build).
-- **Live smoke check**: Run `bun packages/grokbot-cli/src/cli.ts agents` (read-only, runs from source with no build) to verify auth. Only run `bun packages/grokbot-cli/src/cli.ts ask "ping" --agent f882ec52-17b1-4639-b0fc-07fed7526b09 --timeout 120` when changing live message-send or stream-wait code, to avoid spamming `Primary Test`.
+- **Live smoke check**: Run `bun packages/grokbot-cli/src/cli.ts agents` (read-only) to verify auth. The CLI imports `grokbot-core` from its `dist`, so run `bun run typecheck` or `bun run build` first after core changes. Only run `bun packages/grokbot-cli/src/cli.ts ask "ping" --agent f882ec52-17b1-4639-b0fc-07fed7526b09 --timeout 120` when changing live message-send or stream-wait code, to avoid spamming `Primary Test`.
+- **After a GrokBot app update**: run `bun run check:app` (versions only) and `bun run check:app --diff` (downloads the catalog's version of the app and diffs schema, tools, Box Gateway and gates; `--current latest` uses the update feed instead of the installed app), then update `docs/grokbot-tools-and-api.json` for every gap it lists. The weekly `App watch` workflow (`.github/workflows/app-watch.yml`) runs the same check and opens one `app-update` issue per newer version.
 
 ## Hard Rules (Full list in `docs/index.html#rules`)
 

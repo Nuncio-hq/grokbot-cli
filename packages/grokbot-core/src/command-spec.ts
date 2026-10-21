@@ -1,5 +1,6 @@
 import { GrokBotError } from "./contracts.js";
 import type {
+  BACKGROUND_COMPOSER_METHOD_SAFETY,
   DASHBOARD_METHOD_SAFETY,
   GATEWAY_METHOD_SAFETY,
 } from "./method-safety.js";
@@ -67,6 +68,8 @@ interface SpecFields {
   readonly gatewayMethods?: readonly (keyof typeof GATEWAY_METHOD_SAFETY)[];
   /** aiserver.v1.DashboardService methods the command calls. */
   readonly dashboardMethods?: readonly (keyof typeof DASHBOARD_METHOD_SAFETY)[];
+  /** aiserver.v1.BackgroundComposerService (Cursor cloud agent) methods the command calls. */
+  readonly composerMethods?: readonly (keyof typeof BACKGROUND_COMPOSER_METHOD_SAFETY)[];
   /** The command POSTs to a routine's webhook, which counts as `writes`. */
   readonly firesWebhook?: true;
 }

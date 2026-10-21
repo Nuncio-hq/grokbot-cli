@@ -35,6 +35,7 @@ function fakeAuth(
       source: "cli",
       expiresAt: Date.UTC(2026, 11, 12),
     }),
+    appVersions: async () => ({ installed: "0.72.0", catalog: "0.72.0" }),
     openUrl: async () => {},
     readStdin: async () => "",
     renderQr: () => "[QR]\n",
@@ -50,9 +51,8 @@ describe("grokbot login (browser)", () => {
     expect(run.stderr).toContain(URL_);
     expect(run.stderr).toContain("[QR]");
     expect(run.stderr).toContain("Finish signing in");
-    expect(run.stdout).toBe(
-      "Signed in. grokbot now uses its own sign-in (saved in the macOS Keychain).\n",
-    );
+    expect(run.stdout).toContain("Signed in");
+    expect(run.stdout).toContain("Keychain");
     expect(auth.rec.browser).toStrictEqual([{ openBrowser: true }]);
   });
 
@@ -200,7 +200,7 @@ describe("grokbot whoami", () => {
   it("names the CLI sign-in and its expiry, never the token", async () => {
     const run = await runCli(["whoami"], { auth: fakeAuth() });
     expect(run.code).toBe(0);
-    expect(run.stdout).toBe(
+    expect(run.stdout).toContain(
       "Using grokbot's own sign-in (macOS Keychain), valid until 2026-12-12T00:00:00.000Z.\n",
     );
   });
@@ -211,7 +211,7 @@ describe("grokbot whoami", () => {
         describe: async () => ({ source: "cli", keychainAccess: "prompt" }),
       }),
     });
-    expect(run.stdout).toBe(
+    expect(run.stdout).toContain(
       "Using grokbot's own sign-in (macOS Keychain, prompt access).\n",
     );
   });
@@ -220,7 +220,7 @@ describe("grokbot whoami", () => {
     const run = await runCli(["whoami"], {
       auth: fakeAuth({ describe: async () => ({ source: "app" }) }),
     });
-    expect(run.stdout).toBe("Using the Grok Bot desktop app's login.\n");
+    expect(run.stdout).toContain("Using the Grok Bot desktop app's login.\n");
   });
 
   it("exits 1 when nothing is signed in", async () => {
@@ -228,8 +228,127 @@ describe("grokbot whoami", () => {
       auth: fakeAuth({ describe: async () => ({ source: "none" }) }),
     });
     expect(run.code).toBe(1);
-    expect(JSON.parse(run.stdout)).toStrictEqual({ source: "none" });
+    expect(JSON.parse(run.stdout)).toMatchObject({ source: "none" });
     expect(run.stderr).toBe("Not signed in. Run grokbot login.\n");
+  });
+
+  describe("proxy", () => {
+    const proxied = (env: Record<string, string>, json = false) =>
+      runCli(["whoami", ...(json ? ["--json"] : [])], {
+        auth: fakeAuth(),
+        env,
+      });
+
+    it("prints no proxy line and null JSON when none is configured", async () => {
+      const text = await proxied({});
+      expect(text.stdout).not.toContain("Proxy:");
+      expect(JSON.parse((await proxied({}, true)).stdout).proxy).toBeNull();
+    });
+
+    it("names the proxy and where it came from, never its credentials", async () => {
+      const env = { HTTPS_PROXY: "http://user:hunter2@proxy.example:3128" };
+      const text = await proxied(env);
+      expect(text.stdout).toContain(
+        "Proxy: http://proxy.example:3128 (from HTTPS_PROXY)\n",
+      );
+      const json = await proxied(env, true);
+      expect(JSON.parse(json.stdout).proxy).toEqual({
+        url: "http://proxy.example:3128",
+        source: "HTTPS_PROXY",
+      });
+      expect(text.stdout + json.stdout + text.stderr).not.toMatch(
+        /user|hunter2/,
+      );
+    });
+
+    it("prefers GROKBOT_HTTPS_PROXY, and shows nothing when it is off or the backend is exempt", async () => {
+      const both = await proxied(
+        {
+          GROKBOT_HTTPS_PROXY: "http://own.example:1",
+          HTTPS_PROXY: "http://std.example:2",
+        },
+        true,
+      );
+      expect(JSON.parse(both.stdout).proxy).toEqual({
+        url: "http://own.example:1",
+        source: "GROKBOT_HTTPS_PROXY",
+      });
+      const off = await proxied(
+        { GROKBOT_HTTPS_PROXY: "off", HTTPS_PROXY: "http://std.example:2" },
+        true,
+      );
+      expect(JSON.parse(off.stdout).proxy).toBeNull();
+      const exempt = await proxied(
+        { HTTPS_PROXY: "http://std.example:2", NO_PROXY: "cursor.sh" },
+        true,
+      );
+      expect(JSON.parse(exempt.stdout).proxy).toBeNull();
+    });
+  });
+
+  describe("Grok Bot app version", () => {
+    const versions = (installed: string | undefined, catalog = "0.72.0") =>
+      fakeAuth({ appVersions: async () => ({ installed, catalog }) });
+
+    it.each([
+      ["newer", "0.73.0", true],
+      ["the same", "0.72.0", false],
+      ["older", "0.71.2", false],
+    ])(
+      "warns only when the installed app is newer (%s)",
+      async (_, installed, warns) => {
+        const run = await runCli(["whoami"], { auth: versions(installed) });
+        expect(run.code).toBe(0);
+        expect(run.stdout).toContain(installed);
+        expect(run.stdout).toContain("0.72.0");
+        expect(/warning/i.test(run.stdout)).toBe(warns);
+        expect(run.stderr).toBe("");
+      },
+    );
+
+    it("reports installed, catalog and newer in --json", async () => {
+      const run = await runCli(["whoami", "--json"], {
+        auth: versions("0.73.0"),
+      });
+      expect(JSON.parse(run.stdout).app).toStrictEqual({
+        installed: "0.73.0",
+        catalog: "0.72.0",
+        newer: true,
+      });
+    });
+
+    it("never fails, and never warns, when the app is not installed", async () => {
+      const text = await runCli(["whoami"], { auth: versions(undefined) });
+      expect(text.code).toBe(0);
+      expect(/warning/i.test(text.stdout)).toBe(false);
+      const json = await runCli(["whoami", "--json"], {
+        auth: versions(undefined),
+      });
+      expect(json.code).toBe(0);
+      expect(JSON.parse(json.stdout).app).toStrictEqual({
+        installed: null,
+        catalog: "0.72.0",
+        newer: false,
+      });
+    });
+
+    it("does not warn about a version it cannot compare", async () => {
+      const run = await runCli(["whoami", "--json"], {
+        auth: versions("nightly"),
+      });
+      expect(JSON.parse(run.stdout).app.newer).toBe(false);
+    });
+
+    it("still exits 1 when signed out, and still reports the app", async () => {
+      const run = await runCli(["whoami", "--json"], {
+        auth: fakeAuth({
+          describe: async () => ({ source: "none" }),
+          appVersions: async () => ({ installed: "0.73.0", catalog: "0.72.0" }),
+        }),
+      });
+      expect(run.code).toBe(1);
+      expect(JSON.parse(run.stdout).app.newer).toBe(true);
+    });
   });
 });
 

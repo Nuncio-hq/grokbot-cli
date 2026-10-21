@@ -18,6 +18,8 @@ grokbot login      # or keep the Grok Bot desktop app signed in; grokbot uses it
 grokbot agents     # lists your bots: you are connected
 ```
 
+On a network that needs a proxy, set `GROKBOT_HTTPS_PROXY=http://host:port` (or the usual `HTTPS_PROXY`) before running `grokbot`.
+
 ## Set it up with your agent
 
 Run this once and paste what it prints into your agent runtime:

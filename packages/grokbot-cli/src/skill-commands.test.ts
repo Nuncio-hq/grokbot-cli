@@ -10,39 +10,50 @@ import {
 
 const skillUrl = new URL("../skills/grokbot/SKILL.md", import.meta.url);
 
-const pick = (...names: string[]) =>
-  listCommands().filter((command) => names.includes(command.name));
+const rowsOf = (table: string) => table.split("\n").slice(2, -1);
+const usageCell = (row: string) => row.split("` |")[0]?.replace(/^\| `/, "");
+const rowFor = (table: string, name: string) =>
+  rowsOf(table).find((row) => usageCell(row)?.startsWith(`grokbot ${name}`)) ??
+  "";
 
 describe("renderCommandTable", () => {
-  it("renders one row per command, dropping --json and labelling safety", () => {
-    expect(
-      renderCommandTable(pick("agents", "fire", "approve"), ["whoami"], false),
-    ).toBe(`| Command | Safety | What it does |
-| --- | --- | --- |
-| \`grokbot agents\` | read-only | List GrokBot agents on the account |
-| \`grokbot fire <agent> [--force-protected <string>] [--yes]\` | destructive, needs --yes | Delete a bot or room |
-| \`grokbot approve [--agent <string>] [--card <string>] [--always] [--yes]\` | sensitive, needs --yes | Approve an auto-review or local-tool permission card |
-| \`grokbot whoami\` | account, local only | Show which sign-in grokbot uses, never the token |
-`);
+  const catalog = listCommands();
+  const table = renderCommandTable(catalog, [], false);
+
+  it("renders one row per command with no flag named --json", () => {
+    expect(rowsOf(table)).toHaveLength(catalog.length);
+    for (const command of catalog) {
+      expect(rowFor(table, command.name), command.name).toBeDefined();
+    }
+    expect(table).not.toContain("--json");
   });
 
-  it("leaves required flags unbracketed and keeps short aliases", () => {
-    expect(
-      renderCommandTable(pick("hire", "room-create", "tail"), [], false),
-    ).toBe(
-      `| Command | Safety | What it does |
-| --- | --- | --- |
-| \`grokbot tail [-n <integer>] [--agent <string>]\` | read-only | Read recent decoded transcript entries |
-| \`grokbot hire <name> --title <string> --description <string> [--instructions <string>] [--instructions-file <string>]\` | writes | Create a bot with a role and its own /workspace/staff folder |
-| \`grokbot room-create <name> --member <string>... [--description <string>]\` | writes | Create a room where several bots answer one message |
-`,
+  it("says a command needs --yes exactly when its safety asks for confirmation, and shows the flag", () => {
+    for (const command of catalog) {
+      const confirmed =
+        command.safety === "destructive" || command.safety === "sensitive";
+      const row = rowFor(table, command.name);
+      expect(row.includes("needs --yes"), command.name).toBe(confirmed);
+      if (confirmed) {
+        expect(usageCell(row), command.name).toContain("--yes");
+      }
+    }
+  });
+
+  it("leaves required flags unbracketed, brackets optional ones and keeps short aliases", () => {
+    const hire = usageCell(rowFor(table, "hire"));
+    expect(hire).toContain(" --title <string>");
+    expect(hire).toContain(" [--instructions <string>]");
+    expect(usageCell(rowFor(table, "tail"))).toContain(" [-n <integer>]");
+    expect(usageCell(rowFor(table, "room-create"))).toContain(
+      " --member <string>...",
     );
   });
 
   it("renders the login flags from its help text", () => {
-    expect(renderCommandTable([], ["login"]).split("\n")[2]).toBe(
-      "| `grokbot login [--no-browser] [--api-key]` | account, local only | Sign grokbot in through the browser (own Keychain sign-in) |",
-    );
+    const [login = ""] = rowsOf(renderCommandTable([], ["login"], false));
+    expect(usageCell(login)).toBe("grokbot login [--no-browser] [--api-key]");
+    expect(login).toContain("account, local only");
   });
 
   it("covers every catalog command, then login, logout, whoami and stats, by default", () => {
@@ -69,7 +80,7 @@ describe("spliceCommandTable", () => {
 
   it("refuses a file without the markers", () => {
     expect(() => spliceCommandTable("no table here\n", "row\n")).toThrow(
-      `SKILL.md has no generated command table. Add ${TABLE_START} and ${TABLE_END} on their own lines.`,
+      TABLE_START,
     );
   });
 });

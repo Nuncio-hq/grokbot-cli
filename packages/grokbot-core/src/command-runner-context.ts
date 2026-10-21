@@ -40,6 +40,10 @@ export interface RunnerContext extends JobContext {
   readonly gateway: GatewayTransport;
   /** aiserver.v1.DashboardService, for minting routine webhook keys. */
   readonly dashboard: Pick<ServerTransport, "call">;
+  /** aiserver.v1.BackgroundComposerService, for reading Cursor cloud agents. */
+  readonly composer: ServerTransport;
+  /** Epoch ms now. */
+  now(): number;
   readonly webhookKeys: WebhookKeyStore;
   readonly fireWebhook: WebhookFirer;
   fetchAgents(signal?: AbortSignal): Promise<readonly Agent[]>;
@@ -120,6 +124,10 @@ export function createRunnerContext(
     dashboard:
       options.dashboard ??
       createServerTransport({ getToken, service: "DashboardService" }),
+    composer:
+      options.composer ??
+      createServerTransport({ getToken, service: "BackgroundComposerService" }),
+    now: options.now ?? Date.now,
     webhookKeys: options.webhookKeys ?? webhookKeyStore(),
     fireWebhook: options.fireWebhook ?? createWebhookFirer(),
     fetchAgents,

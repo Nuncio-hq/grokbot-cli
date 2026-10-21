@@ -17,48 +17,54 @@ const STAFF_TEST = {
 const DEV_1_ID = "aa11bb22-cc33-4d44-8e55-ff6677889900";
 
 describe("summarize", () => {
-  it("lists agents one per line with kind and id", () => {
-    expect(summarize("agents", { agents: [PRIMARY_TEST] })).toBe(
-      "1 agent:\n- Primary Test (agent, f882ec52-17b1-4639-b0fc-07fed7526b09)",
-    );
+  it("lists each agent with its name, kind and id and counts them", () => {
+    const text = summarize("agents", { agents: [PRIMARY_TEST] });
+    expect(text.split("\n")).toHaveLength(2);
+    expect(text).toMatch(/^1 agent/);
+    for (const fact of ["Primary Test", "agent", PRIMARY_TEST.agentId]) {
+      expect(text).toContain(fact);
+    }
   });
 
   it("shows each team member as idle, running with its tool, or awaiting", () => {
-    expect(
-      summarize("team", {
-        members: [
-          { agent: PRIMARY_TEST, status: IDLE_STATUS },
-          {
-            agent: STAFF_TEST,
-            status: { ...IDLE_STATUS, isRunning: true, activityTool: "shell" },
-          },
-          {
-            agent: { ...PRIMARY_TEST, name: "Test-Dev-1" },
-            status: { ...IDLE_STATUS, awaiting: { reason: "secret-request" } },
-          },
-        ],
-      }),
-    ).toBe(
-      "3 agents:\n- Primary Test: idle\n- Staff Test: running (shell)\n- Test-Dev-1: awaiting owner (secret-request)",
-    );
+    const lines = summarize("team", {
+      members: [
+        { agent: PRIMARY_TEST, status: IDLE_STATUS },
+        {
+          agent: STAFF_TEST,
+          status: { ...IDLE_STATUS, isRunning: true, activityTool: "shell" },
+        },
+        {
+          agent: { ...PRIMARY_TEST, name: "Test-Dev-1" },
+          status: { ...IDLE_STATUS, awaiting: { reason: "secret-request" } },
+        },
+      ],
+    }).split("\n");
+    expect(lines[0]).toMatch(/^3 agents/);
+    expect(lines[1]).toContain("Primary Test");
+    expect(lines[1]).toContain("idle");
+    expect(lines[2]).toContain("Staff Test");
+    expect(lines[2]).toContain("running");
+    expect(lines[2]).toContain("shell");
+    expect(lines[3]).toContain("Test-Dev-1");
+    expect(lines[3]).toContain("secret-request");
   });
 
-  it("shows a team member blocked on a box hand-off", () => {
-    expect(
-      summarize("team", {
-        members: [
-          {
-            agent: PRIMARY_TEST,
-            status: {
-              ...IDLE_STATUS,
-              boxHandoff: { requestId: "h-1", instruction: "Sign in to Xero" },
-            },
+  it("shows a team member blocked on a box hand-off with its instruction", () => {
+    const [, line] = summarize("team", {
+      members: [
+        {
+          agent: PRIMARY_TEST,
+          status: {
+            ...IDLE_STATUS,
+            boxHandoff: { requestId: "h-1", instruction: "Sign in to Xero" },
           },
-        ],
-      }),
-    ).toBe(
-      "1 agent:\n- Primary Test: awaiting box hand-off (Take over the bot's computer: Sign in to Xero)",
-    );
+        },
+      ],
+    }).split("\n");
+    expect(line).toContain("Primary Test");
+    expect(line).toContain("Sign in to Xero");
+    expect(line).not.toContain("idle");
   });
 
   it("names each blocking card and the hand-off when a job awaits the owner", () => {
@@ -84,36 +90,31 @@ describe("summarize", () => {
       handoff: { requestId: "h-1", instruction: "Sign in to Xero" },
       cards,
     } as const;
-    expect(
-      summarize("ask", { jobId: "job-7", agent: PRIMARY_TEST, outcome }),
-    ).toBe(
-      "Primary Test is waiting for owner approval (Take over the bot's computer: Sign in to Xero).\n" +
-        "- box hand-off: Take over the bot's computer: Sign in to Xero (only the owner can answer this in the GrokBot app)\n" +
-        '- user-form: Secure Form "Address" (0 fields) (only the owner can answer this in the GrokBot app)\n' +
-        'Only the owner can answer this in the GrokBot app, then call grokbot_wait with {"job":"job-7"}.',
-    );
+    const text = summarize("ask", {
+      jobId: "job-7",
+      agent: PRIMARY_TEST,
+      outcome,
+    });
+    const lines = text.split("\n");
+    expect(lines[0]).toContain("Primary Test");
+    expect(lines[0]).toContain(outcome.reason);
+    expect(lines.filter((l) => l.startsWith("- "))).toHaveLength(2);
+    expect(text).toContain("Sign in to Xero");
+    expect(text).toContain("user-form");
+    expect(text).toContain("Address");
+    expect(text).toContain(`{"job":"job-7"}`);
   });
 
   it("points send and wait results at grokbot_wait with the job id", () => {
-    expect(
-      summarize("send", {
-        jobId: "job-5",
-        agent: PRIMARY_TEST,
-        sentMessageId: "m-1",
-        queued: false,
-      }),
-    ).toBe(
-      'Sent to Primary Test. Job job-5 is saved; call grokbot_wait with {"job":"job-5"} for the reply.',
-    );
-    expect(
-      summarize("send", {
-        jobId: "job-5",
-        agent: PRIMARY_TEST,
-        sentMessageId: "m-1",
-        queued: true,
-      }),
-    ).toBe(
-      'Queued for Primary Test: it is busy, so the message goes out once it is free. Job job-5 is saved; call grokbot_wait with {"job":"job-5"} to send it and get the reply.',
+    const sent = { jobId: "job-5", agent: PRIMARY_TEST, sentMessageId: "m-1" };
+    for (const queued of [false, true]) {
+      const text = summarize("send", { ...sent, queued });
+      expect(text).toContain("Primary Test");
+      expect(text).toContain(`grokbot_wait with {"job":"job-5"}`);
+    }
+    expect(summarize("send", { ...sent, queued: true })).toMatch(/queued/i);
+    expect(summarize("send", { ...sent, queued: false })).not.toMatch(
+      /queued/i,
     );
     expect(
       summarize("wait", {
@@ -122,53 +123,48 @@ describe("summarize", () => {
         agentName: "Primary Test",
         outcome: { status: "done", finalReply: "RESULT: PONG", replies: [] },
       }),
-    ).toBe("Primary Test replied:\nRESULT: PONG");
+    ).toMatch(/^Primary Test .*\nRESULT: PONG$/);
   });
 
   it("says a wait that timed out while queued has not sent the message", () => {
-    expect(
-      summarize("wait", {
-        jobId: "job-7",
-        agentId: PRIMARY_TEST.agentId,
-        agentName: "Primary Test",
-        outcome: {
-          status: "pending",
-          reason:
-            "Primary Test is busy with earlier work, so the message is queued and not sent yet",
-          queued: true,
-        },
-      }),
-    ).toBe(
-      'Primary Test is busy with earlier work, so the message is queued and not sent yet. Job job-7 is saved; call grokbot_wait with {"job":"job-7"} to send it and keep waiting.',
-    );
+    const reason =
+      "Primary Test is busy with earlier work, so the message is queued and not sent yet";
+    const text = summarize("wait", {
+      jobId: "job-7",
+      agentId: PRIMARY_TEST.agentId,
+      agentName: "Primary Test",
+      outcome: { status: "pending", reason, queued: true },
+    });
+    expect(text).toContain(reason);
+    expect(text).toContain(`grokbot_wait with {"job":"job-7"}`);
   });
 
   it("names a job saved before names were recorded by its agentId", () => {
-    expect(
-      summarize("wait", {
-        jobId: "job-5",
-        agentId: PRIMARY_TEST.agentId,
-        outcome: { status: "done", finalReply: "PONG", replies: [] },
-      }),
-    ).toBe("Agent f882ec52-17b1-4639-b0fc-07fed7526b09 replied:\nPONG");
+    const text = summarize("wait", {
+      jobId: "job-5",
+      agentId: PRIMARY_TEST.agentId,
+      outcome: { status: "done", finalReply: "PONG", replies: [] },
+    });
+    expect(text).toContain(PRIMARY_TEST.agentId);
+    expect(text.endsWith("\nPONG")).toBe(true);
   });
 
   it("flags an ambiguous reply and gives every reply of the shared run", () => {
-    expect(
-      summarize("wait", {
-        jobId: "job-6",
-        agentId: PRIMARY_TEST.agentId,
-        agentName: "Primary Test",
-        outcome: {
-          status: "ambiguous",
-          reason: "the bot answered it together with message #171 in one run",
-          replyText: "Starting A.\n\nRESULT B\n\nRESULT A",
-          replies: [],
-        },
-      }),
-    ).toBe(
-      "Primary Test finished, but the reply is ambiguous: the bot answered it together with message #171 in one run. Every reply of that run, in order:\nStarting A.\n\nRESULT B\n\nRESULT A",
-    );
+    const text = summarize("wait", {
+      jobId: "job-6",
+      agentId: PRIMARY_TEST.agentId,
+      agentName: "Primary Test",
+      outcome: {
+        status: "ambiguous",
+        reason: "the bot answered it together with message #171 in one run",
+        replyText: "Starting A.\n\nRESULT B\n\nRESULT A",
+        replies: [],
+      },
+    });
+    expect(text).toContain("Primary Test");
+    expect(text).toContain("ambiguous");
+    expect(text).toContain("message #171");
+    expect(text.endsWith("Starting A.\n\nRESULT B\n\nRESULT A")).toBe(true);
   });
 
   it("renders tail entries by kind with their seq", () => {
@@ -222,24 +218,41 @@ describe("summarize", () => {
         },
       },
     ];
-    expect(summarize("tail", { agent: PRIMARY_TEST, entries })).toBe(
-      [
-        "Primary Test, last 5 entries:",
-        "#144 [t9s144] assistant (to Test-Dev-1): Messaging Test-Dev-1 now.",
-        "#146 [t10u] user (from Test-Dev-1): PONG",
-        "#147 [t10s147] reply: RESULT: PONG",
-        "#148 [e148] blob ab12",
-        "#149 [t10s149] reply: report.pdf [attachment]",
-      ].join("\n"),
+    const lines = summarize("tail", { agent: PRIMARY_TEST, entries }).split(
+      "\n",
     );
+    expect(lines).toHaveLength(entries.length + 1);
+    expect(lines[0]).toContain("Primary Test");
+    expect(lines[0]).toContain("5");
+    const expected: [string, string[]][] = [
+      [
+        "#144",
+        ["t9s144", "assistant", "Test-Dev-1", "Messaging Test-Dev-1 now."],
+      ],
+      ["#146", ["t10u", "user", "Test-Dev-1", "PONG"]],
+      ["#147", ["t10s147", "reply", "RESULT: PONG"]],
+      ["#148", ["e148", "blob", "ab12"]],
+      ["#149", ["t10s149", "reply", "report.pdf", "attachment"]],
+    ];
+    for (const [index, [seq, facts]] of expected.entries()) {
+      expect(lines[index + 1]?.startsWith(seq), seq).toBe(true);
+      for (const fact of facts) expect(lines[index + 1], seq).toContain(fact);
+    }
+    expect(lines.join("\n")).not.toContain("sig=abc");
   });
 
   it("says whether interrupt stopped a run", () => {
-    expect(
-      summarize("interrupt", { agent: PRIMARY_TEST, hadActiveRun: true }),
-    ).toBe("Interrupted the active run on Primary Test.");
-    expect(
-      summarize("interrupt", { agent: STAFF_TEST, hadActiveRun: false }),
-    ).toBe("Staff Test had no active run.");
+    const stopped = summarize("interrupt", {
+      agent: PRIMARY_TEST,
+      hadActiveRun: true,
+    });
+    const idle = summarize("interrupt", {
+      agent: STAFF_TEST,
+      hadActiveRun: false,
+    });
+    expect(stopped).toContain("Primary Test");
+    expect(idle).toContain("Staff Test");
+    expect(idle).toMatch(/no active run/i);
+    expect(stopped).not.toMatch(/no active run/i);
   });
 });

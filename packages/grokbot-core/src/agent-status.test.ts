@@ -130,3 +130,106 @@ describe("isActive", () => {
     ).toEqual([false, true, true, true, true]);
   });
 });
+
+describe("lastTurnSettlement", () => {
+  const RUN = "7d3f1c52-9a0e-4b7e-8d55-2f1c3a4b5c6d";
+  const settlementOf = (value: unknown) =>
+    parseLiveStatus({ lastTurnSettlement: value }).lastTurnSettlement;
+
+  it("reads the turn, outcome and time of a finished run, the time as int64 text or number", () => {
+    expect([
+      settlementOf({
+        turnId: RUN,
+        outcome: "success",
+        settledAtMs: "1791948600123",
+      }),
+      settlementOf({ turnId: RUN, outcome: "cancelled", settledAtMs: 42 }),
+    ]).toEqual([
+      { turnId: RUN, outcome: "success", settledAtMs: 1_791_948_600_123 },
+      { turnId: RUN, outcome: "cancelled", settledAtMs: 42 },
+    ]);
+  });
+
+  it("reads the nonce and the error fields of a failed run", () => {
+    expect(
+      settlementOf({
+        turnId: RUN,
+        outcome: "error",
+        settledAtMs: "5",
+        clientNonce: "m-1",
+        errorCode: "RATE_LIMITED",
+        errorDomain: "agent",
+        errorRetryable: true,
+      }),
+    ).toEqual({
+      turnId: RUN,
+      outcome: "error",
+      settledAtMs: 5,
+      clientNonce: "m-1",
+      errorCode: "RATE_LIMITED",
+      errorDomain: "agent",
+      errorRetryable: true,
+    });
+  });
+
+  it("keeps an outcome it does not know, or none, as unknown", () => {
+    expect([
+      settlementOf({ turnId: RUN, outcome: "paused", settledAtMs: "5" })
+        ?.outcome,
+      settlementOf({ turnId: RUN, settledAtMs: "5" })?.outcome,
+    ]).toEqual(["unknown", "unknown"]);
+  });
+
+  it("is absent when the field is missing or cannot be read, and never throws", () => {
+    const bad = [
+      undefined,
+      null,
+      "success",
+      7,
+      [],
+      {},
+      { outcome: "success", settledAtMs: "5" },
+      { turnId: "", outcome: "success", settledAtMs: "5" },
+      { turnId: RUN, outcome: "success" },
+      { turnId: RUN, outcome: "success", settledAtMs: "soon" },
+      { turnId: RUN, outcome: "success", settledAtMs: -1 },
+      { turnId: RUN, outcome: "success", settledAtMs: 1.5 },
+      { turnId: 12, outcome: "success", settledAtMs: "5" },
+    ];
+    for (const value of bad) {
+      const status = parseLiveStatus({
+        isRunning: true,
+        lastTurnSettlement: value,
+      });
+      expect(status).toEqual({ ...IDLE_STATUS, isRunning: true });
+      expect("lastTurnSettlement" in status).toBe(false);
+    }
+    expect("lastTurnSettlement" in parseLiveStatus({})).toBe(false);
+  });
+
+  it("is carried by a status read and by an agentState frame", () => {
+    const lastTurnSettlement = {
+      turnId: RUN,
+      outcome: "success",
+      settledAtMs: "9",
+    };
+    const expected = { turnId: RUN, outcome: "success", settledAtMs: 9 };
+    const read = parseAgentStatusesResponse({
+      statuses: [{ agentId: A, live: { lastTurnSettlement } }],
+    });
+    const frame = parseAgentStatePayload({
+      live: [{ agentId: A, lastTurnSettlement }],
+    });
+    expect([
+      read.get(A)?.lastTurnSettlement,
+      frame.statuses.get(A)?.lastTurnSettlement,
+    ]).toEqual([expected, expected]);
+  });
+
+  it("does not make the bot active", () => {
+    const status = parseLiveStatus({
+      lastTurnSettlement: { turnId: RUN, outcome: "error", settledAtMs: "9" },
+    });
+    expect(isActive(status)).toBe(false);
+  });
+});

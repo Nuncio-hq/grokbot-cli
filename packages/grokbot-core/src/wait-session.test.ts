@@ -245,3 +245,224 @@ describe("review probe: a subagent started for this turn inside the 5s window", 
     expect(wait.settle()).toMatchObject({ status: "running" });
   });
 });
+
+describe("WaitSession reuses a subagent list until its lease runs out", () => {
+  const START = T + 1_000;
+
+  function leasedList(...leases: unknown[]) {
+    return {
+      subagents: leases.map((freshUntilMs, i) => ({
+        subagentId: `s${i}`,
+        startedAtMs: T + 500,
+        ...(freshUntilMs !== undefined && { freshUntilMs }),
+      })),
+    };
+  }
+
+  /** Records a running status at each offset and returns the reads after each one. */
+  async function readsAt(
+    list: unknown,
+    offsetsMs: readonly number[],
+  ): Promise<number[]> {
+    let now = START;
+    const { server, log } = fakeServer({
+      calls: { ListGrokBotSubagents: [list] },
+    });
+    const wait = session(server, undefined, () => now);
+    await wait.recordStatus(RUNNING);
+    const reads = [subagentReads(log)];
+    for (const offset of offsetsMs) {
+      now = START + offset;
+      await wait.recordStatus(RUNNING);
+      reads.push(subagentReads(log));
+    }
+    return reads;
+  }
+
+  it("does not read before a lease that is longer than 5s", async () => {
+    const list = leasedList(String(START + 30_000));
+    expect(await readsAt(list, [5_000, 29_999, 30_000])).toEqual([1, 1, 1, 2]);
+  });
+
+  it("reads a lease sent as a number the same as one sent as a digit string", async () => {
+    const list = leasedList(START + 30_000);
+    expect(await readsAt(list, [29_999, 30_000])).toEqual([1, 1, 2]);
+  });
+
+  it("waits for the earliest lease among the subagents, ignoring ones without a lease", async () => {
+    const list = leasedList(
+      String(START + 40_000),
+      "0",
+      String(START + 20_000),
+    );
+    expect(await readsAt(list, [19_999, 20_000])).toEqual([1, 1, 2]);
+  });
+
+  it("never reuses a list for longer than 60s", async () => {
+    const list = leasedList(String(START + 600_000));
+    expect(await readsAt(list, [59_999, 60_000])).toEqual([1, 1, 2]);
+  });
+
+  it.each([
+    ["in the past", String(START - 20_000)],
+    ["closer than 5s", String(START + 1_000)],
+  ])("reads at most every 5s when the lease is %s", async (_name, lease) => {
+    const list = leasedList(lease);
+    expect(await readsAt(list, [4_999, 5_000])).toEqual([1, 1, 2]);
+  });
+
+  it.each([
+    ["absent", undefined],
+    ["0", "0"],
+    ["zero", 0],
+    ["not a number", "soon"],
+  ])("keeps the 5s reuse when the lease is %s", async (_name, lease) => {
+    const list = leasedList(lease);
+    expect(await readsAt(list, [4_999, 5_000])).toEqual([1, 1, 2]);
+  });
+
+  it("reads at once on a rising edge even while the last list is leased", async () => {
+    let now = START;
+    const { server, log } = fakeServer({
+      calls: { ListGrokBotSubagents: [leasedList(String(START + 30_000))] },
+    });
+    const wait = session(server, undefined, () => now);
+    await wait.recordStatus(RUNNING);
+    now += 100;
+    await wait.recordStatus(IDLE_STATUS);
+    now += 100;
+    await wait.recordStatus(RUNNING);
+    expect(subagentReads(log)).toBe(2);
+  });
+
+  it("still reads a reused leased list again before a verdict other than running", async () => {
+    let now = START;
+    let reads = 0;
+    const lease = String(START + 30_000);
+    const { server } = fakeServer({
+      calls: {
+        ListGrokBotSubagents: () => {
+          reads += 1;
+          const old = {
+            subagentId: "old",
+            startedAtMs: T - 60_000,
+            freshUntilMs: lease,
+          };
+          const mine = {
+            subagentId: "mine",
+            startedAtMs: T + 1_000,
+            freshUntilMs: lease,
+          };
+          return { subagents: reads === 1 ? [old] : [old, mine] };
+        },
+        ListGrokBotTranscriptEntries: [{ entries: [echo, reply] }],
+      },
+    });
+    const wait = session(server, undefined, () => now);
+    await wait.recordStatus(RUNNING);
+    now += 2_000;
+    await wait.recordStatus(RUNNING);
+    await wait.readRows();
+    expect(reads).toBe(2);
+    expect(wait.settle()).toMatchObject({ status: "running" });
+  });
+
+  describe("without a status update", () => {
+    function leasedWait(lists: readonly unknown[] | (() => unknown)) {
+      const clock = { now: START };
+      const { server, log } = fakeServer({
+        calls: {
+          ListGrokBotSubagents: lists,
+          ListGrokBotTranscriptEntries: [{ entries: [echo, reply] }],
+        },
+      });
+      const wait = session(server, undefined, () => clock.now);
+      return { wait, clock, log };
+    }
+
+    it("is not due before the lease and reads nothing then", async () => {
+      const { wait, clock, log } = leasedWait([
+        leasedList(String(START + 30_000)),
+      ]);
+      await wait.recordStatus(RUNNING);
+      clock.now = START + 29_999;
+      expect(wait.subagentsDue()).toBe(false);
+      await wait.syncSubagents();
+      expect(subagentReads(log)).toBe(1);
+    });
+
+    it("reads at the lease and stops holding the turn once the subagent is gone", async () => {
+      const { wait, clock, log } = leasedWait([
+        leasedList(String(START + 30_000)),
+        {},
+      ]);
+      await wait.recordStatus(RUNNING);
+      await wait.readRows();
+      expect(wait.settle()).toMatchObject({
+        status: "running",
+        reason: "subagents-active",
+      });
+      expect(wait.subagentsDueAtMs).toBe(START + 30_000);
+      clock.now = START + 30_000;
+      expect(wait.subagentsDue()).toBe(true);
+      await wait.syncSubagents();
+      expect(subagentReads(log)).toBe(2);
+      expect(wait.settle()).toMatchObject({
+        status: "done",
+        finalReply: "PONG",
+      });
+    });
+
+    it("keeps holding the turn when the subagent is still listed, with a new lease", async () => {
+      const { wait, clock } = leasedWait([
+        leasedList(String(START + 30_000)),
+        leasedList(String(START + 90_000)),
+      ]);
+      await wait.recordStatus(RUNNING);
+      await wait.readRows();
+      clock.now = START + 30_000;
+      await wait.syncSubagents();
+      expect(wait.settle()).toMatchObject({ status: "running" });
+      expect(wait.subagentsDue()).toBe(false);
+      expect(wait.subagentsDueAtMs).toBe(START + 90_000);
+    });
+
+    it("has no due time for a list without a lease or once the flag is off", async () => {
+      const { wait } = leasedWait([leasedList(undefined)]);
+      await wait.recordStatus(RUNNING);
+      expect(wait.subagentsDueAtMs).toBeUndefined();
+      const leased = leasedWait([leasedList(String(START + 30_000))]);
+      await leased.wait.recordStatus(RUNNING);
+      expect(leased.wait.subagentsDueAtMs).toBeDefined();
+      await leased.wait.recordStatus(IDLE_STATUS);
+      expect(leased.wait.subagentsDueAtMs).toBeUndefined();
+    });
+
+    it("leaves the list unknown and not due when the read at the lease fails", async () => {
+      let fail = false;
+      const { wait, clock, log } = leasedWait(() => {
+        if (fail) {
+          fail = false;
+          throw new GrokBotError(
+            "http",
+            "ListGrokBotSubagents failed with HTTP 502",
+          );
+        }
+        fail = true;
+        return leasedList(String(START + 30_000));
+      });
+      await wait.recordStatus(RUNNING);
+      await wait.readRows();
+      clock.now = START + 30_000;
+      await wait.syncSubagents();
+      expect(subagentReads(log)).toBe(2);
+      expect(wait.subagentsDue()).toBe(false);
+      expect(wait.settle()).toMatchObject({
+        status: "running",
+        reason: "subagents-active",
+      });
+      await wait.recordStatus(RUNNING);
+      expect(subagentReads(log)).toBe(3);
+    });
+  });
+});

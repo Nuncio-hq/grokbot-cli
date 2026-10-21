@@ -178,6 +178,73 @@ describe("workforce commands on the CLI", () => {
     });
   });
 
+  it("files shows both sections with human sizes, and files-remove parses its positional path and --section", async () => {
+    const team = { totalBytes: 2048, canEdit: true, complete: true };
+    const brief = {
+      section: "team" as const,
+      name: "brief.md",
+      path: "files/brief.md",
+      sizeBytes: 2048,
+      updatedAt: "2026-10-19T08:00:00.000Z",
+    };
+    const mine = {
+      section: "only-you" as const,
+      name: "todo.txt",
+      path: "notes/todo.txt",
+      sizeBytes: 10,
+      updatedAt: null,
+    };
+    const list = await runCli(["files", "Primary Test"], {
+      outputs: { files: { agent: PRIMARY, files: [brief, mine], team } },
+    });
+    const empty = await runCli(["files", "Primary Test"], {
+      outputs: { files: { agent: PRIMARY, files: [], team } },
+    });
+    const cut = await runCli(["files", "Primary Test"], {
+      outputs: {
+        files: {
+          agent: PRIMARY,
+          files: [brief],
+          team: { ...team, canEdit: false, complete: false },
+        },
+      },
+    });
+    const removed = await runCli(
+      [
+        "files-remove",
+        "Primary Test",
+        "notes/todo.txt",
+        "--section",
+        "only-you",
+        "--yes",
+      ],
+      { outputs: { "files-remove": { agent: PRIMARY, file: mine } } },
+    );
+    expect([
+      list.stdout,
+      empty.stdout,
+      cut.stdout.split("\n").at(-2),
+      removed.calls[0]?.input,
+      removed.stdout,
+    ]).toEqual([
+      "Files of Primary Test:\n" +
+        "SECTION   NAME      PATH            SIZE    UPDATED\n" +
+        "team      brief.md  files/brief.md  2.0 KB  2026-10-19T08:00:00.000Z\n" +
+        "only-you  todo.txt  notes/todo.txt  10 B    -\n" +
+        "Team files: 2.0 KB used; you can edit them.\n",
+      "Primary Test has no files.\n",
+      "Team files: 2.0 KB used; you cannot edit them. The team listing is cut short; more files exist.",
+      {
+        agent: "Primary Test",
+        path: "notes/todo.txt",
+        section: "only-you",
+        yes: true,
+        json: false,
+      },
+      "Removed only-you file notes/todo.txt from Primary Test; it can no longer read it.\n",
+    ]);
+  });
+
   it("routines-list and routines-disable show state and next run", async () => {
     const list = await runCli(["routines-list", "Primary Test"], {
       outputs: { "routines-list": { agent: PRIMARY, routines: [ROUTINE] } },

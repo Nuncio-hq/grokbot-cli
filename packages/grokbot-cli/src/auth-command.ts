@@ -1,7 +1,11 @@
-import type {
-  BrowserLoginOptions,
-  LoginResult,
-  SignInInfo,
+import {
+  type BrowserLoginOptions,
+  describeProxy,
+  GROKBOT_BACKEND,
+  isNewerVersion,
+  type LoginResult,
+  resolveProxy,
+  type SignInInfo,
 } from "grokbot-core";
 import { EXIT_CODE } from "./exit-codes.js";
 import type { TextSink } from "./main.js";
@@ -30,9 +34,16 @@ export interface AuthDeps {
   /** True when a saved sign-in was removed. */
   clear(): Promise<boolean>;
   describe(): Promise<SignInInfo>;
+  /** The installed Grok Bot desktop app's version (undefined when absent) and the version grokbot's catalog was checked against. */
+  appVersions(): Promise<AppVersions>;
   openUrl(url: string): Promise<void>;
   readStdin(): Promise<string>;
   renderQr(url: string): string;
+}
+
+export interface AppVersions {
+  readonly installed: string | undefined;
+  readonly catalog: string;
 }
 
 const LOGIN_FLAGS = ["--no-browser", "--api-key", "--json"] as const;
@@ -68,6 +79,11 @@ export const AUTH_HELP: { readonly [N in AuthCommandName]: string } = {
     AUTH_COMMANDS.whoami,
     "",
     "Usage: grokbot whoami [--json]",
+    "",
+    "The Grok Bot app line gives the installed desktop app's version and the version",
+    "grokbot's tool and method catalog was checked against. When the installed app is",
+    "newer, whoami warns that it may have features grokbot has no command for yet. A",
+    "missing app is not an error; --json carries app: {installed, catalog, newer}.",
     "",
     "Exits 1 when neither grokbot nor the Grok Bot app is signed in.",
     "",
@@ -192,17 +208,38 @@ async function logout(flags: Flags, ctx: AuthContext): Promise<number> {
 }
 
 async function whoami(flags: Flags, ctx: AuthContext): Promise<number> {
+  // Whether the proxy settings apply to the backend: the one line a proxied user needs to see.
+  const active = resolveProxy(GROKBOT_BACKEND, ctx.env);
+  const proxy = active ? describeProxy(active) : null;
   const info = await ctx.deps.describe();
+  const { installed, catalog } = await ctx.deps.appVersions();
+  const app = {
+    installed: installed ?? null,
+    catalog,
+    newer: installed !== undefined && isNewerVersion(installed, catalog),
+  };
   ctx.stdout.write(
     flags.json
-      ? `${JSON.stringify(info, null, 2)}\n`
-      : `${describeSignIn(info)}\n`,
+      ? `${JSON.stringify({ ...info, app, proxy }, null, 2)}\n`
+      : `${describeSignIn(info)}\n${describeApp(app)}\n${proxy ? `Proxy: ${proxy.url} (from ${proxy.source})\n` : ""}`,
   );
   if (info.source === "none") {
     ctx.stderr.write("Not signed in. Run grokbot login.\n");
     return EXIT_CODE.failure;
   }
   return EXIT_CODE.ok;
+}
+
+/** The `Grok Bot app:` line of `whoami`, with a plain warning when the installed app is newer than the catalog. */
+function describeApp(app: {
+  readonly installed: string | null;
+  readonly catalog: string;
+  readonly newer: boolean;
+}): string {
+  const line = `Grok Bot app: ${app.installed ?? "not found"}, grokbot's catalog was checked against ${app.catalog}.`;
+  return app.newer
+    ? `${line}\nWarning: the installed app is newer than grokbot's catalog, so it may have features grokbot has no command for yet.`
+    : line;
 }
 
 function describeSignIn(info: SignInInfo): string {

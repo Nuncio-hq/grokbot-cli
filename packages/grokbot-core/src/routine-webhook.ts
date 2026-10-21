@@ -1,4 +1,5 @@
 import type { JsonObject } from "./contracts.js";
+import { proxyFetch } from "./network-fetch.js";
 import { BACKEND_URL, type FetchLike, postText } from "./server-transport.js";
 
 const FIRE_TIMEOUT_MS = 30_000;
@@ -21,7 +22,7 @@ export type WebhookFirer = (
 ) => Promise<{ readonly status: number; readonly reply: unknown }>;
 
 export function createWebhookFirer(
-  fetch: FetchLike = (url, init) => globalThis.fetch(url, init),
+  fetch: FetchLike = proxyFetch,
 ): WebhookFirer {
   return async (url, key, body, signal) => {
     const { status, text } = await postText(

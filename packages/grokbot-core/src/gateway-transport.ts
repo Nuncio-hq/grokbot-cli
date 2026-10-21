@@ -6,9 +6,10 @@ import {
   type ServerTransport,
 } from "./contracts.js";
 import { assertGatewayMethodAllowed } from "./method-safety.js";
+import { proxyFetch } from "./network-fetch.js";
 import { type FetchLike, postJson } from "./server-transport.js";
 
-export interface GatewayTransportOptions {
+interface GatewayTransportOptions {
   readonly server: ServerTransport;
   readonly fetch?: FetchLike;
 }
@@ -22,7 +23,7 @@ interface GatewaySession {
 
 export function createGatewayTransport({
   server,
-  fetch = (url, init) => globalThis.fetch(url, init),
+  fetch = proxyFetch,
 }: GatewayTransportOptions): GatewayTransport {
   let session: Promise<GatewaySession> | undefined;
   const ensure = (): Promise<GatewaySession> => {

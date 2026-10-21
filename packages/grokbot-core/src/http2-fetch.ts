@@ -4,7 +4,8 @@ import {
   constants,
   type IncomingHttpHeaders,
 } from "node:http2";
-import { pipeline, Readable } from "node:stream";
+import { type Duplex, pipeline, Readable } from "node:stream";
+import type { ConnectionOptions } from "node:tls";
 import {
   createBrotliDecompress,
   createGunzip,
@@ -13,13 +14,20 @@ import {
 } from "node:zlib";
 import type { FetchLike } from "./server-transport.js";
 
-export interface Http2FetchOptions {
+interface Http2FetchOptions {
   /** A connect plus TLS handshake slower than this fails. Default 10 s, as undici. */
   readonly connectTimeoutMs?: number;
   /** A response silent this long fails, so a dead Watch stream reconnects. Default 300 s, as undici. */
   readonly silenceTimeoutMs?: number;
   /** An unused connection closes after this, so a call never lands on one that died. Default 4 s, as undici. */
   readonly idleCloseMs?: number;
+  /**
+   * Opens the byte stream HTTP/2 runs on, for an origin that must not be dialed directly
+   * (a proxy tunnel). Return undefined to dial directly. May throw or reject: the call fails.
+   */
+  readonly openSocket?: (origin: URL) => Promise<Duplex> | undefined;
+  /** Extra trusted certificate authorities for direct connections, on top of the default store. */
+  readonly ca?: ConnectionOptions["ca"];
 }
 
 interface Connection {
@@ -28,7 +36,7 @@ interface Connection {
   idle?: ReturnType<typeof setTimeout>;
 }
 
-const NULL_BODY_STATUSES = new Set([101, 204, 205, 304]);
+export const NULL_BODY_STATUSES = new Set([101, 204, 205, 304]);
 /**
  * Receive window per stream and per connection. HTTP/2's default 64 KB makes a few
  * transcript pages read together wait one round trip per 64 KB for window updates.
@@ -44,16 +52,17 @@ export function createHttp2Fetch({
   connectTimeoutMs = 10_000,
   silenceTimeoutMs = 300_000,
   idleCloseMs = 4_000,
+  openSocket,
+  ca,
 }: Http2FetchOptions = {}): FetchLike {
-  const pool = new Map<string, Connection>();
+  // A promise while a tunnel is being opened, so calls made together share it.
+  const pool = new Map<string, Connection | Promise<Connection>>();
 
-  const open = (origin: string): Connection => {
-    const found = pool.get(origin);
-    if (found && !found.session.closed && !found.session.destroyed) {
-      return found;
-    }
+  const start = (origin: string, socket?: Duplex): Connection => {
     const session = connect(origin, {
       settings: { initialWindowSize: WINDOW_BYTES },
+      ...(socket === undefined ? {} : { createConnection: () => socket }),
+      ...(ca === undefined ? {} : { ca }),
     });
     const connection: Connection = { session, active: 0 };
     const connecting = setTimeout(
@@ -76,6 +85,22 @@ export function createHttp2Fetch({
     session.unref();
     pool.set(origin, connection);
     return connection;
+  };
+
+  const open = (origin: string): Connection | Promise<Connection> => {
+    const found = pool.get(origin);
+    if (found instanceof Promise) return found;
+    if (found && !found.session.closed && !found.session.destroyed) {
+      return found;
+    }
+    const opening = openSocket?.(new URL(origin));
+    if (opening === undefined) return start(origin);
+    const pending = opening.then((socket) => start(origin, socket));
+    pool.set(origin, pending);
+    pending.catch(() => {
+      if (pool.get(origin) === pending) pool.delete(origin);
+    });
+    return pending;
   };
 
   const hold = (connection: Connection) => {
@@ -108,65 +133,98 @@ export function createHttp2Fetch({
       new Headers(init.headers).forEach((value, name) => {
         headers[name] = value;
       });
-      const connection = open(target.origin);
-      const stream = connection.session.request(headers);
-      hold(connection);
-      // Cancel on the server, and destroy with the reason so a body read in progress
-      // rejects instead of ending short.
-      const abort = () => {
-        stream.close(constants.NGHTTP2_CANCEL);
-        stream.destroy(signal?.reason);
-      };
-      signal?.addEventListener("abort", abort, { once: true });
-      stream.once("close", () => {
-        signal?.removeEventListener("abort", abort);
-        release(connection);
-      });
-      // Before the response this rejects the call; after it, the body stream reports the error.
-      stream.on("error", reject);
-      // A timer of our own: Bun routes Http2Stream.setTimeout to the shared session, which
-      // adds a never-removed "timeout" listener per call (MaxListenersExceededWarning) and
-      // times the whole connection, not this stream.
-      const silence = setTimeout(
-        () =>
-          stream.destroy(
-            new Error(
-              `${target.pathname} was silent for ${silenceTimeoutMs} ms`,
+      const send = (connection: Connection) => {
+        const stream = connection.session.request(headers);
+        hold(connection);
+        // Cancel on the server, and destroy with the reason so a body read in progress
+        // rejects instead of ending short.
+        const abort = () => {
+          stream.close(constants.NGHTTP2_CANCEL);
+          stream.destroy(signal?.reason);
+        };
+        signal?.addEventListener("abort", abort, { once: true });
+        stream.once("close", () => {
+          signal?.removeEventListener("abort", abort);
+          release(connection);
+        });
+        // Before the response this rejects the call; after it, the body stream reports the error.
+        stream.on("error", reject);
+        // A timer of our own: Bun routes Http2Stream.setTimeout to the shared session, which
+        // adds a never-removed "timeout" listener per call (MaxListenersExceededWarning) and
+        // times the whole connection, not this stream.
+        const silence = setTimeout(
+          () =>
+            stream.destroy(
+              new Error(
+                `${target.pathname} was silent for ${silenceTimeoutMs} ms`,
+              ),
             ),
-          ),
-        silenceTimeoutMs,
+          silenceTimeoutMs,
+        );
+        stream.once("close", () => clearTimeout(silence));
+        stream.once("response", (raw) => {
+          silence.refresh();
+          const status = Number(raw[":status"]);
+          const headers = responseHeaders(raw);
+          if (NULL_BODY_STATUSES.has(status)) {
+            stream.resume();
+            resolve(new Response(null, { status, headers }));
+            return;
+          }
+          const decoder = decoderFor(headers.get("content-encoding"));
+          // pipeline passes an abort or reset on to the decoder, so the body read rejects.
+          const decoded = decoder
+            ? pipeline(stream, decoder, () => {})
+            : stream;
+          // node:stream/web and the global ReadableStream typings differ; same runtime class.
+          const web = Readable.toWeb(decoded) as unknown as ReadableStream;
+          // After the body is wired up, so this listener never starts the flow on its own.
+          stream.on("data", () => silence.refresh());
+          resolve(new Response(web, { status, headers }));
+        });
+        stream.end(body);
+      };
+      const connection = open(target.origin);
+      if (!(connection instanceof Promise)) {
+        send(connection);
+        return;
+      }
+      // A tunnel is still opening. This call stops waiting on abort; the shared
+      // connection keeps opening for the others.
+      const stopWaiting = () => reject(signal?.reason);
+      signal?.addEventListener("abort", stopWaiting, { once: true });
+      connection.then(
+        (ready) => {
+          signal?.removeEventListener("abort", stopWaiting);
+          if (signal?.aborted) {
+            hold(ready);
+            release(ready);
+            return;
+          }
+          try {
+            send(ready);
+          } catch (error) {
+            reject(error);
+          }
+        },
+        (error: unknown) => {
+          signal?.removeEventListener("abort", stopWaiting);
+          reject(error);
+        },
       );
-      stream.once("close", () => clearTimeout(silence));
-      stream.once("response", (raw) => {
-        silence.refresh();
-        const status = Number(raw[":status"]);
-        const headers = responseHeaders(raw);
-        if (NULL_BODY_STATUSES.has(status)) {
-          stream.resume();
-          resolve(new Response(null, { status, headers }));
-          return;
-        }
-        const decoder = decoderFor(headers.get("content-encoding"));
-        // pipeline passes an abort or reset on to the decoder, so the body read rejects.
-        const decoded = decoder ? pipeline(stream, decoder, () => {}) : stream;
-        // node:stream/web and the global ReadableStream typings differ; same runtime class.
-        const web = Readable.toWeb(decoded) as unknown as ReadableStream;
-        // After the body is wired up, so this listener never starts the flow on its own.
-        stream.on("data", () => silence.refresh());
-        resolve(new Response(web, { status, headers }));
-      });
-      stream.end(body);
     });
 }
 
-function bodyOf(body: RequestInit["body"]): string | Uint8Array | undefined {
+export function bodyOf(
+  body: RequestInit["body"],
+): string | Uint8Array | undefined {
   if (body === undefined || body === null) return undefined;
   if (typeof body === "string" || body instanceof Uint8Array) return body;
   throw new TypeError("http2 fetch sends string or byte bodies only.");
 }
 
 /** Lenient like undici: a body cut short yields what arrived rather than failing. */
-function decoderFor(encoding: string | null) {
+export function decoderFor(encoding: string | null) {
   const lenient = { flush: zlib.Z_SYNC_FLUSH, finishFlush: zlib.Z_SYNC_FLUSH };
   switch (encoding?.trim().toLowerCase()) {
     case "gzip":
@@ -184,7 +242,7 @@ function decoderFor(encoding: string | null) {
   }
 }
 
-function responseHeaders(raw: IncomingHttpHeaders): Headers {
+export function responseHeaders(raw: IncomingHttpHeaders): Headers {
   const headers = new Headers();
   for (const [name, value] of Object.entries(raw)) {
     if (name.startsWith(":") || value === undefined) continue;

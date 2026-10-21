@@ -14,6 +14,28 @@ export interface BoxHandoff {
   readonly instruction: string;
 }
 
+/**
+ * How the server ended a run (live.lastTurnSettlement.outcome). An outcome this client
+ * does not know is kept as `unknown` and carries no verdict.
+ */
+export type SettlementOutcome = "success" | "error" | "cancelled" | "unknown";
+
+/**
+ * The server's record of the bot's last settled run (live.lastTurnSettlement). `turnId`
+ * is the `requestId` of every row of that run. The server clears it when the next run
+ * starts, so a wait that needs it must remember it (see WaitSession).
+ */
+export interface TurnSettlement {
+  readonly turnId: string;
+  readonly outcome: SettlementOutcome;
+  readonly settledAtMs: number;
+  /** The `messageId` of the send this settles, when the server names it. */
+  readonly clientNonce?: string;
+  readonly errorCode?: string;
+  readonly errorDomain?: string;
+  readonly errorRetryable?: boolean;
+}
+
 /** Live run state of one bot. Proto3 omits false, so a missing field means false. */
 export interface LiveStatus {
   readonly isRunning: boolean;
@@ -23,6 +45,8 @@ export interface LiveStatus {
   readonly hasRunningSubagents: boolean;
   readonly activityTool: string | undefined;
   readonly boxHandoff: BoxHandoff | null;
+  /** Absent while a run is in progress and on servers that do not report it. */
+  readonly lastTurnSettlement?: TurnSettlement;
 }
 
 export const IDLE_STATUS: LiveStatus = Object.freeze({
@@ -60,6 +84,44 @@ function parseBoxHandoff(o: JsonObject): BoxHandoff | null {
   };
 }
 
+/** A non-negative integer, or a proto int64 sent as a digit string. */
+function readInt64(value: unknown): number | undefined {
+  const n =
+    typeof value === "string" && /^\d+$/.test(value) ? Number(value) : value;
+  return typeof n === "number" && Number.isSafeInteger(n) && n >= 0
+    ? n
+    : undefined;
+}
+
+function parseOutcome(value: unknown): SettlementOutcome {
+  return value === "success" || value === "error" || value === "cancelled"
+    ? value
+    : "unknown";
+}
+
+/** Undefined when `value` is absent or has no readable turnId and settledAtMs. Never throws. */
+function parseSettlement(value: unknown): TurnSettlement | undefined {
+  const o = asJsonObject(value);
+  if (!o) return undefined;
+  const turnId = readString(o, "turnId");
+  const settledAtMs = readInt64(o.settledAtMs);
+  if (!turnId || settledAtMs === undefined) return undefined;
+  const clientNonce = readString(o, "clientNonce") || undefined;
+  const errorCode = readString(o, "errorCode") || undefined;
+  const errorDomain = readString(o, "errorDomain") || undefined;
+  return {
+    turnId,
+    outcome: parseOutcome(o.outcome),
+    settledAtMs,
+    ...(clientNonce !== undefined && { clientNonce }),
+    ...(errorCode !== undefined && { errorCode }),
+    ...(errorDomain !== undefined && { errorDomain }),
+    ...(typeof o.errorRetryable === "boolean" && {
+      errorRetryable: o.errorRetryable,
+    }),
+  };
+}
+
 /** Parses a `live` object from ListGrokBotAgentStatuses or an agentState frame. */
 export function parseLiveStatus(
   live: unknown,
@@ -67,6 +129,7 @@ export function parseLiveStatus(
 ): LiveStatus {
   const o: JsonObject = asJsonObject(live) ?? {};
   const activity = asJsonObject(o.activity);
+  const lastTurnSettlement = parseSettlement(o.lastTurnSettlement);
   return {
     isRunning: o.isRunning === true || topLevelRunning,
     isComposing: o.isComposingMessage === true,
@@ -75,6 +138,7 @@ export function parseLiveStatus(
     hasRunningSubagents: o.hasRunningSubagents === true,
     activityTool: activity ? readString(activity, "tool") : undefined,
     boxHandoff: parseBoxHandoff(o),
+    ...(lastTurnSettlement && { lastTurnSettlement }),
   };
 }
 
@@ -98,7 +162,7 @@ export function parseAgentStatusesResponse(
   return out;
 }
 
-export interface AgentStatePayload {
+interface AgentStatePayload {
   readonly snapshot: boolean;
   readonly statuses: Map<string, LiveStatus>;
 }

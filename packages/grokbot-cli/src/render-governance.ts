@@ -31,7 +31,7 @@ const NO_CARD_NOTE =
 const ownerOnly = (text: string) => `${clip(text)} (${OWNER_ONLY_NOTE})`;
 
 /** One-line summary of what a card asks. */
-export function cardDetail(card: Card): string {
+function cardDetail(card: Card): string {
   switch (card.type) {
     case "widget":
       return clip(
@@ -93,6 +93,66 @@ const quote = (arg: string) =>
 
 const iso = (ms: string) =>
   ms === "0" ? "-" : new Date(Number(ms)).toISOString().slice(0, 16);
+
+const isoMs = (ms: number | null) =>
+  ms === null ? "-" : new Date(ms).toISOString().slice(0, 16);
+
+/** `cloud-agent` header: labelled lines, blank values left out. */
+function agentFacts(out: CommandOutputs["cloud-agent"]): string {
+  const a = out.cloudAgent;
+  const pr = [a.prStatus, a.prUrl].filter(Boolean).join(" ");
+  const changes =
+    a.filesChanged > 0 || a.linesAdded > 0 || a.linesRemoved > 0
+      ? `${a.filesChanged} files, +${a.linesAdded} -${a.linesRemoved}`
+      : "";
+  const model = a.model
+    ? `${a.model.name}${a.model.maxMode ? " (max mode)" : ""}`
+    : "";
+  const facts: readonly (readonly [string, string])[] = [
+    ["Agent", `${a.name || "(unnamed)"} (${a.bcId})`],
+    ["Status", a.status],
+    ["Waiting", a.needsYou ? "for you" : ""],
+    ["Repo", a.repo],
+    ["Branch", a.baseBranch ? `${a.branch} -> ${a.baseBranch}` : a.branch],
+    ["PR", pr],
+    ["Changes", changes],
+    ["Model", model],
+    ["Source", a.source],
+    ["Updated", a.updatedAtMs === null ? "" : `${isoMs(a.updatedAtMs)} UTC`],
+  ];
+  return facts
+    .filter(([, value]) => value !== "")
+    .map(([label, value]) => `${`${label}:`.padEnd(9)}${value}\n`)
+    .join("");
+}
+
+/** What stderr says about how `--wait` ended; nothing when the agent simply stopped. */
+function outcomeNote(
+  outcome: CommandOutputs["cloud-agent"]["outcome"],
+): string {
+  switch (outcome?.status) {
+    case "pending":
+      return `Gave up waiting: ${outcome.reason}. Run it again with --wait to keep waiting.\n`;
+    case "needs-you":
+      return `Needs you: ${outcome.reason}. Run it again with --wait once you have answered.\n`;
+    default:
+      return "";
+  }
+}
+
+/** The messages the command read, oldest first, each with its role; blank line between. */
+function conversationText(out: CommandOutputs["cloud-agent"]): string {
+  if (out.messageCount === null) return "";
+  if (out.messages.length === 0) return "\nNo messages yet.\n";
+  const shown =
+    out.messages.length < out.messageCount
+      ? `Last ${out.messages.length} of ${out.messageCount} messages:`
+      : `${out.messageCount} ${out.messageCount === 1 ? "message" : "messages"}:`;
+  const body = out.messages
+    .map((m) => `[${m.role}]\n${m.text.trim()}\n`)
+    .join("\n");
+  return `\n${shown}\n\n${body}`;
+}
 
 const CREDENTIAL_WARNING =
   "This link is a credential: anyone holding it can watch and control the desktop. Do not share or log it.\n";
@@ -160,6 +220,36 @@ export const GOVERNANCE_RENDERERS: HumanRenderers<GovernanceCommandName> = {
     plain(
       `Worker exited with code ${exitCode ?? "null (signal)"}. Served the token ${tokenServes} ${tokenServes === 1 ? "time" : "times"}.\n`,
     ),
+  "cloud-agents": ({ cloudAgents, hasMore, launchedBy }) => {
+    const none = launchedBy
+      ? `No cloud agents launched by ${launchedBy.name} in the latest ones.\n`
+      : "No cloud agents on this account.\n";
+    const more = hasMore
+      ? "More cloud agents exist than were listed; raise --limit to see them.\n"
+      : "";
+    return {
+      stdout:
+        cloudAgents.length === 0
+          ? none
+          : table(
+              ["ID", "NAME", "STATUS", "REPO", "BRANCH", "PR", "UPDATED (UTC)"],
+              cloudAgents.map((a) => [
+                a.bcId,
+                clip(a.name) || "-",
+                a.needsYou ? `${a.status}, needs you` : a.status,
+                a.repo || "-",
+                a.branch || "-",
+                a.prStatus ?? "-",
+                isoMs(a.updatedAtMs),
+              ]),
+            ),
+      note: more,
+    };
+  },
+  "cloud-agent": (out) => ({
+    stdout: `${agentFacts(out)}${conversationText(out)}`,
+    note: outcomeNote(out.outcome),
+  }),
 };
 
 function resolved(out: CommandOutputs["approve"]): {
