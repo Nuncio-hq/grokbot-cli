@@ -23,10 +23,10 @@ const MAX_PAGES = 20;
 export async function findRunEntry(
   server: ServerTransport,
   agentId: string,
-  run: string,
+  run: string | undefined,
   signal?: AbortSignal,
 ): Promise<string | undefined> {
-  if (run === "") return undefined;
+  if (!run) return undefined;
   let beforeSeq: Seq | undefined;
   for (let page = 0; page < MAX_PAGES; page++) {
     const { entries } = parseEntriesResponse(
@@ -117,7 +117,8 @@ async function prepare(
 /**
  * Sends `text` to the item's bot and records the item as handled here. The state file is
  * read before anything goes out, so a broken one stops the command instead of leaving a
- * message sent and unrecorded.
+ * message sent and unrecorded; the record is then added to what the file holds after the
+ * send, so a reply or close that finished meanwhile is kept.
  */
 async function sendAndRecord(
   ctx: RunnerContext,
@@ -128,7 +129,7 @@ async function sendAndRecord(
   run: HandlerRun,
 ): Promise<SentToBot> {
   const { item, agent, replyToId } = prepared;
-  const state = await ctx.inboxState.read();
+  await ctx.inboxState.read();
   const job = await dispatchMessage(
     ctx,
     agent,
@@ -137,15 +138,11 @@ async function sendAndRecord(
     replyToId,
     origin,
   );
-  const nowMs = ctx.now();
   try {
-    await ctx.inboxState.write(
-      new Map(state).set(item.id, {
-        handledAt: new Date(nowMs).toISOString(),
-        ...record,
-        jobId: job.jobId,
-      }),
-      nowMs,
+    await ctx.inboxState.markHandled(
+      item.id,
+      { ...record, jobId: job.jobId },
+      ctx.now(),
     );
   } catch (error) {
     throw new GrokBotError(

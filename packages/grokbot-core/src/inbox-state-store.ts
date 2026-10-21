@@ -1,4 +1,5 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { GrokBotError } from "./contracts.js";
@@ -27,8 +28,8 @@ export type InboxState = ReadonlyMap<string, InboxHandled>;
  */
 export interface InboxDelivery {
   readonly delivered: ReadonlyMap<string, string>;
-  /** When a command last looked for undelivered items to put in a notice (epoch ms). */
-  readonly noticeCheckedAtMs?: number;
+  /** Session address → when a command of that session last looked for undelivered items for a notice (epoch ms). */
+  readonly noticeCheckedAt: ReadonlyMap<string, number>;
 }
 
 /** Entries older than this are dropped on write: the cloud side deletes items long before. */
@@ -38,13 +39,17 @@ export interface InboxStateStore {
   readonly path: string;
   /** What was replied to or closed from here. */
   read(): Promise<InboxState>;
-  /** Writes `state` without entries older than 60 days (judged against `nowMs`); delivery stays as it is. */
-  write(state: InboxState, nowMs?: number): Promise<void>;
+  /** Records the item as handled at `nowMs`, on top of what the file holds right now. */
+  markHandled(
+    id: string,
+    record: Omit<InboxHandled, "handledAt">,
+    nowMs: number,
+  ): Promise<void>;
   readDelivery(): Promise<InboxDelivery>;
   /** Records the items as delivered at `nowMs`, on top of what the file holds right now. */
   markDelivered(ids: readonly string[], nowMs: number): Promise<void>;
-  /** Records that a notice check ran at `nowMs`. */
-  markNoticeChecked(nowMs: number): Promise<void>;
+  /** Records that a notice check ran for `session` at `nowMs`. */
+  markNoticeChecked(session: string, nowMs: number): Promise<void>;
 }
 
 const isHandledAction = (value: unknown): value is InboxHandledAction =>
@@ -61,11 +66,13 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 /**
  * `~/.grokbot/grokbot-cli-inbox-state.json`:
  * `{ "handled": { "<itemId>": { "handledAt": "<ISO>", "action": "reply|answer|done", "outcome"?: "<text>", "jobId": "<id>" } },
- *    "delivered": { "<itemId>": "<ISO>" }, "noticeCheckedAt"?: "<ISO>" }`.
+ *    "delivered": { "<itemId>": "<ISO>" }, "noticeCheckedAt": { "<session>": "<ISO>" } }`.
  * `handled` hides items from `grokbot inbox` on this computer; `delivered` and
  * `noticeCheckedAt` keep `inbox wait`, `inbox check` and the catch-up notices from showing
- * an item twice. A file that cannot be read or parsed throws instead of reading as empty,
- * so a broken state never silently shows every handled item again as new work.
+ * an item twice, `noticeCheckedAt` once a minute per session. A file that cannot be read or
+ * parsed throws instead of reading as empty, so a broken state never silently shows every
+ * handled item again as new work. Every change loads the file again, changes it and saves
+ * it in turn, so concurrent changes in one process never overwrite each other.
  */
 export function inboxStateStore(home: string = homedir()): InboxStateStore {
   const path = join(home, ".grokbot", "grokbot-cli-inbox-state.json");
@@ -86,7 +93,10 @@ export function inboxStateStore(home: string = homedir()): InboxStateStore {
       text = await readFile(path, "utf8");
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT")
-        return { handled: new Map(), delivery: { delivered: new Map() } };
+        return {
+          handled: new Map(),
+          delivery: { delivered: new Map(), noticeCheckedAt: new Map() },
+        };
       throw invalid("cannot be read.");
     }
     let parsed: unknown;
@@ -133,17 +143,15 @@ export function inboxStateStore(home: string = homedir()): InboxStateStore {
     const delivered = new Map<string, string>();
     for (const [id, value] of Object.entries(rawDelivered))
       delivered.set(id, isoTime(`the delivery time of "${id}"`, value));
-    const checked =
-      parsed.noticeCheckedAt === undefined
-        ? undefined
-        : Date.parse(isoTime("noticeCheckedAt", parsed.noticeCheckedAt));
-    return {
-      handled,
-      delivery: {
-        delivered,
-        ...(checked !== undefined && { noticeCheckedAtMs: checked }),
-      },
-    };
+    // Only a throttle: a value it cannot read costs one extra lookup, never the whole file.
+    const noticeCheckedAt = new Map<string, number>();
+    const rawChecked = parsed.noticeCheckedAt;
+    if (isRecord(rawChecked))
+      for (const [session, value] of Object.entries(rawChecked)) {
+        const ms = typeof value === "string" ? Date.parse(value) : Number.NaN;
+        if (Number.isFinite(ms)) noticeCheckedAt.set(session, ms);
+      }
+    return { handled, delivery: { delivered, noticeCheckedAt } };
   }
 
   async function save({ handled, delivery }: Disk, nowMs: number) {
@@ -157,19 +165,36 @@ export function inboxStateStore(home: string = homedir()): InboxStateStore {
     const keptDelivered = [...delivery.delivered]
       .filter(([, iso]) => fresh(iso))
       .sort(byId);
+    const keptChecked = [...delivery.noticeCheckedAt]
+      .map(([session, ms]): [string, string] => [
+        session,
+        new Date(ms).toISOString(),
+      ])
+      .filter(([, iso]) => fresh(iso))
+      .sort(byId);
     const file = {
       handled: Object.fromEntries(keptHandled),
       delivered: Object.fromEntries(keptDelivered),
-      ...(delivery.noticeCheckedAtMs !== undefined && {
-        noticeCheckedAt: new Date(delivery.noticeCheckedAtMs).toISOString(),
-      }),
+      noticeCheckedAt: Object.fromEntries(keptChecked),
     };
     // Write then rename, so a crash never leaves a half-written file behind.
-    const temp = `${path}.${process.pid}.tmp`;
-    await writeFile(temp, `${JSON.stringify(file, null, 2)}\n`, {
-      mode: 0o600,
-    });
-    await rename(temp, path);
+    const temp = `${path}.${randomUUID()}.tmp`;
+    try {
+      await writeFile(temp, `${JSON.stringify(file, null, 2)}\n`, {
+        mode: 0o600,
+      });
+      await rename(temp, path);
+    } finally {
+      await rm(temp, { force: true });
+    }
+  }
+
+  let queue: Promise<unknown> = Promise.resolve();
+  /** Runs `change` after every earlier one has finished, so each loads what the last one saved. */
+  function change(update: (disk: Disk) => Disk, nowMs: number): Promise<void> {
+    const run = queue.then(async () => save(update(await load()), nowMs));
+    queue = run.catch(() => undefined);
+    return run;
   }
 
   return {
@@ -177,27 +202,36 @@ export function inboxStateStore(home: string = homedir()): InboxStateStore {
     async read() {
       return (await load()).handled;
     },
-    async write(state, nowMs = Date.now()) {
-      const { delivery } = await load().catch(() => ({
-        delivery: { delivered: new Map<string, string>() },
-      }));
-      await save({ handled: state, delivery }, nowMs);
+    markHandled(id, record, nowMs) {
+      return change(
+        ({ handled, delivery }) => ({
+          handled: new Map(handled).set(id, {
+            handledAt: new Date(nowMs).toISOString(),
+            ...record,
+          }),
+          delivery,
+        }),
+        nowMs,
+      );
     },
     async readDelivery() {
       return (await load()).delivery;
     },
-    async markDelivered(ids, nowMs) {
-      const { handled, delivery } = await load();
-      const delivered = new Map(delivery.delivered);
-      for (const id of ids) delivered.set(id, new Date(nowMs).toISOString());
-      await save({ handled, delivery: { ...delivery, delivered } }, nowMs);
+    markDelivered(ids, nowMs) {
+      return change(({ handled, delivery }) => {
+        const delivered = new Map(delivery.delivered);
+        for (const id of ids) delivered.set(id, new Date(nowMs).toISOString());
+        return { handled, delivery: { ...delivery, delivered } };
+      }, nowMs);
     },
-    async markNoticeChecked(nowMs) {
-      const { handled, delivery } = await load();
-      await save(
-        { handled, delivery: { ...delivery, noticeCheckedAtMs: nowMs } },
-        nowMs,
-      );
+    markNoticeChecked(session, nowMs) {
+      return change(({ handled, delivery }) => {
+        const noticeCheckedAt = new Map(delivery.noticeCheckedAt).set(
+          session,
+          nowMs,
+        );
+        return { handled, delivery: { ...delivery, noticeCheckedAt } };
+      }, nowMs);
     },
   };
 }

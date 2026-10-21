@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import { setImmediate as tick } from "node:timers/promises";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   type InboxWorld,
@@ -278,6 +279,57 @@ describe("catch-up notices", () => {
     expect(later.inboxNotice?.items.map((i) => i.id)).toEqual(["mine0002"]);
     w.clock.ms += 120_000;
     expect((await agents(w)).inboxNotice).toBeUndefined();
+  });
+
+  it("looks once a minute for each session, so one session's check never hides another's items", async () => {
+    const env: Record<string, string> = { GROKBOT_SESSION: ME };
+    const w = await start({ env });
+    expect((await agents(w)).inboxNotice).toBeUndefined();
+    leave(w, inboxItem("them0001", { to: { session: THEM } }));
+    leave(w, forMe("mine0002"));
+    w.clock.ms += 1_000;
+    env.GROKBOT_SESSION = THEM;
+    const theirs = await agents(w);
+    expect(theirs.inboxNotice?.items.map((i) => i.id)).toEqual(["them0001"]);
+    env.GROKBOT_SESSION = ME;
+    expect((await agents(w)).inboxNotice).toBeUndefined();
+    w.clock.ms += 60_000;
+    const mine = await agents(w);
+    expect(mine.inboxNotice?.items.map((i) => i.id)).toEqual(["mine0002"]);
+  });
+
+  it("leaves its items undelivered when it runs out of time before it marks them", async () => {
+    const controller = new AbortController();
+    const marking: Promise<void>[] = [];
+    const w = await start({
+      items: [forMe("mine0001")],
+      // The time-box runs out as the check is written, before the items are marked.
+      inboxState: (home) => {
+        const real = inboxStateStore(home);
+        return {
+          ...real,
+          async markNoticeChecked(session, nowMs) {
+            await real.markNoticeChecked(session, nowMs);
+            controller.abort();
+          },
+          markDelivered(delivered, nowMs) {
+            const marked = real.markDelivered(delivered, nowMs);
+            marking.push(marked);
+            return marked;
+          },
+        };
+      },
+    });
+    const out = await w.runner.run(
+      "agents",
+      { json: false },
+      { signal: controller.signal },
+    );
+    expect(out.inboxNotice).toBeUndefined();
+    // What the notice does after it has answered still counts, so let it finish first.
+    await tick();
+    await Promise.all(marking);
+    expect(ids(await check(w))).toEqual(["mine0001"]);
   });
 
   it("lets the next command try again when a lookup fails", async () => {

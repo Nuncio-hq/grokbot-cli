@@ -223,10 +223,10 @@ export async function checkInbox(
 
 /**
  * The catch-up notice for a command that has nothing to do with the inbox: undelivered open
- * items for this session or its jobs, looked up at most once a minute, and marked delivered
- * as they are shown. Time-boxed, and every failure (no sign-in, a broken state file, a
- * store that does not answer) is swallowed: a notice never fails or slows the command it
- * rides on.
+ * items for this session or its jobs, looked up at most once a minute per session, and
+ * marked delivered as they are shown. Time-boxed, and every failure (no sign-in, a broken
+ * state file, a store that does not answer) is swallowed: a notice never fails or slows the
+ * command it rides on.
  */
 export async function inboxNotice(
   ctx: RunnerContext,
@@ -239,19 +239,21 @@ export async function inboxNotice(
   timer.unref();
   const attempt = async (): Promise<InboxNotice | undefined> => {
     const nowMs = ctx.now();
-    const { noticeCheckedAtMs } = await ctx.inboxState.readDelivery();
-    if (
-      noticeCheckedAtMs !== undefined &&
-      nowMs - noticeCheckedAtMs < NOTICE_INTERVAL_MS
-    )
+    const session = await ctx.sessionAddress();
+    if (session === undefined) return undefined;
+    const checkedAtMs = (
+      await ctx.inboxState.readDelivery()
+    ).noticeCheckedAt.get(session);
+    if (checkedAtMs !== undefined && nowMs - checkedAtMs < NOTICE_INTERVAL_MS)
       return undefined;
-    const watch = await watchFor(ctx);
-    if (!hasTargets(watch)) return undefined;
+    const watch: Watch = { session, jobs: await sentJobs(ctx.jobs, session) };
     const items = await findUndelivered(ctx, watch, controller.signal);
     // Only a lookup that finished counts: a slow or failed one is retried by the next command.
     if (controller.signal.aborted) return undefined;
-    await ctx.inboxState.markNoticeChecked(nowMs);
+    await ctx.inboxState.markNoticeChecked(session, nowMs);
     if (items.length === 0) return undefined;
+    // The time-box may have run out while the check was written: nothing was shown then.
+    if (controller.signal.aborted) return undefined;
     await ctx.inboxState.markDelivered(
       items.map((item) => item.id),
       nowMs,

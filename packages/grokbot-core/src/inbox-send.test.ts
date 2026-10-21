@@ -32,6 +32,10 @@ const ITEMS: readonly InboxItem[] = [
   inboxItem("rrrr0002", { replyTo: { agentId: OTHER_BOT } }),
   inboxItem("lost0003", { from: { agentId: BOT, run: "run-gone", cwd: "/w" } }),
   inboxItem("old00004", { hoursAgo: 80, expiresAt: "2026-10-18T00:00:00Z" }),
+  // A bot that left no run: a hand-written file, which the reader accepts.
+  inboxItem("norun006", {
+    from: { agentId: BOT, cwd: "/w" } as InboxItem["from"],
+  }),
 ];
 
 async function start(options: WorldOptions = {}) {
@@ -95,6 +99,20 @@ describe("inbox-reply", () => {
     expect(listed.items.map((i) => i.id)).not.toContain("aaaa1111");
   });
 
+  it("keeps every item handled when replies are in flight together", async () => {
+    const w = await start();
+    await Promise.all([
+      reply(w, "aaaa1111", "first"),
+      reply(w, "qqqq0001", "second"),
+      done(w, "rrrr0002", { outcome: "fixed" }),
+    ]);
+    expect([...(await inboxStateStore(w.home).read()).keys()].sort()).toEqual([
+      "aaaa1111",
+      "qqqq0001",
+      "rrrr0002",
+    ]);
+  });
+
   it("answers a question with a choice, with or without text", async () => {
     const withText = await start();
     await reply(withText, "qqqq0001", "because it is faster", "yes");
@@ -151,6 +169,13 @@ describe("inbox-reply", () => {
   it("sends a plain message when the run is no longer in the chat", async () => {
     const w = await start();
     const out = await reply(w, "lost0003", "Hello");
+    expect(w.sent[0]).toMatchObject({ agentId: BOT, replyToId: undefined });
+    expect(out.replyToId).toBeUndefined();
+  });
+
+  it("sends a plain message when the item names no run, not a reply to a row that has none", async () => {
+    const w = await start();
+    const out = await reply(w, "norun006", "Hello");
     expect(w.sent[0]).toMatchObject({ agentId: BOT, replyToId: undefined });
     expect(out.replyToId).toBeUndefined();
   });

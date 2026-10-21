@@ -176,18 +176,22 @@ async function names(dir: string, dirsOnly: boolean): Promise<string[]> {
   }
 }
 
-/** Every item file under the root; files that are not valid items are left alone and skipped. */
+/**
+ * Every item file under the root; files that are not valid items are left alone and skipped,
+ * and so is one whose `id` is not the id in its file name: paths are built from the id.
+ */
 async function scan(root: string): Promise<Entry[]> {
   const entries: Entry[] = [];
   for (const slug of await names(root, true)) {
     for (const state of ["open", "closed"] as const) {
       const dir = join(root, slug, state);
       for (const name of await names(dir, false)) {
-        if (parseInboxFileName(name) === undefined) continue;
+        const parsed = parseInboxFileName(name);
+        if (parsed === undefined) continue;
         const path = join(dir, name);
         try {
           const item: unknown = JSON.parse(await readFile(path, "utf8"));
-          if (isStoredItem(item))
+          if (isStoredItem(item) && item.id === parsed.id)
             entries.push({ slug, state, name, path, item });
         } catch {}
       }
@@ -459,6 +463,7 @@ export function inboxStore(options: InboxStoreOptions = {}): InboxStore {
       const at = inboxTimestamp(now);
       const slug = inboxSlug(given.project);
       const entries = await scan(root);
+      // An expired item is closed by the prune after this post, not extended by it.
       const match =
         given.dedupeKey === undefined
           ? undefined
@@ -466,6 +471,7 @@ export function inboxStore(options: InboxStoreOptions = {}): InboxStore {
               (e) =>
                 e.slug === slug &&
                 e.state === "open" &&
+                !isInboxExpired(e.item, now) &&
                 e.item.dedupeKey === given.dedupeKey,
             );
       if (match && match.item.kind !== given.kind)

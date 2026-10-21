@@ -324,6 +324,32 @@ describe("dedupe", () => {
     expect(result.kind).toBe("invalid");
     expect(result.errors[0]?.path).toBe("kind");
   });
+
+  it("never matches an expired item: the post gets a fresh id and the expired one is closed", async () => {
+    const old = await posted({
+      project: "Demo App",
+      kind: "question",
+      title: "Which?",
+      dedupeKey: "k",
+    });
+    now += 3 * DAY;
+    const other = await posted({
+      project: "Demo App",
+      kind: "result",
+      title: "Done",
+      dedupeKey: "k",
+    });
+    expect(other).toMatchObject({ deduped: false });
+    expect(other.id).not.toBe(old.id);
+    expect(other.expired.map((e) => e.id)).toEqual([old.id]);
+
+    const same = await posted(bug({ dedupeKey: "same" }));
+    now += 15 * DAY;
+    const again = await posted(bug({ dedupeKey: "same" }));
+    expect(again).toMatchObject({ deduped: false });
+    expect(again.id).not.toBe(same.id);
+    expect(again.expired.map((e) => e.id)).toContain(same.id);
+  });
 });
 
 describe("files", () => {
@@ -755,6 +781,31 @@ describe("prune", () => {
     );
     await store().prune();
     expect(await list("demo-app", "open")).toEqual([]);
+  });
+
+  it("ignores a file whose id is not the id in its name, and removes nothing because of it", async () => {
+    const item = await posted(bug());
+    const stored = await read(item.path);
+    const closedAt = "2020-01-01T00:00:00Z";
+    const closed = (id: string) =>
+      JSON.stringify({
+        ...stored,
+        id,
+        status: "closed",
+        closed: { at: closedAt, by: BOT, outcome: "done" },
+      });
+    const folder = join(root, "demo-app", "closed");
+    await mkdir(folder, { recursive: true });
+    const escaping = join(folder, "20200101T000000Z_bug_abcd1234.json");
+    const impostor = join(folder, "20200101T000000Z_bug_abcd5678.json");
+    await writeFile(escaping, closed("../open"));
+    await writeFile(impostor, closed(item.id));
+    await store().prune();
+    expect(await list("demo-app", "open")).toEqual([
+      "20261020T100000Z_bug_id000001.json",
+    ]);
+    expect(await readFile(escaping, "utf8")).toBe(closed("../open"));
+    expect(await readFile(impostor, "utf8")).toBe(closed(item.id));
   });
 });
 

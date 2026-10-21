@@ -11,7 +11,7 @@ import {
   inboxFileName,
   inboxSlug,
 } from "../inbox-schema.js";
-import { inboxStateStore } from "../inbox-state-store.js";
+import { type InboxStateStore, inboxStateStore } from "../inbox-state-store.js";
 import { type JobStore, jobStore } from "../job-store.js";
 import type { ProjectRoutes } from "../project-routes-store.js";
 import type { ClientLabel } from "../usage-client.js";
@@ -120,6 +120,8 @@ export interface WorldOptions {
   readonly inboxPollMs?: number;
   /** The longest `inbox wait` the host allows, in seconds; default: no cap. */
   readonly maxInboxWaitSeconds?: number;
+  /** The runner's state file store, built over the world's home; default: the real one. */
+  readonly inboxState?: (home: string) => InboxStateStore;
 }
 
 /**
@@ -150,6 +152,8 @@ export async function inboxWorld(
       [
         textReplyRow(139, "older", "run-0"),
         textReplyRow(150, "I left an inbox item", RUN),
+        // A row of the bot's chat that no run left, as one typed by hand.
+        textReplyRow(155, "typed by hand", null),
         textReplyRow(160, "something later", "run-9"),
       ],
     ],
@@ -221,7 +225,7 @@ export async function inboxWorld(
       fetch: box.fetch,
       cacheDir: join(dir, "cache"),
     }),
-    inboxState: inboxStateStore(home),
+    inboxState: (options.inboxState ?? inboxStateStore)(home),
     hostname: options.hostname ?? "example-mac",
     now: () => clock.ms,
     projectRoutes: async () => routes,

@@ -103,6 +103,55 @@ describe("validateInboxDraft", () => {
       "ask.choices",
     ],
     [
+      "a multi-line choice",
+      {
+        project: "App",
+        kind: "question",
+        title: "Which?",
+        ask: { choices: ["yes", "no\nmaybe"] },
+      },
+      "ask.choices[1]",
+    ],
+    [
+      "a blank choice",
+      {
+        project: "App",
+        kind: "question",
+        title: "Which?",
+        ask: { choices: ["yes", "", "no"] },
+      },
+      "ask.choices[1]",
+    ],
+    [
+      "a null choice",
+      {
+        project: "App",
+        kind: "question",
+        title: "Which?",
+        ask: { choices: ["yes", null, "no"] },
+      },
+      "ask.choices[1]",
+    ],
+    [
+      "a multi-line next command",
+      bug({
+        work: {
+          next: { at: "bot", agentId: BOT, by: "bot", command: "a\nb" },
+        },
+      }),
+      "work.next.command",
+    ],
+    [
+      "a blank repro step",
+      bug({ details: { repro: ["open the page", "  ", "log in"] } }),
+      "details.repro[1]",
+    ],
+    [
+      "a null alreadyChecked entry",
+      bug({ details: { alreadyChecked: [null] } }),
+      "details.alreadyChecked[0]",
+    ],
+    [
       "occurrences on a result",
       {
         project: "App",

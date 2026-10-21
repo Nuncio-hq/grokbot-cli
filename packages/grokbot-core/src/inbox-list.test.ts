@@ -159,13 +159,9 @@ describe("inbox list", () => {
 
   it("hides what was handled here, and shows it again with --include-handled", async () => {
     const w = await start();
-    await inboxStateStore(w.home).write(
-      new Map([
-        [
-          "aaaa1111",
-          { handledAt: ago(-1), action: "reply" as const, jobId: "job-1" },
-        ],
-      ]),
+    await inboxStateStore(w.home).markHandled(
+      "aaaa1111",
+      { action: "reply", jobId: "job-1" },
       NOW,
     );
     const hidden = await list(w);

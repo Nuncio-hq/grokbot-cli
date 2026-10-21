@@ -214,13 +214,17 @@ class Reader {
     return items.length > 0 ? items : undefined;
   }
 
+  /** A list of non-blank texts: a blank or null element is an error at its index. */
   strings(
     raw: unknown,
     path: string,
     max: number,
     each: number,
+    oneLine = false,
   ): string[] | undefined {
-    return this.array(raw, path, max, (item, p) => this.text(item, p, each));
+    return this.array(raw, path, max, (item, p) =>
+      this.text(item, p, each, { required: true, oneLine }),
+    );
   }
 
   draft(raw: unknown): InboxDraft | undefined {
@@ -292,6 +296,7 @@ class Reader {
       "ask.choices",
       INBOX_LIMITS.choicesMax,
       INBOX_LIMITS.choice,
+      true,
     );
     const blocking = text("blocking");
     if (choices !== undefined) {
@@ -445,6 +450,7 @@ class Reader {
       head.o.command,
       join(path, "command"),
       INBOX_LIMITS.command,
+      { oneLine: true },
     );
     const needs = this.array(
       head.o.needs,
