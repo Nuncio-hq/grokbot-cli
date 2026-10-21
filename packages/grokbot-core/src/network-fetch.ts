@@ -149,7 +149,13 @@ function requestOver(
   target: URL,
   init: RequestInit,
 ): Promise<Response> {
-  const { promise, resolve, reject } = Promise.withResolvers<Response>();
+  // Not Promise.withResolvers: that needs Node 22, and grokbot supports Node 20.3.
+  let resolve!: (response: Response) => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<Response>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
   const { signal } = init;
   const body = bodyOf(init.body);
   const headers: Record<string, string> = {};

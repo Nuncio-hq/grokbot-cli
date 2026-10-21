@@ -34,7 +34,13 @@ export function openTunnel(request: TunnelRequest): Promise<TLSSocket> {
   const { proxy, host, port, alpn, timeoutMs, ca, signal } = request;
   const where = hostWithPort(proxy.host, proxy.port);
   const authority = hostWithPort(host, port);
-  const { promise, resolve, reject } = Promise.withResolvers<TLSSocket>();
+  // Not Promise.withResolvers: that needs Node 22, and grokbot supports Node 20.3.
+  let resolve!: (socket: TLSSocket) => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<TLSSocket>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
   if (signal?.aborted) {
     reject(signal.reason);
     return promise;

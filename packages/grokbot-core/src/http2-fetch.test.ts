@@ -123,6 +123,17 @@ describe("createHttp2Fetch", () => {
     await expect(call).rejects.toThrow("gave up");
   });
 
+  it("rejects the call when the stream closes before a response without an error", async () => {
+    // A cancel from the server closes the stream with no error event, as a connection
+    // that ends cleanly under it does.
+    const { origin } = await h2Server((stream) =>
+      stream.close(constants.NGHTTP2_CANCEL),
+    );
+    await expect(createHttp2Fetch()(origin, post(""))).rejects.toThrow(
+      "closed before a response",
+    );
+  });
+
   it("asks for compression and decodes gzip and br bodies", async () => {
     const encoders = { gzip: gzipSync, br: brotliCompressSync };
     const { origin } = await h2Server((stream, headers) => {

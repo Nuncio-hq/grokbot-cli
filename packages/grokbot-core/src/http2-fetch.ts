@@ -149,6 +149,17 @@ export function createHttp2Fetch({
         });
         // Before the response this rejects the call; after it, the body stream reports the error.
         stream.on("error", reject);
+        // A stream can also close before its response with no error at all: the server
+        // cancelled it, or the connection under it ended cleanly (a proxy that dropped the
+        // tunnel shows up that way on Linux). Reject then too, or the call would wait
+        // forever; once the response is in, this does nothing.
+        stream.once("close", () =>
+          reject(
+            new Error(
+              `${target.pathname} closed before a response (HTTP/2 code ${stream.rstCode ?? "none"})`,
+            ),
+          ),
+        );
         // A timer of our own: Bun routes Http2Stream.setTimeout to the shared session, which
         // adds a never-removed "timeout" listener per call (MaxListenersExceededWarning) and
         // times the whole connection, not this stream.
