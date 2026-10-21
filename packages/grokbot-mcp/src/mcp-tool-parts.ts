@@ -13,7 +13,7 @@ export type ToolSummaries<Names extends CommandName> = {
 export interface McpOverride {
   readonly note?: string;
   /** Replaces catalog defaults when the client leaves the param out. */
-  readonly defaults?: Readonly<Record<string, number>>;
+  readonly defaults?: Readonly<Record<string, number | string>>;
   readonly destructive?: true;
   /** Params an MCP client may never set (hidden from the schema, refused on call). */
   readonly hiddenParams?: readonly string[];
@@ -30,3 +30,7 @@ export const plural = (n: number, one: string, many: string) =>
 
 export const waitHint = (jobId: string) =>
   `call grokbot_wait with ${JSON.stringify({ job: jobId })}`;
+
+/** What to do after a send whose answer is not in yet, for an agent calling tools: the job id's first 8 characters are what `grokbot_inbox_wait` takes. */
+export const inboxWaitHint = (jobId: string) =>
+  `For anything the bot leaves later, call grokbot_inbox_wait with ${JSON.stringify({ job: [jobId.slice(0, 8)] })}.`;

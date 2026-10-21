@@ -25,17 +25,19 @@ const spec = (summary: string): CommandSpec => ({
 });
 
 describe("mergeCommandGroups", () => {
-  it("joins groups in dispatch, workforce, governance order", () => {
+  it("joins groups in dispatch, workforce, governance, inbox order", () => {
     const merged = mergeCommandGroups(
       { agents: spec("a") },
       { hire: spec("h"), fire: spec("f") },
       { approve: spec("p") },
+      { inbox: spec("i") },
     );
     expect(Object.keys(merged)).toStrictEqual([
       "agents",
       "hire",
       "fire",
       "approve",
+      "inbox",
     ]);
   });
 
@@ -45,6 +47,7 @@ describe("mergeCommandGroups", () => {
         { agents: spec("a") },
         { room: spec("r") },
         { room: spec("r2") },
+        { inbox: spec("i") },
       ),
     ).toThrow(
       new Error(

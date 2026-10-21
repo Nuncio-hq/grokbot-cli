@@ -1,10 +1,18 @@
+import { homedir } from "node:os";
 import {
   type BrowserLoginOptions,
+  type CallerSession,
+  CLIENT_NAMES,
+  type ClientLabel,
+  type DetectedClient,
   describeProxy,
+  detectCallerSession,
   GROKBOT_BACKEND,
+  hasSession,
   isNewerVersion,
   type LoginResult,
   resolveProxy,
+  SESSION_ACTIVE_MS,
   type SignInInfo,
 } from "grokbot-core";
 import { EXIT_CODE } from "./exit-codes.js";
@@ -18,7 +26,7 @@ import type { TextSink } from "./main.js";
 export const AUTH_COMMANDS = {
   login: "Sign grokbot in through the browser (own Keychain sign-in)",
   logout: "Remove grokbot's own sign-in (the app's login is untouched)",
-  whoami: "Show which sign-in grokbot uses, never the token",
+  whoami: "Show which sign-in and which agent grokbot detects, never the token",
 } as const;
 export type AuthCommandName = keyof typeof AUTH_COMMANDS;
 
@@ -80,6 +88,19 @@ export const AUTH_HELP: { readonly [N in AuthCommandName]: string } = {
     "",
     "Usage: grokbot whoami [--json]",
     "",
+    "Also reports the caller grokbot detected (an agent runtime, a terminal or a script)",
+    "and which signal decided it: GROKBOT_CLIENT, AI_AGENT, the MCP client, or a runtime's",
+    "own marker variable. grokbot starts every message it sends with a header naming the",
+    "project, that runtime and its session, so an agent never names itself. If the caller",
+    "is wrong, set GROKBOT_CLIENT to the runtime's name (for example codex or hermes).",
+    "Only the variable's name is shown.",
+    "",
+    "The Session line gives the session's address (<runtime>:<id>) and what found it:",
+    "GROKBOT_SESSION, the runtime's own thread variable, or the one session file of this",
+    "folder's runtime that changed in the last two minutes. With none, or two or more",
+    "recent sessions, it says so; the owner then sets GROKBOT_SESSION to the id the",
+    "runtime shows (<id> or <runtime>:<id>).",
+    "",
     "The Grok Bot app line gives the installed desktop app's version and the version",
     "grokbot's tool and method catalog was checked against. When the installed app is",
     "newer, whoami warns that it may have features grokbot has no command for yet. A",
@@ -94,9 +115,14 @@ interface AuthContext {
   readonly stdout: TextSink;
   readonly stderr: TextSink;
   readonly env: Readonly<Record<string, string | undefined>>;
+  readonly caller: DetectedClient;
   readonly isTTY: boolean;
   readonly signal: AbortSignal;
   readonly deps: AuthDeps;
+  /** The folder whose session `whoami` looks up. Default: process.cwd(). */
+  readonly cwd?: string;
+  /** The home folder agent runtimes keep sessions under. Default: os.homedir(). */
+  readonly home?: string;
 }
 
 interface Flags {
@@ -212,6 +238,16 @@ async function whoami(flags: Flags, ctx: AuthContext): Promise<number> {
   const active = resolveProxy(GROKBOT_BACKEND, ctx.env);
   const proxy = active ? describeProxy(active) : null;
   const info = await ctx.deps.describe();
+  const { label, signal } = ctx.caller;
+  const name = CLIENT_NAMES[label];
+  const caller = { label, name, signal };
+  const who = name === label ? name : `${name} (${label})`;
+  const session = await detectCallerSession({
+    env: ctx.env,
+    cwd: ctx.cwd ?? process.cwd(),
+    home: ctx.home ?? homedir(),
+    caller: label,
+  });
   const { installed, catalog } = await ctx.deps.appVersions();
   const app = {
     installed: installed ?? null,
@@ -220,8 +256,8 @@ async function whoami(flags: Flags, ctx: AuthContext): Promise<number> {
   };
   ctx.stdout.write(
     flags.json
-      ? `${JSON.stringify({ ...info, app, proxy }, null, 2)}\n`
-      : `${describeSignIn(info)}\n${describeApp(app)}\n${proxy ? `Proxy: ${proxy.url} (from ${proxy.source})\n` : ""}`,
+      ? `${JSON.stringify({ ...info, caller, session, app, proxy }, null, 2)}\n`
+      : `${describeSignIn(info)}\nCaller: ${who}, detected from ${signal}.\n${describeSession(session, label)}\n${describeApp(app)}\n${proxy ? `Proxy: ${proxy.url} (from ${proxy.source})\n` : ""}`,
   );
   if (info.source === "none") {
     ctx.stderr.write("Not signed in. Run grokbot login.\n");
@@ -240,6 +276,22 @@ function describeApp(app: {
   return app.newer
     ? `${line}\nWarning: the installed app is newer than grokbot's catalog, so it may have features grokbot has no command for yet.`
     : line;
+}
+
+const SET_SESSION =
+  "Set GROKBOT_SESSION to the id your runtime shows for this session.";
+
+/** The `Session:` line of `whoami`: the address and what found it, or why there is none. */
+function describeSession(session: CallerSession, label: ClientLabel): string {
+  if (hasSession(session)) {
+    return `Session: ${session.address}, detected from ${session.signal}.`;
+  }
+  if (session.signal === "ambiguous") {
+    return `Session: unknown. ${session.candidates ?? 0} sessions of this folder were active in the last ${SESSION_ACTIVE_MS / 60_000} minutes, so grokbot cannot tell which is yours. ${SET_SESSION}`;
+  }
+  return label === "human"
+    ? "Session: none. A person at a terminal has no agent session."
+    : `Session: none. grokbot found no session of this folder active in the last ${SESSION_ACTIVE_MS / 60_000} minutes. ${SET_SESSION}`;
 }
 
 function describeSignIn(info: SignInInfo): string {

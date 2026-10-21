@@ -133,15 +133,29 @@ describe("reply", () => {
     ]).toEqual(["OK", ["task A", "re: older"], OLDER, OLDER]);
   });
 
-  it("applies the project label once", async () => {
+  it("tags the reply once, with the project and the runtime", async () => {
     const route = { agentId: AGENT, label: "Proj" };
     const { bot, reply } = setup(
       { autoReply: () => "OK" },
-      { cwd: dir, projectRoutes: async () => new Map([[dir, route]]) },
+      {
+        cwd: dir,
+        caller: "omp",
+        projectRoutes: async () => new Map([[dir, route]]),
+      },
     );
     await reply({ text: "plain", to: OLDER });
-    await reply({ text: "[proj] already tagged", to: OLDER });
-    expect(bot.sends()).toEqual(["[Proj] plain", "[proj] already tagged"]);
+    await reply({
+      text: "[project: proj · runtime: omp] already tagged",
+      to: OLDER,
+    });
+    expect(
+      bot
+        .sends()
+        .map((text) => String(text).replace(/Job: [0-9a-f]{8}/, "Job: <job>")),
+    ).toEqual([
+      "[Project: Proj · Runtime: omp · Job: <job>] plain",
+      "[Project: Proj · Runtime: omp · Job: <job>] already tagged",
+    ]);
   });
 });
 

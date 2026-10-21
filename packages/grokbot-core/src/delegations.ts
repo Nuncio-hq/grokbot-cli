@@ -64,6 +64,11 @@ interface Delegation {
   readonly entryId: string;
   readonly to: AgentRef;
   readonly atMs: number | undefined;
+  /**
+   * A Cursor cloud agent (`toAgent.kind` cloud-agent, id `bc-…`): its rows are not read, and
+   * it answers once per run, follow-ups included.
+   */
+  readonly cloud: boolean;
   /** Set when R's own rows can tell this delegation's fate: a bot, with an id to follow. */
   readonly track:
     | { readonly hex: string; readonly targetId: string }
@@ -237,10 +242,13 @@ const FOREIGN = Symbol("foreign");
 
 /**
  * Pairs the delegations bot S makes with the rows that end them. A delegation without
- * ids to follow (legacy rows, a cloud agent, a bot whose rows were not read) pairs with
- * the next user row from the same agent, as it always did. So does an answer R's rows
- * do not place. A delegation to a bot (`toAgent.kind` agent, row id `agent-outbound-<hex>`)
- * whose rows are in the context ends so:
+ * ids to follow (legacy rows, a bot whose rows were not read) pairs with the next user
+ * row from the same agent, as it always did, and so does an answer R's rows do not
+ * place. A Cursor cloud agent (`bc-…`) is never read and answers once per run,
+ * follow-ups included (live 20 Oct: three sends, two replies), so its reply ends every
+ * open delegation to it sent at or before the reply's time, not only the oldest; a send
+ * after the reply stays open. A delegation to a bot (`toAgent.kind` agent, row id
+ * `agent-outbound-<hex>`) whose rows are in the context ends so:
  *
  * - answered: by our user row from R whose clientNonce is the hex of an R row
  *   `agent-outbound-<hex2>` to S written under the run R took the delegation in (Rq),
@@ -275,7 +283,15 @@ export class DelegationLedger {
       hex !== undefined && to.id !== undefined && row.toAgentKind === "agent"
         ? { hex, targetId: to.id }
         : undefined;
-    this.#all.push({ entryId: row.entryId, to, atMs: row.timestampMs, track });
+    const cloud =
+      row.toAgentKind === "cloud-agent" || to.id?.startsWith("bc-") === true;
+    this.#all.push({
+      entryId: row.entryId,
+      to,
+      atMs: row.timestampMs,
+      cloud,
+      track,
+    });
   }
 
   /** Notes that our user row `row` from another bot reached S, whoever it answers. */
@@ -285,16 +301,26 @@ export class DelegationLedger {
 
   /**
    * Closes the delegation our user row `row` from `from` answers: the one R's rows place
-   * it on, else the oldest open one to that agent. False when it closes none: no
-   * delegation to that agent is open, R's rows place it on one already closed (a second
-   * answer to it), or under a run of a delegation outside this list, such as one of an
-   * earlier turn.
+   * it on, else the oldest open one to that agent. A cloud agent's reply closes every
+   * open delegation to it sent at or before the reply (a send with no time counts as
+   * before). False when it closes none: no delegation to that agent is open, R's rows
+   * place it on one already closed (a second answer to it), or under a run of a
+   * delegation outside this list, such as one of an earlier turn.
    */
   answer(row: UserMessageEntry, from: AgentRef): boolean {
     const sameAgent = this.#all.filter((d) => isSameAgent(d.to, from));
     const open = sameAgent.filter((d) => !this.#closed.has(d));
     const [oldest] = open;
     if (!oldest) return false;
+    if (oldest.cloud) {
+      const replyMs = row.timestampMs;
+      for (const d of open) {
+        const before =
+          d.atMs === undefined || replyMs === undefined || d.atMs <= replyMs;
+        if (d === oldest || (d.cloud && before)) this.#closed.add(d);
+      }
+      return true;
+    }
     const placed = this.#placed(sameAgent, row);
     if (placed === FOREIGN || (placed && this.#closed.has(placed)))
       return false;

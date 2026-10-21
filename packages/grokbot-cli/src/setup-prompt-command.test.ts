@@ -59,10 +59,52 @@ describe("grokbot setup-prompt", () => {
     expect(listCommands().map((c) => c.name)).not.toContain("setup-prompt");
   });
 
-  it("rejects arguments", async () => {
-    const run = await runCli(["setup-prompt", "--bogus"]);
-    expect(run.code).toBe(2);
-    expect(run.stdout).toBe("");
-    expect(run.stderr).toContain("Usage: grokbot setup-prompt");
+  it("rejects unknown and extra arguments", async () => {
+    for (const argv of [
+      ["setup-prompt", "--bogus"],
+      ["setup-prompt", "bots"],
+      ["setup-prompt", "bot", "extra"],
+    ]) {
+      const run = await runCli(argv);
+      expect(run.code).toBe(2);
+      expect(run.stdout).toBe("");
+      expect(run.stderr).toContain("Usage: grokbot setup-prompt");
+    }
+  });
+
+  it("prints the same assistant prompt with or without the word assistant", async () => {
+    const plain = await runCli(["setup-prompt"]);
+    const named = await runCli(["setup-prompt", "assistant"]);
+    expect(named.code).toBe(0);
+    expect(named.stdout).toBe(plain.stdout);
+  });
+
+  describe("bot", () => {
+    it("prints a pasteable prompt that installs grokbot and the bot skill on the cloud computer", async () => {
+      const run = await runCli(["setup-prompt", "bot"]);
+      expect(run).toMatchObject({ code: 0, stderr: "", calls: [] });
+      expect(run.runnerOptions).toEqual([]);
+      expect(run.stdout).toContain("npm i -g grokbotagent-cli@latest");
+      expect(run.stdout).toContain(
+        "$(npm root -g)/grokbotagent-cli/skills/grokbot-inbox/SKILL.md",
+      );
+      const lines = run.stdout.split("\n").filter((line) => line.trim() !== "");
+      expect(lines.length).toBeLessThanOrEqual(10);
+    });
+
+    it("names no path from this computer, since the bot runs it on its own", async () => {
+      const run = await runCli(["setup-prompt", "bot"], {
+        setupPrompt: missing("/Users/someone/skills/grokbot/SKILL.md"),
+      });
+      expect(run.stdout).not.toContain("/Users/");
+    });
+
+    it("names the shipped bot skill, which exists in this package", () => {
+      const skill = new URL(
+        "../skills/grokbot-inbox/SKILL.md",
+        import.meta.url,
+      );
+      expect(existsSync(skill)).toBe(true);
+    });
   });
 });

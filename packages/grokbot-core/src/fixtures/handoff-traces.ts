@@ -349,10 +349,12 @@ export function botsServer(
         const held = rows[String(body.agentId)] ?? [];
         return { entries: held.slice(-limit) };
       },
+      // Live 20 Oct: the server returns no status for a Cursor cloud agent (`bc-…`).
       ListGrokBotAgentStatuses: (body) => ({
-        statuses: (Array.isArray(body.agentIds) ? body.agentIds : []).map(
-          (id) => ({ agentId: String(id), live: live[String(id)] ?? {} }),
-        ),
+        statuses: (Array.isArray(body.agentIds) ? body.agentIds : [])
+          .map(String)
+          .filter((id) => !id.startsWith("bc-"))
+          .map((id) => ({ agentId: id, live: live[id] ?? {} })),
       }),
     },
     streams,

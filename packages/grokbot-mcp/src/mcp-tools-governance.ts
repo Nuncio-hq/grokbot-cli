@@ -59,15 +59,15 @@ function waitNote(outcome: CommandOutputs["cloud-agent"]["outcome"]): string {
 
 type AgentRow = CommandOutputs["approvals"]["agents"][number];
 
-/** One agent's lines: a pending box hand-off, then its cards, else its awaiting reason. */
+/** One agent's lines: its cards, then a pending box hand-off, else its awaiting reason. */
 function agentLines({ agent, awaiting, handoff, cards }: AgentRow): string[] {
   const lines = [
+    ...cards.map((card) => `- ${agent.name}: ${cardText(card)}`),
     ...(handoff
       ? [
           `- ${agent.name}: box-handoff ${handoff.requestId}: ${describeBoxHandoff(handoff)} (${OWNER_ONLY_NOTE})`,
         ]
       : []),
-    ...cards.map((card) => `- ${agent.name}: ${cardText(card)}`),
   ];
   if (lines.length > 0) return lines;
   const reason = awaiting ? ` ${awaiting}` : "";

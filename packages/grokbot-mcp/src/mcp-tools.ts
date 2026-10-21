@@ -4,6 +4,7 @@ import {
   type CommandName,
   type CommandRunner,
   type CommandSafety,
+  describeNotice,
   GrokBotError,
   isCommandName,
   listCommands,
@@ -14,6 +15,7 @@ import { invalidParams, isJsonObject, type Outcome } from "./json-rpc.js";
 import type { McpOverride, McpOverrides } from "./mcp-tool-parts.js";
 import { DISPATCH_OVERRIDES } from "./mcp-tools-dispatch.js";
 import { GOVERNANCE_OVERRIDES } from "./mcp-tools-governance.js";
+import { INBOX_OVERRIDES } from "./mcp-tools-inbox.js";
 import { WORKFORCE_OVERRIDES } from "./mcp-tools-workforce.js";
 import { summarize } from "./tool-summaries.js";
 
@@ -32,7 +34,7 @@ interface McpTool {
 }
 
 interface CallToolResult {
-  readonly content: readonly [{ readonly type: "text"; readonly text: string }];
+  readonly content: readonly { readonly type: "text"; readonly text: string }[];
   readonly structuredContent?: object;
   readonly isError?: true;
 }
@@ -62,6 +64,7 @@ const MCP_OVERRIDES: McpOverrides<CommandName> = {
   ...DISPATCH_OVERRIDES,
   ...WORKFORCE_OVERRIDES,
   ...GOVERNANCE_OVERRIDES,
+  ...INBOX_OVERRIDES,
 };
 
 /** Params never offered over MCP: `json` (results are always structured) plus the tool's hidden ones. */
@@ -169,7 +172,18 @@ async function runTool<N extends CommandName>(
   try {
     const output = await runner.run(name, parsed.input, { signal });
     return {
-      content: [{ type: "text", text: summarize(name, output) }],
+      content: [
+        { type: "text", text: summarize(name, output) },
+        // What the bots left this session since it last looked, as one more block.
+        ...(output.inboxNotice === undefined
+          ? []
+          : [
+              {
+                type: "text" as const,
+                text: describeNotice(output.inboxNotice.items),
+              },
+            ]),
+      ],
       structuredContent: output,
     };
   } catch (error) {

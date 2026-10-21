@@ -27,6 +27,8 @@ export interface DispatchOutputs {
     readonly jobId: string;
     readonly agent: Agent;
     readonly outcome: JobOutcome;
+    /** What to do next, set only while the job is not settled (see `nextStep`). */
+    readonly next?: string;
   };
   readonly reply: {
     readonly jobId: string;
@@ -34,6 +36,7 @@ export interface DispatchOutputs {
     /** The transcript entry the message answered. */
     readonly replyToId: string;
     readonly outcome: JobOutcome;
+    readonly next?: string;
   };
   readonly send: {
     readonly jobId: string;
@@ -41,6 +44,8 @@ export interface DispatchOutputs {
     readonly sentMessageId: string;
     /** The bot was busy: the message waits its turn and goes out on a later send or wait. */
     readonly queued: boolean;
+    /** What to do next: the message is sent, never settled (see `nextStep`). */
+    readonly next?: string;
   };
   readonly wait: {
     readonly jobId: string;
@@ -48,6 +53,7 @@ export interface DispatchOutputs {
     /** The agent's name, recorded at send; absent on jobs saved before 16 Oct 2026. */
     readonly agentName?: string;
     readonly outcome: JobOutcome;
+    readonly next?: string;
   };
   readonly tail: {
     readonly agent: Agent;

@@ -7,7 +7,6 @@ import {
   normalizeRemote,
   projectKeys,
   routeForFolder,
-  withProjectLabel,
 } from "./project-routes.js";
 import type { ProjectRoute } from "./project-routes-store.js";
 
@@ -150,26 +149,5 @@ describe("routeForFolder", () => {
     expect(await projectKeys(await folder("plain"))).toEqual({
       path: join(root, "plain"),
     });
-  });
-});
-
-describe("withProjectLabel", () => {
-  it("adds the label once", () => {
-    expect(withProjectLabel("hello", "ProjectName")).toBe(
-      "[ProjectName] hello",
-    );
-    expect(withProjectLabel("[ProjectName] hello", "ProjectName")).toBe(
-      "[ProjectName] hello",
-    );
-    expect(withProjectLabel("  [projectname] hello", "ProjectName")).toBe(
-      "  [projectname] hello",
-    );
-  });
-
-  it("leaves the text alone without a label, and tags other brackets", () => {
-    expect(withProjectLabel("hello", undefined)).toBe("hello");
-    expect(withProjectLabel("[Other] hello", "ProjectName")).toBe(
-      "[ProjectName] [Other] hello",
-    );
   });
 });

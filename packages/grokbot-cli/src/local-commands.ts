@@ -1,3 +1,4 @@
+import type { DetectedClient } from "grokbot-core";
 import {
   AUTH_HELP,
   type AuthCommandName,
@@ -14,6 +15,14 @@ import {
 } from "./config-command.js";
 import { errorMessage } from "./error-message.js";
 import { EXIT_CODE } from "./exit-codes.js";
+import {
+  defaultInboxBotDeps,
+  INBOX_BOT_HELP,
+  type InboxBotCommand,
+  type InboxBotDeps,
+  isInboxBotCommand,
+  runInboxBotCommand,
+} from "./inbox-bot-commands.js";
 import type { TextSink } from "./main.js";
 import {
   defaultSetupPromptDeps,
@@ -29,15 +38,26 @@ import {
 } from "./stats-command.js";
 
 /**
- * Local commands outside the RPC catalog: login / logout / whoami, config, stats and
- * setup-prompt. None builds the runner or touches the network; MCP never offers any of them.
+ * Local commands outside the RPC catalog: login / logout / whoami, config, stats,
+ * setup-prompt and the bot-side inbox commands. None builds the runner or touches the
+ * network; MCP never offers any of them.
  */
-type LocalName = AuthCommandName | "config" | "stats" | "setup-prompt";
+type LocalName =
+  | AuthCommandName
+  | InboxBotCommand
+  | "config"
+  | "stats"
+  | "setup-prompt";
 
 interface LocalContext {
   readonly stdout: TextSink;
   readonly stderr: TextSink;
   readonly env: Readonly<Record<string, string | undefined>>;
+  readonly caller: DetectedClient;
+  /** The folder `grokbot whoami` looks up the caller's session for. Default: process.cwd(). */
+  readonly cwd?: string;
+  /** The home folder agent runtimes keep their sessions under. Default: os.homedir(). */
+  readonly home?: string;
   readonly isTTY: boolean;
   readonly signal?: AbortSignal;
   readonly auth?: AuthDeps;
@@ -45,6 +65,8 @@ interface LocalContext {
   readonly stats?: StatsDeps;
   /** Where `grokbot setup-prompt` finds the shipped skill; built lazily like `auth`. */
   readonly setupPrompt?: SetupPromptDeps;
+  /** Files, stdin and git for `grokbot inbox-post` and friends; built lazily like `auth`. */
+  readonly inboxBot?: InboxBotDeps;
 }
 
 /** Words and flags that may come before the command name, as elsewhere in the CLI. */
@@ -53,6 +75,7 @@ const isLocal = (name: string | undefined): name is LocalName =>
   name === "config" ||
   name === "stats" ||
   name === "setup-prompt" ||
+  isInboxBotCommand(name) ||
   isAuthCommand(name);
 
 /**
@@ -82,13 +105,15 @@ export async function runLocal(
   const { stdout, stderr } = ctx;
   if (args.includes("--help") || args.includes("-h")) {
     stdout.write(
-      name === "config"
-        ? CONFIG_HELP
-        : name === "stats"
-          ? STATS_HELP
-          : name === "setup-prompt"
-            ? SETUP_PROMPT_HELP
-            : AUTH_HELP[name],
+      isInboxBotCommand(name)
+        ? INBOX_BOT_HELP[name]
+        : name === "config"
+          ? CONFIG_HELP
+          : name === "stats"
+            ? STATS_HELP
+            : name === "setup-prompt"
+              ? SETUP_PROMPT_HELP
+              : AUTH_HELP[name],
     );
     return EXIT_CODE.ok;
   }
@@ -102,8 +127,14 @@ export async function runLocal(
     else controller.signal.addEventListener("abort", stop, { once: true });
   });
   try {
-    const run =
-      name === "config"
+    const run = isInboxBotCommand(name)
+      ? runInboxBotCommand(name, args, {
+          stdout,
+          stderr,
+          env: ctx.env,
+          deps: ctx.inboxBot ?? defaultInboxBotDeps(),
+        })
+      : name === "config"
         ? runConfigCommand(args, {
             stdout,
             stderr,
@@ -127,6 +158,9 @@ export async function runLocal(
                 stdout,
                 stderr,
                 env: ctx.env,
+                caller: ctx.caller,
+                ...(ctx.cwd !== undefined && { cwd: ctx.cwd }),
+                ...(ctx.home !== undefined && { home: ctx.home }),
                 isTTY: ctx.isTTY,
                 signal: controller.signal,
                 deps: ctx.auth ?? defaultAuthDeps(),

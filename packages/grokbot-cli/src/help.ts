@@ -4,6 +4,7 @@ import {
   listCommands,
   type ParamSpec,
 } from "grokbot-core";
+import { spokenName } from "./argv-parser.js";
 import { AUTH_COMMANDS } from "./auth-command.js";
 import {
   flagParams,
@@ -12,6 +13,10 @@ import {
   takesValue,
 } from "./command-params.js";
 import { CONFIG_SUMMARY } from "./config-command.js";
+import {
+  INBOX_BOT_COMMANDS,
+  INBOX_BOT_SUMMARIES,
+} from "./inbox-bot-commands.js";
 import { SETUP_PROMPT_SUMMARY } from "./setup-prompt-command.js";
 import { STATS_SUMMARY } from "./stats-command.js";
 
@@ -54,12 +59,14 @@ export function usageLine(command?: Command): string {
   const flags = flagParams(command).map(
     (entry) => `[${flagLabel(entry, "short")}]`,
   );
-  return ["Usage: grokbot", command.name, ...args, ...flags].join(" ");
+  return ["Usage: grokbot", spokenName(command.name), ...args, ...flags].join(
+    " ",
+  );
 }
 
 export function generalHelp(): string {
   const commands = listCommands().map(
-    (c) => [c.name, c.summary] as [string, string],
+    (c) => [spokenName(c.name), c.summary] as [string, string],
   );
   const account = Object.entries(AUTH_COMMANDS) as [string, string][];
   return [
@@ -82,10 +89,20 @@ export function generalHelp(): string {
       ["stats", STATS_SUMMARY],
     ]),
     "",
+    "For bots (run on the cloud computer):",
+    ...columns(
+      INBOX_BOT_COMMANDS.map(
+        (name) => [name, INBOX_BOT_SUMMARIES[name]] as [string, string],
+      ),
+    ),
+    "",
     "Flags go before or after the command. Commands with an --agent flag fall",
     "back to GROKBOT_AGENT, then this folder's project route (grokbot config route),",
     "then the account's primary Bot. Workforce commands (update, fire, room-members,",
     "skills-*, routines-*) take the bot as their first argument instead.",
+    "grokbot starts each message it sends with a header naming the project, the agent",
+    "runtime it detects and that runtime's session (grokbot whoami shows them);",
+    "GROKBOT_CLIENT=<runtime> overrides the runtime guess and GROKBOT_SESSION the session.",
     'Put -- before text that starts with a dash: grokbot ask -- "-5 is my answer"',
     "With --json, stdout is one JSON document; the job id and errors still go",
     "to stderr as plain text.",

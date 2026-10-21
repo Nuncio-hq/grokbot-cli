@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createCommandRunner } from "./command-runner.js";
 import type { CommandRunnerOptions } from "./command-runner-contract.js";
 import {
+  AGENT,
   botAfterSend,
   liveFrame,
   RUNNING,
@@ -174,6 +175,19 @@ describe("routines-create and routines-update through the bot's chat", () => {
     const [text] = sentTexts(log);
     expect(text).toContain("State: off (paused)");
     expect(text).toContain(`<<<PROMPT\n${SPEC.prompt}\nPROMPT>>>`);
+  });
+
+  it("sends the instruction as it is, without the project and runtime tag", async () => {
+    const { server, log } = botWith([], [row()]);
+    await create(server, {
+      caller: "omp",
+      cwd: dir,
+      projectRoutes: async () =>
+        new Map([[dir, { agentId: AGENT, label: "Proj" }]]),
+    });
+    const sent = sentTexts(log);
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).not.toMatch(/^\[/);
   });
 
   it("create fails when the saved routine differs from what was asked", async () => {

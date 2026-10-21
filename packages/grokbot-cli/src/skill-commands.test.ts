@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { listCommands } from "grokbot-core";
 import { describe, expect, it } from "vitest";
+import { spokenName } from "./argv-parser.js";
 import {
   renderCommandTable,
   spliceCommandTable,
@@ -58,10 +59,12 @@ describe("renderCommandTable", () => {
 
   it("covers every catalog command, then login, logout, whoami and stats, by default", () => {
     const named = [
-      ...renderCommandTable().matchAll(/^\| `grokbot ([a-z-]+)/gm),
+      ...renderCommandTable().matchAll(
+        /^\| `grokbot (inbox (?:wait|check)|[a-z-]+)/gm,
+      ),
     ].map((match) => match[1]);
     expect(named).toEqual([
-      ...listCommands().map((command) => command.name),
+      ...listCommands().map((command) => spokenName(command.name)),
       "login",
       "logout",
       "whoami",

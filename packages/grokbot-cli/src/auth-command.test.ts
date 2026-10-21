@@ -1,5 +1,8 @@
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { GrokBotError, type SignInInfo } from "grokbot-core";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { AuthDeps } from "./auth-command.js";
 import { runCli } from "./fixtures/run-cli.js";
 
@@ -348,6 +351,133 @@ describe("grokbot whoami", () => {
       });
       expect(run.code).toBe(1);
       expect(JSON.parse(run.stdout).app.newer).toBe(true);
+    });
+  });
+
+  it("reports the detected caller and the signal that decided it", async () => {
+    const run = await runCli(["whoami"], {
+      auth: fakeAuth(),
+      env: { OMPCODE: "1", CLAUDECODE: "1" },
+    });
+    expect(run.stdout).toContain("omp");
+    expect(run.stdout).toContain("OMPCODE");
+    expect(run.stdout).not.toContain("Claude Code");
+  });
+
+  it("reports the caller in --json as label, display name and signal, never a value", async () => {
+    const run = await runCli(["whoami", "--json"], {
+      auth: fakeAuth(),
+      env: { CODEX_THREAD_ID: "thread-0042", CLAUDECODE: "1" },
+    });
+    const out = JSON.parse(run.stdout);
+    expect(out).toMatchObject({ source: "cli" });
+    expect(out.caller).toStrictEqual({
+      label: "codex",
+      name: "Codex",
+      signal: "CODEX_THREAD_ID",
+    });
+  });
+
+  it("names GROKBOT_CLIENT when the owner set it", async () => {
+    const run = await runCli(["whoami", "--json"], {
+      auth: fakeAuth(),
+      env: { GROKBOT_CLIENT: "hermes", OMPCODE: "1" },
+    });
+    expect(JSON.parse(run.stdout)).toMatchObject({
+      caller: { label: "hermes", signal: "GROKBOT_CLIENT" },
+    });
+  });
+
+  it("reports a person at a terminal and a script", async () => {
+    const person = await runCli(["whoami", "--json"], {
+      auth: fakeAuth(),
+      isTTY: true,
+    });
+    const script = await runCli(["whoami", "--json"], { auth: fakeAuth() });
+    expect([
+      JSON.parse(person.stdout).caller.label,
+      JSON.parse(script.stdout).caller.label,
+    ]).toEqual(["human", "script"]);
+  });
+
+  describe("session", () => {
+    const ID = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b";
+    let home: string;
+    let project: string;
+    beforeEach(async () => {
+      home = await realpath(await mkdtemp(join(tmpdir(), "grokbot-whoami-")));
+      project = join(home, "code", "acme");
+      await mkdir(project, { recursive: true });
+    });
+    afterEach(async () => {
+      await rm(home, { recursive: true, force: true });
+    });
+    const sessions = join(".omp", "agent", "sessions", "-code-acme");
+    const addFile = async (id: string) => {
+      await mkdir(join(home, sessions), { recursive: true });
+      await writeFile(
+        join(home, sessions, `2026-10-20T03-18-28-912Z_${id}.jsonl`),
+        "",
+      );
+    };
+    const whoami = (env: Record<string, string>, json = false) =>
+      runCli(["whoami", ...(json ? ["--json"] : [])], {
+        auth: fakeAuth(),
+        env,
+        cwd: project,
+        home,
+      });
+
+    it("shows the caller's session address and what found it, beside the caller", async () => {
+      await addFile(ID);
+      const run = await whoami({ OMPCODE: "1" });
+      expect(run.stdout).toContain("Caller: omp, detected from OMPCODE.\n");
+      expect(run.stdout).toContain(
+        `Session: omp:${ID}, detected from recent session file.\n`,
+      );
+      const json = JSON.parse((await whoami({ OMPCODE: "1" }, true)).stdout);
+      expect(json.session).toEqual({
+        address: `omp:${ID}`,
+        runtime: "omp",
+        id: ID,
+        signal: "recent session file",
+      });
+    });
+
+    it("shows GROKBOT_SESSION as the signal when the owner set it", async () => {
+      const run = await whoami({
+        OMPCODE: "1",
+        GROKBOT_SESSION: "omp:owner-set-1",
+      });
+      expect(run.stdout).toContain(
+        "Session: omp:owner-set-1, detected from GROKBOT_SESSION.\n",
+      );
+    });
+
+    it("says it cannot tell, with the count, when two sessions are recent", async () => {
+      await addFile(ID);
+      await addFile("0190a1b2-c3d4-7e5f-8a9b-1f2e3d4c5b6a");
+      const run = await whoami({ OMPCODE: "1" });
+      expect(run.stdout).toContain(
+        "Session: unknown. 2 sessions of this folder",
+      );
+      expect(run.stdout).toContain("GROKBOT_SESSION");
+      const json = JSON.parse((await whoami({ OMPCODE: "1" }, true)).stdout);
+      expect(json.session).toEqual({ signal: "ambiguous", candidates: 2 });
+    });
+
+    it("says there is none when no session is recent, and for a person at a terminal", async () => {
+      const agent = await whoami({ OMPCODE: "1" });
+      expect(agent.stdout).toContain("Session: none. grokbot found no session");
+      const json = JSON.parse((await whoami({ OMPCODE: "1" }, true)).stdout);
+      expect(json.session).toEqual({ signal: "none" });
+      const person = await runCli(["whoami"], {
+        auth: fakeAuth(),
+        isTTY: true,
+        cwd: project,
+        home,
+      });
+      expect(person.stdout).toContain("Session: none. A person at a terminal");
     });
   });
 });

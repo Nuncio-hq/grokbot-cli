@@ -4,6 +4,7 @@ import { GrokBotError } from "./contracts.js";
 import {
   advanceQueue,
   type JobContext,
+  type JobOrigin,
   newQueuedJob,
   untilSent,
 } from "./job-queue.js";
@@ -24,7 +25,8 @@ export type { JobContext } from "./job-queue.js";
  * when it went out now, queued when it waits behind earlier work. A refused message
  * leaves no job, and so does an error before the send. Any other send error keeps the sending record: the message may have
  * landed, and `wait` finds its echo. `replyToId` sends it as a reply to that transcript
- * entry, also when it waits in the queue first.
+ * entry, also when it waits in the queue first. `origin` is the job id the text's header
+ * already names, with the sender's session.
  */
 export async function dispatchMessage(
   ctx: JobContext,
@@ -32,8 +34,9 @@ export async function dispatchMessage(
   text: string,
   signal?: AbortSignal,
   replyToId?: string,
+  origin?: JobOrigin,
 ): Promise<JobRecord> {
-  const queued = newQueuedJob(agent, text, replyToId);
+  const queued = newQueuedJob(agent, text, replyToId, origin);
   await ctx.jobs.save(queued);
   try {
     await advanceQueue(ctx, agent.agentId, queued.jobId, signal);

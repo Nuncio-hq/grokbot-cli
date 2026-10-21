@@ -34,6 +34,7 @@ describe("grokbot-mcp lifecycle", () => {
           protocolVersion: "2025-06-18",
           capabilities: { tools: {} },
           serverInfo: { name: "grokbot-mcp", version: GROKBOT_VERSION },
+          instructions: expect.stringContaining("grokbot_inbox"),
         },
       },
       {
@@ -43,6 +44,7 @@ describe("grokbot-mcp lifecycle", () => {
           protocolVersion: "2025-11-25",
           capabilities: { tools: {} },
           serverInfo: { name: "grokbot-mcp", version: GROKBOT_VERSION },
+          instructions: expect.stringContaining("grokbot_inbox"),
         },
       },
     ]);

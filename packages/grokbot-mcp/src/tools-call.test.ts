@@ -89,7 +89,7 @@ describe("grokbot-mcp tools/call", () => {
         content: [
           {
             type: "text",
-            text: 'Primary Test is still working (no Done verdict within 45000 ms (last: running, target-active)). Job job-3 is saved; call grokbot_wait with {"job":"job-3"} to keep waiting.',
+            text: 'Primary Test is still working (no Done verdict within 45000 ms (last: running, target-active)). Job job-3 is saved; call grokbot_wait with {"job":"job-3"} to keep waiting. For anything the bot leaves later, call grokbot_inbox_wait with {"job":["job-3"]}.',
           },
         ],
       },
@@ -118,11 +118,11 @@ describe("grokbot-mcp tools/call", () => {
     );
     expect(texts.map((r) => [r.content[0]?.text, r.isError])).toEqual([
       [
-        'Primary Test is still working (timed out after 600s). Job job-2 is saved; call grokbot_wait with {"job":"job-2"} to keep waiting.',
+        'Primary Test is still working (timed out after 600s). Job job-2 is saved; call grokbot_wait with {"job":"job-2"} to keep waiting. For anything the bot leaves later, call grokbot_inbox_wait with {"job":["job-2"]}.',
         undefined,
       ],
       [
-        'Primary Test is waiting for owner approval (secret-request). Only the owner can answer this in the GrokBot app, then call grokbot_wait with {"job":"job-1"}.',
+        'Primary Test is waiting for owner approval (secret-request). Only the owner can answer this in the GrokBot app, then call grokbot_wait with {"job":"job-1"}. For anything the bot leaves later, call grokbot_inbox_wait with {"job":["job-1"]}.',
         undefined,
       ],
     ]);

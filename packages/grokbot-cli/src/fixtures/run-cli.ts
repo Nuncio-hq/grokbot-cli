@@ -1,11 +1,14 @@
-import type {
-  CommandOutputs,
-  CommandRunner,
-  CommandRunnerOptions,
-  RunEvent,
+import {
+  type CommandName,
+  type CommandResult,
+  type CommandRunner,
+  type CommandRunnerOptions,
+  detectClient,
+  type RunEvent,
 } from "grokbot-core";
 import type { AuthDeps } from "../auth-command.js";
 import type { ConfigDeps } from "../config-command.js";
+import type { InboxBotDeps } from "../inbox-bot-commands.js";
 import { main } from "../main.js";
 import type { SetupPromptDeps } from "../setup-prompt-command.js";
 import type { StatsDeps } from "../stats-command.js";
@@ -25,7 +28,7 @@ export interface CliRun {
 }
 
 interface CliSetup {
-  readonly outputs?: Partial<CommandOutputs>;
+  readonly outputs?: Partial<{ [N in CommandName]: CommandResult<N> }>;
   /** Thrown by runner.run instead of returning an output. */
   readonly error?: unknown;
   /** Thrown by createRunner itself, like the Wave 2A stub. */
@@ -36,6 +39,9 @@ interface CliSetup {
   readonly hangForever?: boolean;
   readonly env?: Readonly<Record<string, string>>;
   readonly isTTY?: boolean;
+  /** The folder and home `whoami` looks up the caller's session in; default: this process's. */
+  readonly cwd?: string;
+  readonly home?: string;
   readonly signal?: AbortSignal;
   /** Fake auth backend for login/logout/whoami; real deps are never built in tests. */
   readonly auth?: AuthDeps;
@@ -45,6 +51,8 @@ interface CliSetup {
   readonly stats?: StatsDeps;
   /** Where `grokbot setup-prompt` looks for the skill. */
   readonly setupPrompt?: SetupPromptDeps;
+  /** Fake stdin, files and git for the bot-side `grokbot inbox-*` commands. */
+  readonly inboxBot?: InboxBotDeps;
 }
 
 function collector() {
@@ -88,12 +96,20 @@ export async function runCli(
     stdout: stdout.stream,
     stderr: stderr.stream,
     env: setup.env ?? {},
+    caller: detectClient({
+      env: setup.env ?? {},
+      isTTY: setup.isTTY ?? false,
+      processChain: () => [],
+    }),
     isTTY: setup.isTTY ?? false,
     ...(setup.signal && { signal: setup.signal }),
+    ...(setup.cwd && { cwd: setup.cwd }),
+    ...(setup.home && { home: setup.home }),
     ...(setup.auth && { auth: setup.auth }),
     ...(setup.config && { config: setup.config }),
     ...(setup.stats && { stats: setup.stats }),
     ...(setup.setupPrompt && { setupPrompt: setup.setupPrompt }),
+    ...(setup.inboxBot && { inboxBot: setup.inboxBot }),
   });
   return {
     stdout: stdout.text(),

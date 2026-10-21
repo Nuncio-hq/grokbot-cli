@@ -72,6 +72,10 @@ const CARD_ACTION: Readonly<Record<string, string>> = {
   "local-tool-permission": "run grokbot approve --yes or grokbot deny --yes",
 };
 
+/** The note with the next-step hint after it, when the job is not settled. */
+const withNext = (text: Text, next: string | undefined): Text =>
+  next === undefined ? text : { ...text, note: `${text.note}Next: ${next}\n` };
+
 export const DISPATCH_RENDERERS: HumanRenderers<DispatchCommandName> = {
   agents: ({ agents }) =>
     plain(
@@ -100,15 +104,22 @@ export const DISPATCH_RENDERERS: HumanRenderers<DispatchCommandName> = {
             ]),
           ),
     ),
-  ask: ({ jobId, outcome }) => outcomeText(jobId, outcome),
-  reply: ({ jobId, outcome }) => outcomeText(jobId, outcome),
-  send: ({ jobId, agent, queued }) => ({
-    stdout: `${jobId}\n`,
-    note: queued
-      ? `Queued for ${agent.name}: it is busy, so the message goes out once it is free. Send it and get the reply with: grokbot wait ${jobId}\n`
-      : `Sent to ${agent.name}. Get the reply with: grokbot wait ${jobId}\n`,
-  }),
-  wait: ({ jobId, outcome }) => outcomeText(jobId, outcome),
+  ask: ({ jobId, outcome, next }) =>
+    withNext(outcomeText(jobId, outcome), next),
+  reply: ({ jobId, outcome, next }) =>
+    withNext(outcomeText(jobId, outcome), next),
+  send: ({ jobId, agent, queued, next }) =>
+    withNext(
+      {
+        stdout: `${jobId}\n`,
+        note: queued
+          ? `Queued for ${agent.name}: it is busy, so the message goes out once it is free. Send it and get the reply with: grokbot wait ${jobId}\n`
+          : `Sent to ${agent.name}. Get the reply with: grokbot wait ${jobId}\n`,
+      },
+      next,
+    ),
+  wait: ({ jobId, outcome, next }) =>
+    withNext(outcomeText(jobId, outcome), next),
   tail: ({ agent, entries }) =>
     plain(
       entries.length === 0

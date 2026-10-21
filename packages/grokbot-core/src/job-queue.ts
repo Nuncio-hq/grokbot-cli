@@ -10,6 +10,7 @@ import {
 } from "./contracts.js";
 import { type SendSnapshot, snapshotBeforeSend } from "./job-send-snapshot.js";
 import type { JobRecord, JobStore } from "./job-store.js";
+import { JOB_HANDLE_LENGTH } from "./next-step.js";
 import { asJsonObject, readString } from "./transcript.js";
 
 export interface JobContext {
@@ -40,23 +41,37 @@ function assertDispatched(raw: unknown): void {
   throw new GrokBotError("protocol", `SendGrokBotUserMessage ${detail}`);
 }
 
+/** The id a job will have and the session that sends it, known before its text is written. */
+export interface JobOrigin {
+  readonly jobId: string;
+  /** The sender's session address, when grokbot could tell which session it is. */
+  readonly session?: string;
+}
+
+/** What a message header names the job by: the first 8 characters of its id. */
+export const jobHandle = (jobId: string): string =>
+  jobId.slice(0, JOB_HANDLE_LENGTH);
+
 /**
  * A job for `text` that waits its turn; the snapshot fields are filled when it is sent.
  * `replyToId` makes it a reply to that transcript entry, and goes out with the message.
+ * `origin` fixes the job id (the message header already names it) and records the session.
  */
 export function newQueuedJob(
   agent: Agent,
   text: string,
   replyToId?: string,
+  origin?: JobOrigin,
 ): JobRecord {
   const now = Date.now();
   return {
-    jobId: randomUUID(),
+    jobId: origin?.jobId ?? randomUUID(),
     agentId: agent.agentId,
     agentName: agent.name,
     text,
     queuedAtMs: now,
     ...(replyToId !== undefined && { replyToId }),
+    ...(origin?.session !== undefined && { session: origin.session }),
     sentMessageId: randomUUID(),
     sentAtMs: now,
     baselineUpdatedSeq: "0",

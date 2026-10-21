@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
  */
 const ROOT = fileURLToPath(new URL("../../..", import.meta.url));
 const SKILL = "packages/grokbot-cli/skills/grokbot/SKILL.md";
+const INBOX_SKILL = "packages/grokbot-cli/skills/grokbot-inbox/SKILL.md";
 
 /** Agent runtimes. Cursor is left out: GrokBot itself runs on Cursor's backend. */
 const RUNTIMES = /\b(claude|codex|hermes|gemini|opencode)\b/gi;
@@ -18,6 +19,8 @@ const AGENT_ID =
 
 /** Files allowed to name one runtime alone, and why. */
 const ONE_RUNTIME_ALLOWED: Readonly<Record<string, string>> = {
+  "packages/grokbot-core/src/caller-session.ts":
+    "reads each runtime's own session folder or thread variable",
   "packages/grokbot-core/src/usage-client.ts":
     "detects callers from each runtime's own markers",
   "packages/grokbot-mcp/src/mcp-tools-dispatch.ts":
@@ -25,7 +28,7 @@ const ONE_RUNTIME_ALLOWED: Readonly<Record<string, string>> = {
 };
 
 function shippedFiles(): string[] {
-  const files: string[] = [SKILL];
+  const files: string[] = [SKILL, INBOX_SKILL];
   for (const pkg of readdirSync(join(ROOT, "packages"))) {
     const src = join(ROOT, "packages", pkg, "src");
     for (const entry of readdirSync(src, { recursive: true })) {
@@ -49,6 +52,7 @@ describe("shipped source is agent- and account-neutral", () => {
 
   it("scans every package's source and the skill", () => {
     expect(files).toContain(SKILL);
+    expect(files).toContain(INBOX_SKILL);
     expect(files.some((f) => f.startsWith("packages/grokbot-mcp/src/"))).toBe(
       true,
     );

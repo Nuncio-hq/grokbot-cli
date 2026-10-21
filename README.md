@@ -20,15 +20,25 @@ grokbot agents     # lists your bots: you are connected
 
 On a network that needs a proxy, set `GROKBOT_HTTPS_PROXY=http://host:port` (or the usual `HTTPS_PROXY`) before running `grokbot`.
 
-## Set it up with your agent
+## Set it up
 
-Run this once and paste what it prints into your agent runtime:
+Two prompts, one for each side. Paste each once.
+
+**Your bots' side.** Paste this into your primary Bot's chat in the GrokBot app:
+
+```bash
+grokbot setup-prompt bot
+```
+
+Your bot installs `grokbot` on its cloud computer, saves the `grokbot-inbox` skill so all your bots know how to leave work for your assistant, checks your project names with you, and posts one test item.
+
+**Your assistant's side.** Paste this into your agent runtime:
 
 ```bash
 grokbot setup-prompt
 ```
 
-The prompt points your agent at the skill that ships with `grokbot` and walks you through first-time setup together: it checks your sign-in, shows your bots and which one is your primary Bot, asks which bots are your main and test bots, asks your primary Bot once how your account is organised, and, with your OK, routes each of your project folders to the bot that owns that project. It changes nothing on your bots without asking you first.
+The prompt points your agent at the skill that ships with `grokbot` and walks you through first-time setup together: it checks your sign-in, shows your bots and which one is your primary Bot, asks which bots are your main and test bots, asks your primary Bot once how your account is organised, routes each of your project folders to the bot that owns that project, and closes your bot's test item to prove the two sides can reach each other. It changes nothing on your bots without asking you first.
 
 ## Use it
 
@@ -38,10 +48,15 @@ job=$(grokbot send --agent Researcher "Compare our pricing with three competitor
 grokbot wait "$job" --timeout 1800                              # resume any job later
 grokbot reply "$job" "Shorter, please"                          # like Reply in the app
 grokbot team                                                    # who is running, idle, or waiting on you
+grokbot inbox                                                   # what your bots left for your assistant
 grokbot --help                                                  # every command
 ```
 
 Without `--agent`, a message goes to the bot routed to the current folder (`grokbot config route`), else to your primary Bot.
+
+Your bots leave items for your assistant (a bug to fix, a task, a question, a result to check) in an inbox on their cloud computer. Your assistant sees them about a minute later with `grokbot inbox`, even if your computer was asleep, and answers with `grokbot inbox-reply` or `grokbot inbox-done`. Decisions, money and public posts still go to you in the GrokBot app.
+
+Every message your assistant sends starts with a short header naming the project, the agent runtime, its session and the job, so a bot can address an item to exactly the session that asked. Your assistant waits for such items with `grokbot inbox wait` instead of checking again and again (in the background, when its runtime can run a command there), and any other `grokbot` command mentions new ones. If your agent runtime can run a command before the agent stops, have it run `grokbot inbox check`: a session then never finishes with an item for it unseen.
 
 ## Use it over MCP
 

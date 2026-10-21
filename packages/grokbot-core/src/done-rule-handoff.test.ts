@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { IDLE_STATUS } from "./agent-status.js";
 import { DELEGATION_GRACE_MS } from "./delegations.js";
+import { COLOR_WIDGET } from "./fixtures/card-traces.js";
+import { summary } from "./fixtures/done-rule-summary.js";
 import {
   AWAITING_STATUS,
   chainedHandoff,
@@ -21,7 +23,11 @@ import {
   twoHandoffs,
   unreadOf,
 } from "./fixtures/handoff-traces.js";
-import { assistantRow, withEntryId } from "./fixtures/wire-entries.js";
+import {
+  assistantRow,
+  sendMessageRow,
+  withEntryId,
+} from "./fixtures/wire-entries.js";
 
 const BASE = 1_792_405_000_000;
 const at = (s: number) => BASE + Math.round(s * 1000);
@@ -364,6 +370,94 @@ describe("Done Rule follows a hand-off by its ids", () => {
       const ctx = contextOf(PRIMARY, { [STAFF.id]: readOf([], at(500)) });
       expect(openOf(legacy, "cloud-1", ctx)).toEqual(["t77s1:by-agent"]);
       expect(judge(legacy, "cloud-1", ctx)).toBe("running:pending-delegation");
+    });
+  });
+
+  describe("a cloud agent that answers once per run", () => {
+    const cloud = {
+      id: "bc-00000000-0000-4000-8000-0000000000aa",
+      name: "bc-00000000-0000-4000-8000-0000000000aa",
+    };
+    const toCloud = (seq: number, hex: string, run: string, ms: number) =>
+      withEntryId(
+        assistantRow(seq, `Message ${hex}.`, {
+          toAgent: { ...cloud, kind: "cloud-agent" },
+          requestId: run,
+          timestampMs: ms,
+        }),
+        `agent-outbound-${hex}`,
+      );
+    const owner = ownerRow(
+      10,
+      "Start a cloud agent.",
+      "cloud-1",
+      "rs-1",
+      at(0),
+    );
+    /** Two sends (the second a follow-up) before the bot's one reply. */
+    const sends = [
+      owner,
+      toCloud(11, "ff0001", "rs-1", at(2)),
+      noteRow(12, "Started.", "rs-1", at(3)),
+      toCloud(13, "ff0003", "rs-1", at(20)),
+      noteRow(14, "Sent a follow-up.", "rs-1", at(21)),
+    ];
+    const reply = inboundRow(15, "ff0002", "Counted 3.", cloud, "rs-2", at(60));
+    const widget = withEntryId(
+      sendMessageRow(16, COLOR_WIDGET, "rs-1", 16, { timestampMs: at(22) }),
+      "t10s0",
+    );
+
+    it("ends every send made before its reply, not only the oldest", () => {
+      const done = [
+        ...sends,
+        reply,
+        noteRow(16, "FINAL: 3 files", "rs-2", at(62)),
+      ];
+      expect(openOf(sends, "cloud-1")).toEqual([
+        "agent-outbound-ff0001:by-agent",
+        "agent-outbound-ff0003:by-agent",
+      ]);
+      expect(openOf(done, "cloud-1")).toEqual([]);
+      expect(judge(done, "cloud-1")).toBe("done:FINAL: 3 files");
+    });
+
+    it("keeps a send made after the reply open", () => {
+      const later = [...sends, reply, toCloud(16, "ff0004", "rs-2", at(70))];
+      expect(openOf(later, "cloud-1")).toEqual([
+        "agent-outbound-ff0004:by-agent",
+      ]);
+      expect(judge(later, "cloud-1")).toBe("running:pending-delegation");
+    });
+
+    it("names an open card over sends that no reply came for once the bot is idle", () => {
+      const rows = [...sends, widget];
+      expect(summary(rows, IDLE_STATUS, "cloud-1")).toBe(
+        "awaiting-approval:16",
+      );
+      expect(judge(rows, "cloud-1")).toBe("awaiting-approval");
+      const other = contextOf(PRIMARY, { [STAFF.id]: readOf([], at(500)) });
+      expect(judge(rows, "cloud-1", other)).toBe("awaiting-approval");
+    });
+
+    it("keeps the job running while the bot is still working", () => {
+      const rows = [...sends, widget];
+      expect(judge(rows, "cloud-1", undefined, RUNNING_STATUS)).toBe(
+        "running:target-active",
+      );
+      const busy = { ...IDLE_STATUS, hasRunningSubagents: true };
+      expect(judge(rows, "cloud-1", undefined, busy)).toBe(
+        "running:subagents-active",
+      );
+    });
+
+    it("keeps waiting on a delegate that was read and is still working", () => {
+      const toStaff = outboundRow(17, "ee0001", "Help.", STAFF, "rs-1", at(23));
+      const rows = [...sends, widget, toStaff];
+      const working = contextOf(PRIMARY, { [STAFF.id]: unreadOf(at(30)) });
+      expect(judge(rows, "cloud-1", working)).toBe(
+        "running:pending-delegation",
+      );
     });
   });
 });

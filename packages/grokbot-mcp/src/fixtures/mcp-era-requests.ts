@@ -1,4 +1,5 @@
 import { GROKBOT_VERSION } from "grokbot-core";
+import { expect } from "vitest";
 import { PRIMARY_TEST } from "./mcp-session.js";
 
 export const MODERN_META = {
@@ -28,8 +29,8 @@ export const DISCOVER_RESULT = {
   resultType: "complete",
   supportedVersions: ACCEPTED_VERSIONS,
   capabilities: { tools: {} },
-  instructions:
-    "Drives a GrokBot workforce: the AI agents on the owner's Grok Bot account. Start with grokbot_agents or grokbot_team to see who is available. Never pass yes: true without the owner's explicit approval.",
+  // The sentence about the inbox is checked by its tool name, not its wording.
+  instructions: expect.stringContaining("grokbot_inbox"),
   ttlMs: 3_600_000,
   cacheScope: "public",
   _meta: SERVER_META,
@@ -39,6 +40,7 @@ export const initializeResult = (protocolVersion: string) => ({
   protocolVersion,
   capabilities: { tools: {} },
   serverInfo: SERVER_INFO,
+  instructions: expect.stringContaining("grokbot_inbox"),
 });
 
 export const AGENTS_OUTPUT = { agents: [PRIMARY_TEST] };

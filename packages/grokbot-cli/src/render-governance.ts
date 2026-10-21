@@ -56,7 +56,7 @@ function cardDetail(card: Card): string {
 
 type AgentRow = CommandOutputs["approvals"]["agents"][number];
 
-/** Table rows for one agent: a pending box hand-off, then its cards, else its awaiting reason. */
+/** Table rows for one agent: its cards, then a pending box hand-off, else its awaiting reason. */
 function approvalRows({ agent, awaiting, handoff, cards }: AgentRow) {
   const handoffRow = handoff
     ? [
@@ -85,7 +85,7 @@ function approvalRows({ agent, awaiting, handoff, cards }: AgentRow) {
           ],
         ]
       : [];
-  return [...handoffRow, ...cardRows, ...awaitingRow];
+  return [...cardRows, ...handoffRow, ...awaitingRow];
 }
 
 const quote = (arg: string) =>

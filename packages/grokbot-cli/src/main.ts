@@ -1,17 +1,21 @@
 import {
   type CommandName,
-  type CommandOutputs,
+  type CommandResult,
   type CommandRunner,
   type CommandRunnerOptions,
+  type DetectedClient,
+  describeNotice,
   GROKBOT_VERSION,
   parseCommandInput,
   type RunOptions,
 } from "grokbot-core";
+import { spokenName } from "./argv-parser.js";
 import type { AuthDeps } from "./auth-command.js";
 import type { ConfigDeps } from "./config-command.js";
 import { errorMessage } from "./error-message.js";
 import { EXIT_CODE } from "./exit-codes.js";
 import { commandHelp, generalHelp, usageLine } from "./help.js";
+import type { InboxBotDeps } from "./inbox-bot-commands.js";
 import { localInvocation, runLocal } from "./local-commands.js";
 import { cliError, parseArgv } from "./parse-argv.js";
 import { progressLine } from "./progress.js";
@@ -29,6 +33,12 @@ export interface MainContext {
   readonly stdout: TextSink;
   readonly stderr: TextSink;
   readonly env: Readonly<Record<string, string | undefined>>;
+  /** Who is calling and which signal decided it, from `detectClient`; `grokbot whoami` reports it. */
+  readonly caller: DetectedClient;
+  /** The folder `grokbot whoami` looks up the caller's session for. Default: process.cwd(). */
+  readonly cwd?: string;
+  /** The home folder agent runtimes keep their sessions under. Default: os.homedir(). */
+  readonly home?: string;
   /** Whether stderr is a terminal; progress prints only then. */
   readonly isTTY: boolean;
   /** Aborts the running command (Ctrl-C). */
@@ -41,6 +51,8 @@ export interface MainContext {
   readonly stats?: StatsDeps;
   /** Where `grokbot setup-prompt` finds the shipped skill; built lazily like `auth`. */
   readonly setupPrompt?: SetupPromptDeps;
+  /** Files, stdin and git for the bot-side `grokbot inbox-*` commands; built lazily like `auth`. */
+  readonly inboxBot?: InboxBotDeps;
 }
 
 const INTERRUPTED = Symbol("interrupted");
@@ -74,7 +86,7 @@ export async function main(
       return EXIT_CODE.ok;
     case "usage-error": {
       const { command, errors } = invocation;
-      const scope = command ? `${command.name}: ` : "";
+      const scope = command ? `${spokenName(command.name)}: ` : "";
       for (const error of errors) stderr.write(`grokbot: ${scope}${error}\n`);
       stderr.write(`${usageLine(command)}\n`);
       return EXIT_CODE.usage;
@@ -87,7 +99,9 @@ export async function main(
   const parsed = parseCommandInput(command.name, raw);
   if (!parsed.ok) {
     for (const error of parsed.errors) {
-      stderr.write(`grokbot: ${command.name}: ${cliError(command, error)}\n`);
+      stderr.write(
+        `grokbot: ${spokenName(command.name)}: ${cliError(command, error)}\n`,
+      );
     }
     stderr.write(`${usageLine(command)}\n`);
     return EXIT_CODE.usage;
@@ -116,13 +130,16 @@ export async function main(
   try {
     const runner = context.createRunner(defaultAgent ? { defaultAgent } : {});
     const name: CommandName = command.name;
-    const output: CommandOutputs[CommandName] = await Promise.race([
+    const output: CommandResult<CommandName> = await Promise.race([
       runner.run(name, parsed.input, options),
       untilAborted(controller.signal),
     ]);
     const rendered = renderOutput(name, output, json);
     stdout.write(rendered.stdout);
     if (rendered.note) stderr.write(rendered.note);
+    // Under --json the notice is already a field of the document on stdout.
+    if (!json && output.inboxNotice !== undefined)
+      stderr.write(describeNotice(output.inboxNotice.items));
     return rendered.exit;
   } catch (error) {
     if (error === INTERRUPTED || controller.signal.aborted) {

@@ -6,21 +6,24 @@ import type {
 } from "./command-spec.js";
 import { DISPATCH_COMMANDS } from "./command-specs-dispatch.js";
 import { GOVERNANCE_COMMANDS } from "./command-specs-governance.js";
+import { INBOX_COMMANDS } from "./command-specs-inbox.js";
 import { WORKFORCE_COMMANDS } from "./command-specs-workforce.js";
 
 type CommandGroup = Readonly<Record<string, CommandSpec>>;
 
-/** Joins the three command groups in order; throws when two groups define one name. */
+/** Joins the four command groups in order; throws when two groups define one name. */
 export function mergeCommandGroups<
   D extends CommandGroup,
   W extends CommandGroup,
   G extends CommandGroup,
->(dispatch: D, workforce: W, governance: G): D & W & G {
+  I extends CommandGroup,
+>(dispatch: D, workforce: W, governance: G, inbox: I): D & W & G & I {
   const owner = new Map<string, string>();
   for (const [group, specs] of Object.entries({
     dispatch,
     workforce,
     governance,
+    inbox,
   })) {
     for (const name of Object.keys(specs)) {
       const first = owner.get(name);
@@ -32,13 +35,14 @@ export function mergeCommandGroups<
       owner.set(name, group);
     }
   }
-  return { ...dispatch, ...workforce, ...governance };
+  return { ...dispatch, ...workforce, ...governance, ...inbox };
 }
 
 export const COMMANDS = mergeCommandGroups(
   DISPATCH_COMMANDS,
   WORKFORCE_COMMANDS,
   GOVERNANCE_COMMANDS,
+  INBOX_COMMANDS,
 );
 
 export type CommandName = keyof typeof COMMANDS;

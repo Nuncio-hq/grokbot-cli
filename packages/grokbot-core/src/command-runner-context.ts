@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { homedir, hostname as osHostname } from "node:os";
 import {
   type Agent,
   noAgentError,
@@ -6,6 +8,8 @@ import {
   resolveAgent,
 } from "./agents.js";
 import { createTokenSource } from "./auth-token-source.js";
+import { type BoxStore, boxStore } from "./box-store.js";
+import { detectCallerSession, hasSession } from "./caller-session.js";
 import type { CommandInput, CommandName } from "./command-catalog.js";
 import type {
   CommandOutput,
@@ -19,10 +23,17 @@ import {
   type ServerTransport,
 } from "./contracts.js";
 import { createGatewayTransport } from "./gateway-transport.js";
+import { INBOX_POLL_MS } from "./inbox-delivery.js";
+import { type InboxStateStore, inboxStateStore } from "./inbox-state-store.js";
+import { type JobOrigin, jobHandle } from "./job-queue.js";
 import { jobStore } from "./job-store.js";
+import { runtimeName, withMessageTag } from "./message-tag.js";
 import { readPrimaryAgentId } from "./primary-agent.js";
 import { type MatchedRoute, routeForFolder } from "./project-routes.js";
-import { projectRoutesStore } from "./project-routes-store.js";
+import {
+  type ProjectRoutes,
+  projectRoutesStore,
+} from "./project-routes-store.js";
 import {
   type ProtectedBots,
   protectedBotsStore,
@@ -42,8 +53,6 @@ export interface RunnerContext extends JobContext {
   readonly dashboard: Pick<ServerTransport, "call">;
   /** aiserver.v1.BackgroundComposerService, for reading Cursor cloud agents. */
   readonly composer: ServerTransport;
-  /** Epoch ms now. */
-  now(): number;
   readonly webhookKeys: WebhookKeyStore;
   readonly fireWebhook: WebhookFirer;
   fetchAgents(signal?: AbortSignal): Promise<readonly Agent[]>;
@@ -54,8 +63,43 @@ export interface RunnerContext extends JobContext {
    * else the working directory's project route, else the account's primary Bot.
    */
   target(flag: string | undefined, signal?: AbortSignal): Promise<Agent>;
-  /** The `[label] ` tag of the working directory's project route, if it has one. */
+  /** The working directory's project route label, if it has one (scopes the inbox list). */
   projectLabel(): Promise<string | undefined>;
+  /**
+   * The id and sender session of a job about to be sent. The id exists before the
+   * message text does, because the header names the job.
+   */
+  beginJob(): Promise<JobOrigin>;
+  /**
+   * `text` behind grokbot's one header: the route's project label, the caller's runtime
+   * name, the caller's session and the job `origin` names (first 8 characters of its id),
+   * each when known, applied once. Every message sent for an agent goes through here,
+   * except those that carry an instruction format (routines) or their own contract (inbox).
+   */
+  tagged(text: string, origin: JobOrigin): Promise<string>;
+  /** The agent runtime's display name for messages with their own contract, if the caller is one. */
+  runtime(): string | undefined;
+  /**
+   * The caller's session address (`<runtime>:<id>`), found afresh on every call from the
+   * environment and the runtime's session folder; undefined when grokbot cannot tell which
+   * session it runs in. It is the return address of a message and what an inbox item's
+   * `to` is compared with. Never cached, so a long-lived host sees sessions as they change.
+   */
+  sessionAddress(): Promise<string | undefined>;
+  /** Every project route, read again on each call. */
+  projectRoutes(): Promise<ProjectRoutes>;
+  /** The bots' cloud computer as the server mirrors it (inbox commands only). */
+  readonly boxStore: BoxStore;
+  /** What this computer did with inbox items. */
+  readonly inboxState: InboxStateStore;
+  /** This computer's short hostname, lowercase: what `grokbot computers` calls its label. */
+  readonly hostname: string;
+  /** Epoch ms now. */
+  now(): number;
+  /** How often `inbox wait` looks at the store's manifest. */
+  readonly inboxPollMs: number;
+  /** The longest `inbox wait` this host allows, in seconds; undefined for no cap. */
+  readonly maxInboxWaitSeconds: number | undefined;
 }
 
 /** A handler's run options. Pass `confirmed` to every transport call. */
@@ -117,6 +161,21 @@ export function createRunnerContext(
     );
   };
 
+  const projectRoutes = () =>
+    (options.projectRoutes ?? (() => projectRoutesStore().read()))();
+
+  const now = options.now ?? Date.now;
+  const sessionAddress = async () => {
+    const session = await detectCallerSession({
+      env: options.env ?? process.env,
+      cwd: options.cwd ?? process.cwd(),
+      home: options.home ?? homedir(),
+      now,
+      caller: options.caller,
+    });
+    return hasSession(session) ? session.address : undefined;
+  };
+
   return {
     server,
     jobs: options.jobs ?? jobStore(),
@@ -127,7 +186,6 @@ export function createRunnerContext(
     composer:
       options.composer ??
       createServerTransport({ getToken, service: "BackgroundComposerService" }),
-    now: options.now ?? Date.now,
     webhookKeys: options.webhookKeys ?? webhookKeyStore(),
     fireWebhook: options.fireWebhook ?? createWebhookFirer(),
     fetchAgents,
@@ -148,5 +206,33 @@ export function createRunnerContext(
     async projectLabel() {
       return (await routeHere())?.label;
     },
+    async beginJob() {
+      const session = await sessionAddress();
+      return {
+        jobId: randomUUID(),
+        ...(session !== undefined && { session }),
+      };
+    },
+    async tagged(text, { jobId, session }) {
+      return withMessageTag(
+        text,
+        (await routeHere())?.label,
+        options.caller,
+        session,
+        jobHandle(jobId),
+      );
+    },
+    runtime: () => runtimeName(options.caller),
+    sessionAddress,
+    projectRoutes,
+    boxStore: options.boxStore ?? boxStore({ server }),
+    inboxState: options.inboxState ?? inboxStateStore(),
+    hostname: (options.hostname ?? osHostname())
+      .split(".")[0]
+      ?.trim()
+      .toLowerCase() as string,
+    now,
+    inboxPollMs: options.inboxPollMs ?? INBOX_POLL_MS,
+    maxInboxWaitSeconds: options.maxInboxWaitSeconds,
   };
 }

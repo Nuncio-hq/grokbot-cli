@@ -6,7 +6,7 @@ import type {
 import { dispatchMessage, followJob } from "./command-runner-jobs.js";
 import type { DispatchCommandName } from "./command-specs-dispatch.js";
 import { GrokBotError } from "./contracts.js";
-import { withProjectLabel } from "./project-routes.js";
+import { nextStep, nextStepUnless } from "./next-step.js";
 import { resolveReplyTarget } from "./reply-target.js";
 import { asJsonObject, parseEntriesResponse } from "./transcript.js";
 
@@ -39,21 +39,37 @@ export function dispatchHandlers(
 
     send: async (input, { signal }) => {
       const agent = await target(input.agent, signal);
-      const text = withProjectLabel(input.text, await ctx.projectLabel());
-      const job = await dispatchMessage(ctx, agent, text, signal);
+      const origin = await ctx.beginJob();
+      const text = await ctx.tagged(input.text, origin);
+      const job = await dispatchMessage(
+        ctx,
+        agent,
+        text,
+        signal,
+        undefined,
+        origin,
+      );
       const { jobId, sentMessageId } = job;
       const queued = job.state.status === "queued";
-      return { jobId, agent, sentMessageId, queued };
+      return { jobId, agent, sentMessageId, queued, next: nextStep(jobId) };
     },
 
     ask: async (input, run) => {
       const agent = await target(input.agent, run.signal);
-      const text = withProjectLabel(input.text, await ctx.projectLabel());
-      const job = await dispatchMessage(ctx, agent, text, run.signal);
+      const origin = await ctx.beginJob();
+      const text = await ctx.tagged(input.text, origin);
+      const job = await dispatchMessage(
+        ctx,
+        agent,
+        text,
+        run.signal,
+        undefined,
+        origin,
+      );
       const { jobId, agentId } = job;
       run.onEvent?.({ type: "dispatched", jobId, agentId });
       const outcome = await followJob(ctx, job, input.timeout, run);
-      return { jobId, agent, outcome };
+      return { jobId, agent, outcome, ...nextStepUnless(jobId, outcome) };
     },
 
     reply: async (input, run) => {
@@ -62,18 +78,26 @@ export function dispatchHandlers(
         input,
         run.signal,
       );
-      const text = withProjectLabel(input.text, await ctx.projectLabel());
+      const origin = await ctx.beginJob();
+      const text = await ctx.tagged(input.text, origin);
       const job = await dispatchMessage(
         ctx,
         agent,
         text,
         run.signal,
         replyToId,
+        origin,
       );
       const { jobId, agentId } = job;
       run.onEvent?.({ type: "dispatched", jobId, agentId });
       const outcome = await followJob(ctx, job, input.timeout, run);
-      return { jobId, agent, replyToId, outcome };
+      return {
+        jobId,
+        agent,
+        replyToId,
+        outcome,
+        ...nextStepUnless(jobId, outcome),
+      };
     },
 
     wait: async (input, run) => {
@@ -91,6 +115,7 @@ export function dispatchHandlers(
         agentId,
         ...(agentName !== undefined && { agentName }),
         outcome,
+        ...nextStepUnless(jobId, outcome),
       };
     },
 

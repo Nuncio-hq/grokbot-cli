@@ -10,6 +10,7 @@ import {
   type TranscriptEntry,
 } from "grokbot-core";
 import {
+  inboxWaitHint,
   type McpOverrides,
   plural,
   type ToolSummaries,
@@ -43,6 +44,13 @@ export const DISPATCH_OVERRIDES: McpOverrides<DispatchCommandName> = {
 };
 
 function outcomeText(who: string, jobId: string, outcome: JobOutcome): string {
+  const text = settledText(who, jobId, outcome);
+  return outcome.status === "done" || outcome.status === "ambiguous"
+    ? text
+    : `${text} ${inboxWaitHint(jobId)}`;
+}
+
+function settledText(who: string, jobId: string, outcome: JobOutcome): string {
   switch (outcome.status) {
     case "done":
       return `${who} replied:\n${outcome.finalReply}`;
@@ -132,9 +140,11 @@ export const DISPATCH_SUMMARIES: ToolSummaries<DispatchCommandName> = {
   ask: ({ jobId, agent, outcome }) => outcomeText(agent.name, jobId, outcome),
   reply: ({ jobId, agent, outcome }) => outcomeText(agent.name, jobId, outcome),
   send: ({ jobId, agent, queued }) =>
-    queued
-      ? `Queued for ${agent.name}: it is busy, so the message goes out once it is free. Job ${jobId} is saved; ${waitHint(jobId)} to send it and get the reply.`
-      : `Sent to ${agent.name}. Job ${jobId} is saved; ${waitHint(jobId)} for the reply.`,
+    `${
+      queued
+        ? `Queued for ${agent.name}: it is busy, so the message goes out once it is free. Job ${jobId} is saved; ${waitHint(jobId)} to send it and get the reply.`
+        : `Sent to ${agent.name}. Job ${jobId} is saved; ${waitHint(jobId)} for the reply.`
+    } ${inboxWaitHint(jobId)}`,
   wait: ({ jobId, agentId, agentName, outcome }) =>
     outcomeText(agentName ?? `Agent ${agentId}`, jobId, outcome),
   tail: ({ agent, entries }) =>

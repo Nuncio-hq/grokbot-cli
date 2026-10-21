@@ -8,7 +8,7 @@ import { normalizeAgentId } from "./protected-bots-store.js";
 export interface ProjectRoute {
   /** Full lowercase agentId. */
   readonly agentId: string;
-  /** Prefixed to `send` and `ask` text as `[label] `. */
+  /** The project name in the tag every message carries: `[label · <runtime>] `, see message-tag.ts. */
   readonly label?: string;
 }
 

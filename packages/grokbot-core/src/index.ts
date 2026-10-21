@@ -47,6 +47,21 @@ export {
   type TokenSource,
 } from "./auth-token-source.js";
 export {
+  type BoxEntry,
+  type BoxFile,
+  type BoxSnapshot,
+  type BoxStore,
+  boxStore,
+} from "./box-store.js";
+export {
+  type CallerSession,
+  type CallerSessionInput,
+  type DetectedSession,
+  detectCallerSession,
+  hasSession,
+  SESSION_ACTIVE_MS,
+} from "./caller-session.js";
+export {
   type CardDescription,
   CLI_RESOLVABLE,
   describeBoxHandoff,
@@ -78,10 +93,18 @@ export {
   paramsJsonSchema,
   parseCommandInput,
 } from "./command-input.js";
+export type {
+  DeliveredItem,
+  InboxDisplay,
+  InboxNotice,
+  InboxRow,
+  InboxRowState,
+} from "./command-outputs-inbox.js";
 export { createCommandRunner } from "./command-runner.js";
 export type {
   CommandOutput,
   CommandOutputs,
+  CommandResult,
   CommandRunner,
   CommandRunnerOptions,
   DispatchedEvent,
@@ -94,6 +117,7 @@ export type {
 export type { CommandSafety, ParamSpec, ParamType } from "./command-spec.js";
 export type { DispatchCommandName } from "./command-specs-dispatch.js";
 export type { GovernanceCommandName } from "./command-specs-governance.js";
+export type { InboxCommandName } from "./command-specs-inbox.js";
 export type { WorkforceCommandName } from "./command-specs-workforce.js";
 export {
   type CallOptions,
@@ -112,6 +136,95 @@ export {
   type RunningReason,
 } from "./done-rule.js";
 export { createGatewayTransport } from "./gateway-transport.js";
+export { inboxGitInfo } from "./inbox-git.js";
+export {
+  credentialKind,
+  formatInboxMessage,
+  INBOX_CLOSED_RETENTION_DAYS,
+  INBOX_DEFAULT_SEVERITY,
+  INBOX_EXPIRES_IN,
+  INBOX_EXPIRY_DAYS,
+  INBOX_ITEM_JSON_SCHEMA,
+  INBOX_KINDS,
+  INBOX_LIMITS,
+  INBOX_NEEDS,
+  INBOX_NEXT_BY,
+  INBOX_OUTCOMES,
+  INBOX_PLACES,
+  INBOX_ROOT,
+  INBOX_ROOT_ENV,
+  INBOX_SCHEMA_ID,
+  INBOX_SEVERITIES,
+  INBOX_STATUSES,
+  INBOX_WORK_STATES,
+  type InboxAction,
+  type InboxAsk,
+  type InboxClosed,
+  type InboxDetails,
+  type InboxDraft,
+  type InboxFile,
+  type InboxFrom,
+  type InboxGit,
+  type InboxIssue,
+  type InboxItem,
+  type InboxKind,
+  type InboxLink,
+  type InboxMachine,
+  type InboxNeed,
+  type InboxNext,
+  type InboxNextBy,
+  type InboxOutcome,
+  type InboxPlace,
+  type InboxPlaceAt,
+  type InboxSeverity,
+  type InboxStatus,
+  type InboxTrailStep,
+  type InboxUpdate,
+  type InboxValidation,
+  type InboxWork,
+  type InboxWorkState,
+  inboxExpiresAt,
+  inboxFileName,
+  inboxSlug,
+  inboxTimestamp,
+  isInboxExpired,
+  parseInboxExpiresIn,
+  parseInboxFileName,
+  validateInboxDraft,
+} from "./inbox-schema.js";
+export {
+  type InboxHandled,
+  type InboxHandledAction,
+  type InboxState,
+  type InboxStateStore,
+  inboxStateStore,
+} from "./inbox-state-store.js";
+export {
+  type InboxCloseRequest,
+  type InboxExpired,
+  type InboxFailure,
+  type InboxPosted,
+  type InboxPostRequest,
+  type InboxResult,
+  type InboxStore,
+  type InboxStoreOptions,
+  type InboxUpdateRequest,
+  type InboxWritten,
+  inboxRoot,
+  inboxStore,
+} from "./inbox-store.js";
+export {
+  describeChecked,
+  describeInboxItem,
+  describeNotice,
+  describeWaited,
+  formatAge,
+  listNotes,
+  oneLine,
+  rowCells,
+  rowTitle,
+  WAIT_TIMED_OUT,
+} from "./inbox-text.js";
 export {
   DEFAULT_JOBS_DIR,
   type JobRecord,
@@ -134,12 +247,12 @@ export {
 } from "./method-safety.js";
 export { CATALOG_APP_VERSION } from "./method-safety-table.js";
 export { readPrimaryAgentId } from "./primary-agent.js";
+export { type ProcessChain, readProcessChain } from "./process-chain.js";
 export {
   type MatchedRoute,
   normalizeRemote,
   projectKeys,
   routeForFolder,
-  withProjectLabel,
 } from "./project-routes.js";
 export {
   isPathKey,
@@ -192,8 +305,10 @@ export {
 } from "./transcript-stream.js";
 export {
   CLIENT_LABELS,
+  CLIENT_NAMES,
   type ClientLabel,
   type ClientSignals,
+  type DetectedClient,
   detectClient,
 } from "./usage-client.js";
 export {

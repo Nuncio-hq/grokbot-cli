@@ -33,7 +33,10 @@ const REPLY_IN_FLIGHT_MS = 120_000;
  * delegations.ts) cannot. One they show is still being worked on can. Otherwise, as
  * before: the bot it went to is still working, its status is unknown, or it was sent
  * moments ago. Live 16 Oct: a delegate that answered while idle never had its reply
- * delivered, so an idle delegate's old message is not waited on forever.
+ * delivered, so an idle delegate's old message is not waited on forever. A Cursor cloud
+ * agent (`bc-…`) never has a status (live 20 Oct), so for it a missing status says
+ * nothing and only the moments-ago rule holds: its long background run must not hold the
+ * bot's queue for hours.
  */
 function replyMayCome(
   { to, atMs, state }: OpenDelegation,
@@ -42,7 +45,9 @@ function replyMayCome(
   if (state.kind === "released") return false;
   if (state.kind !== "by-agent") return true;
   const status = to.id === undefined ? undefined : statuses.get(to.id);
-  if (status === undefined || isActive(status) || status.awaiting) return true;
+  if (status === undefined) {
+    if (to.id?.startsWith("bc-") !== true) return true;
+  } else if (isActive(status) || status.awaiting) return true;
   return atMs === undefined || Date.now() - atMs < REPLY_IN_FLIGHT_MS;
 }
 

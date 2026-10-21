@@ -1,4 +1,5 @@
 import { type Command, type CommandSafety, listCommands } from "grokbot-core";
+import { spokenName } from "./argv-parser.js";
 import {
   AUTH_COMMANDS,
   AUTH_HELP,
@@ -45,7 +46,9 @@ function catalogRow(command: Command): string {
   const flags = flagParams(command)
     .filter(([key]) => key !== "json")
     .map(flag);
-  const usage = ["grokbot", command.name, ...args, ...flags].join(" ");
+  const usage = ["grokbot", spokenName(command.name), ...args, ...flags].join(
+    " ",
+  );
   return row(usage, SAFETY_LABEL[command.safety], command.summary);
 }
 

@@ -82,8 +82,8 @@ describe("governance commands in human mode", () => {
     });
     expect(run.stdout).toBe(
       "AGENT         CARD         ID    DETAIL\n" +
-        "Primary Test  box-handoff  h-1   Take over the bot's computer: Sign in to Xero (only the owner can answer this in the GrokBot app)\n" +
-        'Primary Test  user-form    t9s0  Secure Form "Shipping address" (2 fields) (only the owner can answer this in the GrokBot app)\n',
+        'Primary Test  user-form    t9s0  Secure Form "Shipping address" (2 fields) (only the owner can answer this in the GrokBot app)\n' +
+        "Primary Test  box-handoff  h-1   Take over the bot's computer: Sign in to Xero (only the owner can answer this in the GrokBot app)\n",
     );
   });
 

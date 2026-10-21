@@ -44,30 +44,33 @@ describe("wait resumes a job saved by an earlier ask", () => {
       { status: "pending" },
     ]);
 
+    // Not settled: the next step names both waits, the second by the job's 8-character handle.
+    expect(asked.next).toContain(`grokbot wait ${asked.jobId}`);
+    expect(asked.next).toContain(
+      `grokbot inbox wait --job ${asked.jobId.slice(0, 8)}`,
+    );
+
     const later = finishedBot(await onlyJob(jobs));
     const waited = await createCommandRunner({
       server: later.server,
       jobs: jobStore(dir),
     }).run("wait", { job: asked.jobId, timeout: 5, json: false });
+    // Settled: no hint.
+    expect(waited.next).toBeUndefined();
     expect([
       waited.jobId,
       waited.agentId,
       waited.outcome.status === "done" && waited.outcome.finalReply,
       (await onlyJob(jobs)).state,
-      later.log.map((c) => [c.method, c.body]),
     ]).toEqual([
       asked.jobId,
       AGENT,
       "RESULT: PONG",
       { status: "done", finalReply: "RESULT: PONG" },
-      [
-        ["ListGrokBotAgentStatuses", { agentIds: [AGENT] }],
-        [
-          "ListGrokBotTranscriptEntries",
-          { agentId: AGENT, sessionId: "", limit: 50 },
-        ],
-      ],
     ]);
+    expect(later.log.map((c) => c.method)).not.toContain(
+      "SendGrokBotUserMessage",
+    );
   }, 5_000);
 
   it("saves awaiting-approval, and wait re-checks it once the card resolves", async () => {
@@ -83,6 +86,7 @@ describe("wait resumes a job saved by an earlier ask", () => {
       },
     });
     const asked = await createCommandRunner({ server, jobs }).run("ask", ASK);
+    expect(asked.next).toContain(`grokbot wait ${asked.jobId}`);
     expect([asked.outcome.status, (await onlyJob(jobs)).state]).toEqual([
       "awaiting-approval",
       { status: "awaiting-approval", reason: "Pick one" },

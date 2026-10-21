@@ -19,7 +19,7 @@ type Handler = (
 const SERVER_INFO = { name: "grokbot-mcp", version: GROKBOT_VERSION };
 
 const INSTRUCTIONS =
-  "Drives a GrokBot workforce: the AI agents on the owner's Grok Bot account. Start with grokbot_agents or grokbot_team to see who is available. Never pass yes: true without the owner's explicit approval.";
+  "Drives a GrokBot workforce: the AI agents on the owner's Grok Bot account. Start with grokbot_agents or grokbot_team to see who is available. At the start of a conversation, call grokbot_inbox to see what the person's bots left for this assistant. Never pass yes: true without the owner's explicit approval.";
 
 /** Both results come from the catalog, so they are identical for every caller until an upgrade. */
 const CACHE_HINTS = { ttlMs: 3_600_000, cacheScope: "public" } as const;
@@ -33,6 +33,7 @@ function initialize(params: JsonObject): Outcome {
       protocolVersion,
       capabilities: { tools: {} },
       serverInfo: SERVER_INFO,
+      instructions: INSTRUCTIONS,
     },
   };
 }

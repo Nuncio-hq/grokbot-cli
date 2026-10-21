@@ -240,8 +240,8 @@ describe("governance MCP tools", () => {
       'Accepted: answered widget t2s0 on Primary Test with "Blue".',
       "Nothing started. Command:\ncursor-agent worker start\nenv: HOME\nRegistered computers now: none.",
       "Opened desktop window 3 on the host.",
-      "- Primary Test: box-handoff h-1: Take over the bot's computer: Sign in to Xero (only the owner can answer this in the GrokBot app)\n" +
-        "- Primary Test: credential-request t9s0: Use a saved login for bank.example.com (only the owner can answer this in the GrokBot app)\n" +
+      "- Primary Test: credential-request t9s0: Use a saved login for bank.example.com (only the owner can answer this in the GrokBot app)\n" +
+        "- Primary Test: box-handoff h-1: Take over the bot's computer: Sign in to Xero (only the owner can answer this in the GrokBot app)\n" +
         "- Primary Test: awaiting Hand-off (no open card in the last 50 rows; check the bot in the GrokBot app)",
     ]);
   });

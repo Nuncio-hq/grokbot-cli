@@ -72,10 +72,14 @@ export async function listApprovals(
     async (agent) => {
       const status = statuses.get(agent.agentId);
       return {
-        agent,
+        cards: await cardsOf(ctx, agent, signal),
+        agent: {
+          agentId: agent.agentId,
+          name: agent.name,
+          kind: agent.kind,
+        },
         awaiting: status?.awaiting?.reason ?? null,
         handoff: status?.boxHandoff ?? null,
-        cards: await cardsOf(ctx, agent, signal),
       };
     },
   );

@@ -15,7 +15,8 @@ export const ROUTE_HELP = [
   "  to <agentId> when no --agent or GROKBOT_AGENT is given. Without a route, the account's",
   "  primary Bot answers. The route is keyed by the folder's git remote (origin), so every",
   "  clone of the project shares it, or by the folder's absolute path when it has no remote",
-  "  or --path is given. --label <text> tags each message as [text] so the bot knows the project.",
+  "  or --path is given. --label <text> names the project in the tag grokbot puts on each message,",
+  "  [text · <agent runtime>], so the bot knows the project and who is writing.",
   "unroute removes this folder's route (same keying). Take agentIds from grokbot agents --json.",
 ];
 

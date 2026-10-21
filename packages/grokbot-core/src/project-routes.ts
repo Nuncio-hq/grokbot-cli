@@ -105,12 +105,3 @@ export async function routeForFolder(
   const { length: _length, ...matched } = best;
   return matched;
 }
-
-/** `[label] text`, unless the text already starts with `[label]` (any case). */
-export function withProjectLabel(text: string, label: string | undefined) {
-  if (label === undefined) return text;
-  const tag = `[${label}]`;
-  return text.trimStart().toLowerCase().startsWith(tag.toLowerCase())
-    ? text
-    : `${tag} ${text}`;
-}

@@ -14,14 +14,22 @@ import type {
 } from "./governance-listings.js";
 
 /**
- * One agent's open cards. `awaiting` is the live.awaiting reason, null when not awaiting;
- * `handoff` is a pending box hand-off, null when there is none.
+ * The bot an approvals row names. Only what identifies it: a bot's `description` holds its
+ * instructions and can run to kilobytes, which pushed `cards` past byte 5,000 of the JSON
+ * and out of a truncated read (live 20 Oct).
+ */
+export type ApprovalAgent = Pick<Agent, "agentId" | "name" | "kind">;
+
+/**
+ * One agent's open cards. `cards` comes first so a truncated read of the JSON still sees
+ * them. `awaiting` is the live.awaiting reason, null when not awaiting; `handoff` is a
+ * pending box hand-off, null when there is none.
  */
 export interface AgentCards {
-  readonly agent: Agent;
+  readonly cards: readonly GovernanceCard[];
+  readonly agent: ApprovalAgent;
   readonly awaiting: string | null;
   readonly handoff: BoxHandoff | null;
-  readonly cards: readonly GovernanceCard[];
 }
 
 /** The exact `cursor-agent worker start` invocation. Env names only, never values. */

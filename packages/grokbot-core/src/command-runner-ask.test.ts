@@ -73,6 +73,7 @@ describe("ask", () => {
         out.outcome.replies.map((r) => r.seq),
       ],
     ).toEqual(["Trace Bot", "RESULT: PONG", ["143", "145", "147"]]);
+    expect(out.next).toBeUndefined();
     expect(await jobs.load(out.jobId)).toMatchObject({
       agentId: AGENT,
       baselineUpdatedSeq: "141",

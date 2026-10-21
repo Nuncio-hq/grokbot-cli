@@ -32,6 +32,27 @@ interface FlagHit {
   readonly value: string | undefined;
 }
 
+/**
+ * Commands spoken as two words (`grokbot inbox wait`) and the catalog name each stands for.
+ * `inbox-wait` itself works too, like every other catalog name.
+ */
+const TWO_WORDS: ReadonlyMap<string, string> = new Map([
+  ["inbox wait", "inbox-wait"],
+  ["inbox check", "inbox-check"],
+]);
+
+/** How a command is typed: `inbox wait` for `inbox-wait`, else its catalog name. */
+export function spokenName(name: string): string {
+  return [...TWO_WORDS].find(([, catalog]) => catalog === name)?.[0] ?? name;
+}
+
+/** The positionals with a leading two-word command folded into its catalog name. */
+function foldWords(positionals: readonly string[]): string[] {
+  const [first, second, ...rest] = positionals;
+  const folded = TWO_WORDS.get(`${first} ${second}`);
+  return folded === undefined ? [...positionals] : [folded, ...rest];
+}
+
 const HELP = "help";
 const VERSION = "version";
 
@@ -183,9 +204,9 @@ export function argvParser(
   };
   return (argv) => {
     const { positionals, hits } = scan(argv, flags);
-    const [first, ...rest] = positionals;
+    const [first, ...rest] = foldWords(positionals);
     const has = (key: string) => hits.some((hit) => hit.flag?.key === key);
-    if (first === HELP) return helpFor(rest[0]);
+    if (first === HELP) return helpFor(foldWords(rest)[0]);
     if (has(HELP)) return helpFor(first);
     if (has(VERSION)) return { kind: "version" };
     if (first === undefined) {

@@ -374,8 +374,20 @@ function judgeTurn(
     subagentsBlockTurn(turn, subagentStartedAtMs)
   )
     return running("subagents-active");
-  if (turn.hasOpenDelegation) return running("pending-delegation");
   const [card] = cards;
+  if (turn.hasOpenDelegation) {
+    // An open card of an idle bot wins over delegations that can only pair by agent: no
+    // read of the delegate tells whether it will answer (a Cursor cloud agent has no
+    // status, live 20 Oct), so waiting on it would hide a card the owner must answer.
+    // A delegate that was read and is working, or inside its grace, keeps the job running.
+    const cardWins =
+      card !== undefined &&
+      !isActive(live) &&
+      turn.delegations.open.every(
+        (d) => d.state.kind === "by-agent" || d.state.kind === "released",
+      );
+    if (!cardWins) return running("pending-delegation");
+  }
   if (card)
     return { status: "awaiting-approval", reason: cardReason(card), cards };
   const final =

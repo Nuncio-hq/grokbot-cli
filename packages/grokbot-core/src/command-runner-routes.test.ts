@@ -1,11 +1,11 @@
 import { execFileSync } from "node:child_process";
-import { mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createCommandRunner } from "./command-runner.js";
 import type { CommandRunnerOptions } from "./command-runner-contract.js";
-import { fakeServer } from "./fixtures/fake-server.js";
+import { fakeServer, type RecordedCall } from "./fixtures/fake-server.js";
 import { jobStore } from "./job-store.js";
 import type { ProjectRoutes } from "./project-routes-store.js";
 
@@ -32,6 +32,12 @@ afterEach(async () => {
   await rm(root, { recursive: true, force: true });
 });
 
+/** An empty session file made just now, in `folder` (created as needed). */
+async function writeSession(folder: string, name: string) {
+  await mkdir(folder, { recursive: true });
+  await writeFile(join(folder, name), "");
+}
+
 type Calls = NonNullable<Parameters<typeof fakeServer>[0]["calls"]>;
 
 function setup(
@@ -50,7 +56,14 @@ function setup(
     },
   });
   const jobs = jobStore(join(root, `jobs-${++setups}`));
-  const runner = createCommandRunner({ server, jobs, cwd: app, ...options });
+  const runner = createCommandRunner({
+    server,
+    jobs,
+    cwd: app,
+    env: {},
+    home: root,
+    ...options,
+  });
   const tail = async (agent?: string) =>
     (
       await runner.run("tail", {
@@ -164,48 +177,138 @@ describe("agent resolution order", () => {
   });
 });
 
-describe("project label", () => {
-  const sentText = (t: ReturnType<typeof setup>) =>
-    t.read("SendGrokBotUserMessage").map((c) => c.body.text);
+describe("message tag", () => {
+  /** The sent texts, with the random job handle of an agent's header shown as `<job>`. */
+  const sentText = (t: { read(method: string): RecordedCall[] }) =>
+    t
+      .read("SendGrokBotUserMessage")
+      .map((c) =>
+        String(c.body.text).replace(/Job: [0-9a-f]{8}/, "Job: <job>"),
+      );
   const labeled = (): ProjectRoutes =>
     new Map([[app, { agentId: STAFF, label: "ProjectName" }]]);
 
-  it("send prefixes the text once, whichever way the bot was chosen", async () => {
-    const t = setup({ projectRoutes: routes(labeled()) });
-    await t.runner.run("send", { text: "hello", json: false });
-    await t.runner.run("send", {
-      text: "[projectname] again",
-      agent: "Primary Test",
-      json: false,
-    });
-    expect(sentText(t)).toEqual(["[ProjectName] hello", "[projectname] again"]);
-    // A different bot than the route's still carries the project label.
-    const flagged = setup({ projectRoutes: routes(labeled()) });
+  it("send starts with the project and the runtime, whichever way the bot was chosen", async () => {
+    const routed = setup({ projectRoutes: routes(labeled()), caller: "omp" });
+    await routed.runner.run("send", { text: "hello", json: false });
+    const flagged = setup({ projectRoutes: routes(labeled()), caller: "omp" });
     await flagged.runner.run("send", {
-      text: "via flag",
+      text: "again",
       agent: "Primary Test",
       json: false,
     });
-    expect(sentText(flagged)).toEqual(["[ProjectName] via flag"]);
+    expect([sentText(routed), sentText(flagged)]).toEqual([
+      ["[Project: ProjectName · Runtime: omp · Job: <job>] hello"],
+      ["[Project: ProjectName · Runtime: omp · Job: <job>] again"],
+    ]);
   });
 
-  it("sends the text untouched when the route has no label or there is no route", async () => {
-    const plain = setup({ projectRoutes: async () => pathRoute() });
+  it("applies the tag once and upgrades the plain [label] an earlier grokbot wrote", async () => {
+    const tagged = setup({ projectRoutes: routes(labeled()), caller: "codex" });
+    await tagged.runner.run("send", {
+      text: "[project: projectname · runtime: codex] tagged",
+      json: false,
+    });
+    const old = setup({ projectRoutes: routes(labeled()), caller: "codex" });
+    await old.runner.run("send", { text: "[ProjectName] old", json: false });
+    expect([sentText(tagged), sentText(old)]).toEqual([
+      ["[Project: ProjectName · Runtime: Codex · Job: <job>] tagged"],
+      ["[Project: ProjectName · Runtime: Codex · Job: <job>] old"],
+    ]);
+  });
+
+  it("tags with the runtime alone when the folder has no label or no route", async () => {
+    const plain = setup({
+      projectRoutes: async () => pathRoute(),
+      caller: "gemini",
+    });
     await plain.runner.run("send", { text: "hello", json: false });
-    const none = setup({ projectRoutes: noRoutes });
+    const none = setup({ projectRoutes: noRoutes, caller: "cursor" });
     await none.runner.run("send", {
       text: "hello",
       agent: "Primary Test",
       json: false,
     });
-    expect([sentText(plain), sentText(none)]).toEqual([["hello"], ["hello"]]);
+    expect([sentText(plain), sentText(none)]).toEqual([
+      ["[Runtime: Gemini CLI · Job: <job>] hello"],
+      ["[Runtime: Cursor · Job: <job>] hello"],
+    ]);
   });
 
-  it("ask prefixes the text too", async () => {
-    const t = setup({ projectRoutes: routes(labeled()) });
+  it("names no runtime for a person typing: the project label alone, or nothing", async () => {
+    const labelled = setup({
+      projectRoutes: routes(labeled()),
+      caller: "human",
+    });
+    await labelled.runner.run("send", { text: "hello", json: false });
+    const none = setup({ projectRoutes: noRoutes, caller: "human" });
+    await none.runner.run("send", {
+      text: "hello",
+      agent: "Primary Test",
+      json: false,
+    });
+    expect([sentText(labelled), sentText(none)]).toEqual([
+      ["[Project: ProjectName] hello"],
+      ["hello"],
+    ]);
+  });
+
+  it("leaves the text alone for a host that gave no caller and a folder with no label", async () => {
+    const t = setup({ projectRoutes: noRoutes });
+    await t.runner.run("send", {
+      text: "hello",
+      agent: "Primary Test",
+      json: false,
+    });
+    expect(sentText(t)).toEqual(["hello"]);
+  });
+
+  it("ask carries the tag too", async () => {
+    const t = setup({ projectRoutes: routes(labeled()), caller: "omp" });
     await t.runner
       .run("ask", { text: "hello", timeout: 1, json: false })
       .catch(() => undefined);
-    expect(sentText(t)).toEqual(["[ProjectName] hello"]);
+    expect(sentText(t)).toEqual([
+      "[Project: ProjectName · Runtime: omp · Job: <job>] hello",
+    ]);
+  });
+
+  it("names the caller's session when its runtime shows exactly one recent session of this folder", async () => {
+    const id = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b";
+    await writeSession(
+      join(root, ".omp/agent/sessions/-app"),
+      `2026-10-20T03-18-28-912Z_${id}.jsonl`,
+    );
+    const t = setup({ projectRoutes: routes(labeled()), caller: "omp" });
+    await t.runner.run("send", { text: "hello", json: false });
+    expect(sentText(t)).toEqual([
+      `[Project: ProjectName · Runtime: omp · Session: omp:${id} · Job: <job>] hello`,
+    ]);
+  });
+
+  it("names no session when two recent sessions share the folder", async () => {
+    const folder = join(root, ".omp/agent/sessions/-app");
+    await writeSession(folder, "2026-10-20T03-18-28-912Z_aaaa1111.jsonl");
+    await writeSession(folder, "2026-10-20T03-19-28-912Z_bbbb2222.jsonl");
+    const t = setup({ projectRoutes: routes(labeled()), caller: "omp" });
+    await t.runner.run("send", { text: "hello", json: false });
+    expect(sentText(t)).toEqual([
+      "[Project: ProjectName · Runtime: omp · Job: <job>] hello",
+    ]);
+  });
+
+  it("takes the session from GROKBOT_SESSION and puts it in an upgraded older header", async () => {
+    const t = setup({
+      projectRoutes: routes(labeled()),
+      caller: "codex",
+      env: { GROKBOT_SESSION: "thread-0042" },
+    });
+    await t.runner.run("send", {
+      text: "[ProjectName · Codex] old",
+      json: false,
+    });
+    expect(sentText(t)).toEqual([
+      "[Project: ProjectName · Runtime: Codex · Session: codex:thread-0042 · Job: <job>] old",
+    ]);
   });
 });
