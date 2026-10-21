@@ -63,6 +63,12 @@ export interface RunnerContext extends JobContext {
    * else the working directory's project route, else the account's primary Bot.
    */
   target(flag: string | undefined, signal?: AbortSignal): Promise<Agent>;
+  /**
+   * Resolves the agent for a command meant for the account's primary Bot: `--agent`, else
+   * the primary Bot. Never the host's default agent or a project route, which pick a bot
+   * for one folder's work.
+   */
+  primaryTarget(flag: string | undefined, signal?: AbortSignal): Promise<Agent>;
   /** The working directory's project route label, if it has one (scopes the inbox list). */
   projectLabel(): Promise<string | undefined>;
   /**
@@ -202,6 +208,12 @@ export function createRunnerContext(
         );
       }
       return primaryAgent(signal);
+    },
+    async primaryTarget(flag, signal) {
+      const pick = pickAgentQuery({ flag });
+      return pick
+        ? resolveAgent(pick, await fetchAgents(signal))
+        : primaryAgent(signal);
     },
     async projectLabel() {
       return (await routeHere())?.label;

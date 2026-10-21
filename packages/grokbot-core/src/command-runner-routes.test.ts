@@ -3,8 +3,13 @@ import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { noAgentError } from "./agents.js";
+import { BOT_SETUP_PROMPT } from "./bot-setup-prompt.js";
 import { createCommandRunner } from "./command-runner.js";
-import type { CommandRunnerOptions } from "./command-runner-contract.js";
+import type {
+  CommandRunner,
+  CommandRunnerOptions,
+} from "./command-runner-contract.js";
 import { fakeServer, type RecordedCall } from "./fixtures/fake-server.js";
 import { jobStore } from "./job-store.js";
 import type { ProjectRoutes } from "./project-routes-store.js";
@@ -311,4 +316,93 @@ describe("message tag", () => {
       "[Project: ProjectName · Runtime: Codex · Session: codex:thread-0042 · Job: <job>] old",
     ]);
   });
+});
+
+describe("setup-bots", () => {
+  const STOP = "stop waiting";
+
+  /** Runs setup-bots until its message is sent, then stops the wait: only where and what it sent matters here. */
+  async function sent(
+    t: {
+      readonly runner: CommandRunner;
+      read(method: string): RecordedCall[];
+    },
+    agent?: string,
+  ) {
+    const stop = new AbortController();
+    await t.runner
+      .run(
+        "setup-bots",
+        { timeout: 1, json: false, ...(agent && { agent }) },
+        {
+          signal: stop.signal,
+          onEvent: (event) => {
+            if (event.type === "dispatched") stop.abort(new Error(STOP));
+          },
+        },
+      )
+      .catch((error: unknown) => {
+        if ((error as Error).message !== STOP) throw error;
+      });
+    return t
+      .read("SendGrokBotUserMessage")
+      .map((c) => ({ agentId: c.body.agentId, text: String(c.body.text) }));
+  }
+
+  it.each([
+    ["a project route", { projectRoutes: async () => pathRoute() }],
+    ["GROKBOT_AGENT", { defaultAgent: "Staff Test", projectRoutes: noRoutes }],
+    [
+      "both",
+      { defaultAgent: "Staff Test", projectRoutes: async () => pathRoute() },
+    ],
+  ])(
+    "goes to the primary Bot even when %s names another bot",
+    async (_label, options) => {
+      const messages = await sent(setup(options));
+      expect(messages.map((m) => m.agentId)).toEqual([PRIMARY]);
+    },
+  );
+
+  it("goes to --agent instead, over GROKBOT_AGENT, the route and the primary Bot, which is then never read", async () => {
+    const t = setup({
+      defaultAgent: "Primary Test",
+      projectRoutes: routes(new Map([[app, { agentId: PRIMARY }]])),
+    });
+    const messages = await sent(t, "Staff Test");
+    expect(messages.map((m) => m.agentId)).toEqual([STAFF]);
+    expect(t.read("GetGrokBotUserRuntimeSettings")).toHaveLength(0);
+  });
+
+  it("sends the shared bot prompt, after grokbot's header when the caller is an agent runtime", async () => {
+    const plain = await sent(setup({ projectRoutes: noRoutes }));
+    const tagged = await sent(
+      setup({ projectRoutes: noRoutes, caller: "omp" }),
+    );
+    expect(plain.map((m) => m.text)).toEqual([BOT_SETUP_PROMPT]);
+    expect(tagged).toHaveLength(1);
+    expect(tagged[0]?.text).toMatch(/^\[Runtime: omp · Job: [0-9a-f]{8}\] /);
+    expect(tagged[0]?.text.endsWith(BOT_SETUP_PROMPT)).toBe(true);
+  });
+
+  it.each([
+    ["settings without a main agent", { settings: {} }],
+    ["an empty settings reply", {}],
+  ])(
+    "%s: the no-agent error, and neither GROKBOT_AGENT nor a route stands in for the primary Bot",
+    async (_label, settings) => {
+      const t = setup(
+        { defaultAgent: "Staff Test", projectRoutes: async () => pathRoute() },
+        {},
+        settings,
+      );
+      await expect(
+        t.runner.run("setup-bots", { timeout: 1, json: false }),
+      ).rejects.toMatchObject({
+        code: "not-found",
+        message: noAgentError().message,
+      });
+      expect(t.read("SendGrokBotUserMessage")).toHaveLength(0);
+    },
+  );
 });

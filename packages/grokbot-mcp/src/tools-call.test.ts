@@ -67,6 +67,19 @@ describe("grokbot-mcp tools/call", () => {
     ]);
   });
 
+  it("calls setup-bots with no text, bounded to 45 s by default, and passes --agent through", async () => {
+    const { runner, calls } = fakeRunner(() => Promise.reject(new Error("x")));
+    await exchange(
+      runner,
+      call(1, "grokbot_setup_bots"),
+      call(2, "grokbot_setup_bots", { agent: "Primary Test", timeout: 300 }),
+    );
+    expect(calls.map((c) => [c.name, c.input])).toEqual([
+      ["setup-bots", { timeout: 45, json: false }],
+      ["setup-bots", { timeout: 300, agent: "Primary Test", json: false }],
+    ]);
+  });
+
   it("returns a bounded wait that is still running with the job id to call again", async () => {
     const { runner } = fakeRunner(() =>
       Promise.resolve({

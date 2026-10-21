@@ -84,7 +84,7 @@ grokbot reply "Looks good, ship it" --to <entryId> --agent Researcher   # no job
 
 ## First-time setup
 
-Do this with the owner when `grokbot setup-prompt` sent you here, or when nothing is set up yet: no bots marked in `grokbot config`, no routes. Go one step at a time, tell the owner what you found, and wait for their answer before the next step. Setup sends a bot only the question in step 4 and, if the owner wants you to, the bots' setup prompt in step 6. It hires, pushes, deletes and changes nothing on any bot.
+Do this with the owner when `grokbot setup-prompt` sent you here, or when nothing is set up yet: no bots marked in `grokbot config`, no routes. Go one step at a time, tell the owner what you found, and wait for their answer before the next step. Setup sends a bot only the question in step 4, and in step 6 the bots' setup prompt (through `grokbot setup-bots`) and the owner's corrections to the answer. It hires, pushes, deletes and changes nothing on any bot.
 
 1. Run `grokbot whoami`. If it exits 1 there is no sign-in: ask the owner to run `grokbot login`, which opens a sign-in page only they can finish. Go on once `whoami` succeeds.
 2. Run `grokbot agents` and `grokbot team`. Tell the owner which bots exist and which one is the primary Bot, the account's main point of contact. A `grokbot` command with no `--agent` goes to it, unless `GROKBOT_AGENT` or a project route names another bot. To see which bot it is, run `grokbot tail -n 1 --json` with no `--agent` from a folder with no route: the `agent` in the result is the primary Bot. That call only reads.
@@ -106,11 +106,14 @@ Do this with the owner when `grokbot setup-prompt` sent you here, or when nothin
    - A route is keyed by the folder's git remote (`origin`), so every clone shares it, or by the folder's path when it has no remote or with `--path`.
    - A broken routes file stops `send` and `ask` with a fix hint instead of falling back, so a message never goes to the wrong bot.
    - `grokbot` sends one message at a time per bot, so two sessions that use the same bot wait for each other. A message also waits while that bot still has a hand-off to another bot running.
-6. Check the bots' side, so bots can leave you work in the inbox (see "Inbox: messages from bots"). Run `grokbot inbox --project "Setup check"`.
-   - If it lists a `result` item titled "grokbot inbox works", the bots' side is set up: close it with `grokbot inbox-done <id> --outcome done --reason "setup check"`.
-   - If not, the owner runs `grokbot setup-prompt bot` and pastes its output into their primary Bot's chat in the GrokBot app. That prompt has the bot install `grokbot` on its cloud computer, save the `grokbot-inbox` skill for all their bots, check the project names with the owner, and post that test item. With the owner's OK you may send it for them instead: `grokbot ask --agent <primary agentId> "$(grokbot setup-prompt bot)" --timeout 600`. An item takes about 1 to 2 minutes to reach this computer, so check again after that.
+6. Set up the bots' side yourself, so bots can leave you work in the inbox (see "Inbox: messages from bots"). Run `grokbot inbox --project "Setup check"` first.
+   - If it lists a `result` item titled "grokbot inbox works", the bots' side is already set up: close it with `grokbot inbox-done <id> --outcome done --reason "setup check"`.
+   - If not, tell the owner what is about to happen (their primary Bot installs `grokbot` on its cloud computer, saves the `grokbot-inbox` skill for all their bots, lists the projects it knows and posts a test item) and, with their OK, run `grokbot setup-bots --timeout 600` (over MCP, `grokbot_setup_bots`). It sends the bots' setup prompt to the primary Bot, whatever `GROKBOT_AGENT` or this folder's route say; `--agent <bot>` names another bot. It waits like `ask`: handle the exit code as in "Dispatch work", and if it does not finish, `grokbot wait <job>` resumes it, so do not send it again. Its `Next:` line (the JSON has `next`) names the rest.
+   - Show the owner the project list from the bot's reply. Send their corrections with `grokbot reply <job> "..."`; the bot remembers the list and uses those names as the project of its inbox items.
+   - Wait for the item the bot posts, addressed to this session and job, with `grokbot inbox wait --job <job8>` (the first 8 characters of the job id; in the background when your runtime can run a command there). It takes about 1 to 2 minutes to reach this computer. It is a `result` item titled "grokbot inbox works" in project "Setup check": close it with `grokbot inbox-done <id> --outcome done --reason "setup check"`. Over MCP the tools are `grokbot_reply`, `grokbot_inbox_wait` and `grokbot_inbox_done`.
+   - If the owner would rather do it by hand, or has no agent runtime, they paste the output of `grokbot setup-prompt bot` into their primary Bot's chat in the GrokBot app instead. It is the same text `grokbot setup-bots` sends, and the bot does the same steps.
 7. Ask the owner where to keep what you agreed: their own project instructions (the file their agent runtime reads, such as AGENTS.md, CLAUDE.md or GEMINI.md), or nowhere. Write it there only with their OK. Never put it in grokbot's own files.
-8. Tell the owner what was set and how to change it later: `grokbot config` lists the main and test marks and the routes, `grokbot config protect` and `grokbot config unprotect <agentId>` change a mark, `grokbot config route` and `grokbot config unroute` change this folder's route, and `grokbot setup-prompt bot` sets the bots' side up again after an update.
+8. Tell the owner what was set and how to change it later: `grokbot config` lists the main and test marks and the routes, `grokbot config protect` and `grokbot config unprotect <agentId>` change a mark, `grokbot config route` and `grokbot config unroute` change this folder's route, and `grokbot setup-bots` sets the bots' side up again after an update.
 
 ## Brief a bot
 
@@ -292,6 +295,7 @@ Nothing here changes an item by itself; the bots do that on their own computer.
 | `grokbot tail [-n <integer>] [--agent <string>]` | read-only | Read recent decoded transcript entries |
 | `grokbot interrupt [--agent <string>]` | writes | Interrupt the active run on an agent |
 | `grokbot reply [job] <text> [--to <string>] [--timeout <integer>] [--agent <string>]` | writes | Reply to one of a bot's messages, like Reply in the app, and wait until the Done Rule settles |
+| `grokbot setup-bots [--timeout <integer>] [--agent <string>]` | writes | Set up the bots' side: send the bot setup prompt to the primary Bot and wait until the Done Rule settles |
 | `grokbot hire <name> --title <string> --description <string> [--instructions <string>] [--instructions-file <string>]` | writes | Create a bot with a role and its own /workspace/staff folder |
 | `grokbot update <agent> [--title <string>] [--description <string>] [--instructions <string>] [--instructions-file <string>]` | writes | Change a bot's title, description, or instructions |
 | `grokbot fire <agent> [--force-protected <string>] [--yes]` | destructive, needs --yes | Delete a bot or room |
@@ -344,7 +348,7 @@ Nothing here changes an item by itself; the bots do that on their own computer.
 
 Use the CLI whenever you can run shell commands. Use the `grokbot-mcp` server when your runtime has no shell, or when the host already runs it. Register it as a stdio server with `npx -y grokbot-mcp`. Its tools are the commands above, renamed `grokbot_<command>` with dashes turned into underscores, such as `grokbot_ask` and `grokbot_skills_list`. Over MCP:
 
-- `grokbot_ask` and `grokbot_wait` wait 45 seconds by default, so a host never kills the call. If the bot is still working, the result says so and gives the job id. Call `grokbot_wait` again with that id until the job is done.
+- `grokbot_ask`, `grokbot_setup_bots` and `grokbot_wait` wait 45 seconds by default, so a host never kills the call. If the bot is still working, the result says so and gives the job id. Call `grokbot_wait` again with that id until the job is done. The bot needs longer than 45 seconds for setup, so expect that answer from `grokbot_setup_bots`.
 - A finished result has status `done` or `ambiguous`, the MCP form of exit 0 and exit 5.
 - Destructive and sensitive tools take `yes: true`, with the same owner-approval rule.
 - `worker-start`, `--force-protected`, `--include-managed`, `--print-url`, and file-path arguments are CLI only. `grokbot_skills_push` takes the SKILL.md text as `markdown`.

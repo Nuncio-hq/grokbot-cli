@@ -46,6 +46,7 @@ export {
   type SignInInfo,
   type TokenSource,
 } from "./auth-token-source.js";
+export { BOT_SETUP_PROMPT, SETUP_CHECK_PROJECT } from "./bot-setup-prompt.js";
 export {
   type BoxEntry,
   type BoxFile,

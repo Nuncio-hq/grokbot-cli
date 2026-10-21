@@ -23,6 +23,12 @@ const REPLY_TO = {
   description:
     "Entry id of the bot message to answer, from tail --json (default: the job's last bot message). Without a job, --agent or routing names the bot",
 } as const;
+/** `setup-bots` sends to the primary Bot, so the host's default agent and the folder's route do not apply. */
+const SETUP_AGENT = {
+  type: "string",
+  description:
+    "Agent name, slug, or agentId to set up instead of the primary Bot (GROKBOT_AGENT and project routes never apply)",
+} as const;
 const TIMEOUT = {
   type: "integer",
   description: "Seconds to wait before giving up",
@@ -117,6 +123,17 @@ export const DISPATCH_COMMANDS = {
       to: REPLY_TO,
       timeout: TIMEOUT,
       agent: AGENT_PARAM,
+      json: JSON_PARAM,
+    },
+  },
+  "setup-bots": {
+    summary:
+      "Set up the bots' side: send the bot setup prompt to the primary Bot and wait until the Done Rule settles",
+    safety: "writes",
+    methods: [ROSTER, PRIMARY, SEND, ...WATCH],
+    params: {
+      timeout: TIMEOUT,
+      agent: SETUP_AGENT,
       json: JSON_PARAM,
     },
   },

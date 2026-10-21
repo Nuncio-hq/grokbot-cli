@@ -106,6 +106,8 @@ export const DISPATCH_RENDERERS: HumanRenderers<DispatchCommandName> = {
     ),
   ask: ({ jobId, outcome, next }) =>
     withNext(outcomeText(jobId, outcome), next),
+  "setup-bots": ({ jobId, outcome, next }) =>
+    withNext(outcomeText(jobId, outcome), next),
   reply: ({ jobId, outcome, next }) =>
     withNext(outcomeText(jobId, outcome), next),
   send: ({ jobId, agent, queued, next }) =>

@@ -1,19 +1,45 @@
 import { IDLE_STATUS, parseAgentStatusesResponse } from "./agent-status.js";
+import type { Agent } from "./agents.js";
+import { BOT_SETUP_PROMPT } from "./bot-setup-prompt.js";
 import type {
   CommandHandlers,
+  HandlerRun,
   RunnerContext,
 } from "./command-runner-context.js";
 import { dispatchMessage, followJob } from "./command-runner-jobs.js";
 import type { DispatchCommandName } from "./command-specs-dispatch.js";
 import { GrokBotError } from "./contracts.js";
-import { nextStep, nextStepUnless } from "./next-step.js";
+import { nextStep, nextStepUnless, setupNextStep } from "./next-step.js";
 import { resolveReplyTarget } from "./reply-target.js";
 import { asJsonObject, parseEntriesResponse } from "./transcript.js";
 
 export function dispatchHandlers(
   ctx: RunnerContext,
 ): CommandHandlers<DispatchCommandName> {
-  const { server, target } = ctx;
+  const { server, target, primaryTarget } = ctx;
+
+  /** Sends `text` to `agent` as a new job and follows it to the Done Rule: the one send path of `ask` and `setup-bots`. */
+  const sendAndFollow = async (
+    agent: Agent,
+    text: string,
+    timeout: number,
+    run: HandlerRun,
+  ) => {
+    const origin = await ctx.beginJob();
+    const tagged = await ctx.tagged(text, origin);
+    const job = await dispatchMessage(
+      ctx,
+      agent,
+      tagged,
+      run.signal,
+      undefined,
+      origin,
+    );
+    const { jobId, agentId } = job;
+    run.onEvent?.({ type: "dispatched", jobId, agentId });
+    return { jobId, outcome: await followJob(ctx, job, timeout, run) };
+  };
+
   return {
     agents: async (_input, { signal }) => ({
       agents: await ctx.fetchAgents(signal),
@@ -56,20 +82,24 @@ export function dispatchHandlers(
 
     ask: async (input, run) => {
       const agent = await target(input.agent, run.signal);
-      const origin = await ctx.beginJob();
-      const text = await ctx.tagged(input.text, origin);
-      const job = await dispatchMessage(
-        ctx,
+      const { jobId, outcome } = await sendAndFollow(
         agent,
-        text,
-        run.signal,
-        undefined,
-        origin,
+        input.text,
+        input.timeout,
+        run,
       );
-      const { jobId, agentId } = job;
-      run.onEvent?.({ type: "dispatched", jobId, agentId });
-      const outcome = await followJob(ctx, job, input.timeout, run);
       return { jobId, agent, outcome, ...nextStepUnless(jobId, outcome) };
+    },
+
+    "setup-bots": async (input, run) => {
+      const agent = await primaryTarget(input.agent, run.signal);
+      const { jobId, outcome } = await sendAndFollow(
+        agent,
+        BOT_SETUP_PROMPT,
+        input.timeout,
+        run,
+      );
+      return { jobId, agent, outcome, next: setupNextStep(jobId, outcome) };
     },
 
     reply: async (input, run) => {

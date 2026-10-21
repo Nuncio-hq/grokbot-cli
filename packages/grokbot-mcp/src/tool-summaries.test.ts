@@ -126,6 +126,25 @@ describe("summarize", () => {
     ).toMatch(/^Primary Test .*\nRESULT: PONG$/);
   });
 
+  it("tells a setup-bots caller the reply, then which tools show the project list, answer, wait for the Setup check item and close it", () => {
+    const jobId = "0123456789abcdef";
+    const outcomes = [
+      { status: "done", finalReply: "My projects: Alpha", replies: [] },
+      { status: "pending", reason: "no Done verdict within 45000 ms" },
+    ] as const;
+    const [settled, unsettled] = outcomes.map((outcome) =>
+      summarize("setup-bots", { jobId, agent: PRIMARY_TEST, outcome }),
+    ) as [string, string];
+    expect(settled).toContain("My projects: Alpha");
+    expect(unsettled).toContain(`grokbot_wait with {"job":"${jobId}"}`);
+    for (const text of [settled, unsettled]) {
+      expect(text).toContain(`grokbot_reply {"job":"${jobId}"`);
+      expect(text).toContain(`grokbot_inbox_wait {"job":["01234567"]}`);
+      expect(text).toContain(`grokbot_inbox_done {"id":"<item id>"`);
+      expect(text).toContain("Setup check");
+    }
+  });
+
   it("says a wait that timed out while queued has not sent the message", () => {
     const reason =
       "Primary Test is busy with earlier work, so the message is queued and not sent yet";

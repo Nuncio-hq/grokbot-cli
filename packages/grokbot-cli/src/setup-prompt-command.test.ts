@@ -1,6 +1,12 @@
 import { existsSync } from "node:fs";
-import { isAbsolute } from "node:path";
-import { listCommands } from "grokbot-core";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { isAbsolute, join } from "node:path";
+import {
+  BOT_SETUP_PROMPT,
+  listCommands,
+  SETUP_CHECK_PROJECT,
+} from "grokbot-core";
 import { describe, expect, it } from "vitest";
 import { runCli } from "./fixtures/run-cli.js";
 import type { SetupPromptDeps } from "./setup-prompt-command.js";
@@ -45,9 +51,8 @@ describe("grokbot setup-prompt", () => {
     const terminal = await runCli(["setup-prompt"], { isTTY: true });
     expect(piped.stderr).toBe("");
     expect(terminal.stderr.trim().split("\n")).toHaveLength(1);
-    expect(terminal.stderr).toContain("Paste this into your agent.");
     expect(terminal.stdout).toBe(piped.stdout);
-    expect(terminal.stdout).not.toContain("Paste this into your agent.");
+    expect(terminal.stdout).not.toContain(terminal.stderr.trim());
   });
 
   it("has its own help, is listed in general help and is not a catalog command", async () => {
@@ -80,31 +85,77 @@ describe("grokbot setup-prompt", () => {
   });
 
   describe("bot", () => {
-    it("prints a pasteable prompt that installs grokbot and the bot skill on the cloud computer", async () => {
+    it("prints the prompt grokbot setup-bots sends, nothing else", async () => {
       const run = await runCli(["setup-prompt", "bot"]);
       expect(run).toMatchObject({ code: 0, stderr: "", calls: [] });
       expect(run.runnerOptions).toEqual([]);
-      expect(run.stdout).toContain("npm i -g grokbotagent-cli@latest");
-      expect(run.stdout).toContain(
-        "$(npm root -g)/grokbotagent-cli/skills/grokbot-inbox/SKILL.md",
-      );
-      const lines = run.stdout.split("\n").filter((line) => line.trim() !== "");
-      expect(lines.length).toBeLessThanOrEqual(10);
+      expect(run.stdout).toBe(`${BOT_SETUP_PROMPT}\n`);
     });
 
-    it("names no path from this computer, since the bot runs it on its own", async () => {
+    it("is short enough to paste, and installs or updates grokbot every time", async () => {
+      const run = await runCli(["setup-prompt", "bot"]);
+      const lines = run.stdout.split("\n").filter((line) => line.trim() !== "");
+      expect(lines.length).toBeLessThanOrEqual(10);
+      expect(run.stdout).toContain("npm i -g grokbotagent-cli@latest");
+      expect(run.stdout).not.toContain("inbox-schema");
+    });
+
+    it("names the bot skill through the bot's own npm root, and no path from this computer", async () => {
       const run = await runCli(["setup-prompt", "bot"], {
         setupPrompt: missing("/Users/someone/skills/grokbot/SKILL.md"),
       });
+      expect(run.stdout).toContain(
+        "$(npm root -g)/grokbotagent-cli/skills/grokbot-inbox/SKILL.md",
+      );
       expect(run.stdout).not.toContain("/Users/");
-    });
-
-    it("names the shipped bot skill, which exists in this package", () => {
       const skill = new URL(
         "../skills/grokbot-inbox/SKILL.md",
         import.meta.url,
       );
       expect(existsSync(skill)).toBe(true);
+    });
+
+    it("names an inbox-post command the CLI accepts, which posts the Setup check item the assistant waits for", async () => {
+      const command = /`(grokbot inbox-post [^`]+)`/.exec(
+        BOT_SETUP_PROMPT,
+      )?.[1];
+      expect(command).toBeDefined();
+      const argv = [...(command ?? "").matchAll(/"([^"]*)"|(\S+)/g)]
+        .map((m) => m[1] ?? m[2] ?? "")
+        .slice(1);
+      const root = await mkdtemp(join(tmpdir(), "grokbot-setup-prompt-"));
+      try {
+        const run = await runCli(argv, {
+          env: {
+            GROKBOT_INBOX_ROOT: root,
+            CURSOR_CONVERSATION_ID: "0a1b2c3d-1111-4111-8111-111111111111",
+            CURSOR_REQUEST_ID: "req-1",
+          },
+          inboxBot: {
+            cwd: root,
+            now: () => Date.parse("2026-10-20T10:00:00Z"),
+            randomId: () => "setup001",
+            readStdin: async () => "",
+            readText: async () => "",
+            git: async () => undefined,
+          },
+        });
+        expect(run).toMatchObject({ code: 0, stderr: "" });
+        expect(JSON.parse(run.stdout)).toMatchObject({
+          ok: true,
+          project: SETUP_CHECK_PROJECT,
+        });
+        const [file] = await readdir(join(root, "setup-check", "open"));
+        const item = JSON.parse(
+          await readFile(join(root, "setup-check", "open", file ?? ""), "utf8"),
+        );
+        expect(item).toMatchObject({
+          kind: "result",
+          title: "grokbot inbox works",
+        });
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
     });
   });
 });

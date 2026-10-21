@@ -22,23 +22,21 @@ On a network that needs a proxy, set `GROKBOT_HTTPS_PROXY=http://host:port` (or 
 
 ## Set it up
 
-Two prompts, one for each side. Paste each once.
-
-**Your bots' side.** Paste this into your primary Bot's chat in the GrokBot app:
-
-```bash
-grokbot setup-prompt bot
-```
-
-Your bot installs `grokbot` on its cloud computer, saves the `grokbot-inbox` skill so all your bots know how to leave work for your assistant, checks your project names with you, and posts one test item.
-
-**Your assistant's side.** Paste this into your agent runtime:
+Run this and paste what it prints into your agent runtime, once:
 
 ```bash
 grokbot setup-prompt
 ```
 
-The prompt points your agent at the skill that ships with `grokbot` and walks you through first-time setup together: it checks your sign-in, shows your bots and which one is your primary Bot, asks which bots are your main and test bots, asks your primary Bot once how your account is organised, routes each of your project folders to the bot that owns that project, and closes your bot's test item to prove the two sides can reach each other. It changes nothing on your bots without asking you first.
+The prompt points your agent at the skill that ships with `grokbot` and walks you through first-time setup together: it checks your sign-in, shows your bots and which one is your primary Bot, asks which bots are your main and test bots, asks your primary Bot once how your account is organised, and routes each of your project folders to the bot that owns that project. It changes nothing on your bots without asking you first.
+
+Your agent then sets up your bots' side itself with `grokbot setup-bots` (over MCP, `grokbot_setup_bots`). Your primary Bot installs `grokbot` on its cloud computer, saves the `grokbot-inbox` skill so all your bots know how to leave work for your assistant, and lists the projects it knows. Your agent shows you that list and sends your corrections back, then waits for the "Setup check" item the bot posts and closes it to prove the two sides can reach each other.
+
+No agent runtime, or you would rather do it by hand? Run this and paste what it prints into your primary Bot's chat in the GrokBot app instead. It is the same text `grokbot setup-bots` sends:
+
+```bash
+grokbot setup-prompt bot
+```
 
 ## Use it
 

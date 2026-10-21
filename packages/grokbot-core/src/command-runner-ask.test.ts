@@ -141,3 +141,79 @@ describe("ask", () => {
     ]);
   });
 });
+
+describe("setup-bots", () => {
+  const SETUP = { timeout: 1, json: false } as const;
+  const PRIMARY_IS_TRACE_BOT = {
+    GetGrokBotUserRuntimeSettings: [{ settings: { mainAgentId: AGENT } }],
+  };
+  const steps = (next: string | undefined, jobId: string) => ({
+    reply: next?.includes(`grokbot reply ${jobId}`),
+    inboxWait: next?.includes(`grokbot inbox wait --job ${jobId.slice(0, 8)}`),
+    inboxDone: next?.includes("grokbot inbox-done <id> --outcome done"),
+    waitForReply: next?.includes(`grokbot wait ${jobId}`),
+  });
+
+  it("returns the primary Bot's reply with the setup steps: reply to the project list, wait for the Setup check item, close it", async () => {
+    const { server } = botAfterSend([TRACE_ROWS.progressNote], {
+      calls: {
+        ListGrokBotAgentStatuses: [RUNNING],
+        ...PRIMARY_IS_TRACE_BOT,
+      },
+      streams: [
+        [
+          rowsFrame([TRACE_ROWS.delegation, TRACE_ROWS.sentNote]),
+          liveFrame(),
+          rowsFrame([TRACE_ROWS.employeeReply]),
+          liveFrame({ isRunning: true }),
+          rowsFrame([TRACE_ROWS.finalReply]),
+          liveFrame(),
+        ],
+      ],
+    });
+    const events: RunEvent[] = [];
+    const out = await createCommandRunner({ server, jobs }).run(
+      "setup-bots",
+      SETUP,
+      { onEvent: (e) => events.push(e) },
+    );
+    expect([out.agent.agentId, out.outcome.status, events[0]]).toEqual([
+      AGENT,
+      "done",
+      { type: "dispatched", jobId: out.jobId, agentId: AGENT },
+    ]);
+    expect(steps(out.next, out.jobId)).toEqual({
+      reply: true,
+      inboxWait: true,
+      inboxDone: true,
+      waitForReply: false,
+    });
+    expect(await jobs.load(out.jobId)).toMatchObject({
+      state: { status: "done", finalReply: "RESULT: PONG" },
+    });
+  });
+
+  it("carries the same steps while the reply is not in, after the wait for it", async () => {
+    const { server } = botAfterSend([TRACE_ROWS.progressNote], {
+      calls: {
+        ListGrokBotAgentStatuses: [RUNNING],
+        ...PRIMARY_IS_TRACE_BOT,
+      },
+    });
+    const out = await createCommandRunner({ server, jobs }).run(
+      "setup-bots",
+      SETUP,
+    );
+    expect(out.outcome.status).toBe("pending");
+    expect(steps(out.next, out.jobId)).toEqual({
+      reply: true,
+      inboxWait: true,
+      inboxDone: true,
+      waitForReply: true,
+    });
+    expect(out.next?.indexOf("grokbot wait")).toBeLessThan(
+      out.next?.indexOf("grokbot reply") ?? 0,
+    );
+    expect((await onlyJob(jobs)).state).toEqual({ status: "pending" });
+  }, 5_000);
+});

@@ -6,6 +6,7 @@ import {
   isActive,
   type JobOutcome,
   OWNER_ONLY_NOTE,
+  SETUP_CHECK_PROJECT,
   type TeamMember,
   type TranscriptEntry,
 } from "grokbot-core";
@@ -30,6 +31,10 @@ const OUTCOMES =
 export const DISPATCH_OVERRIDES: McpOverrides<DispatchCommandName> = {
   ask: {
     note: `Waits ${MCP_WAIT_TIMEOUT_SECONDS} s unless timeout is set; a still-running result carries a job id, and grokbot_wait resumes it. ${OUTCOMES}`,
+    defaults: { timeout: MCP_WAIT_TIMEOUT_SECONDS },
+  },
+  "setup-bots": {
+    note: `Sends the bot setup prompt to the account's primary Bot (or to agent), whatever the folder's route says. Waits ${MCP_WAIT_TIMEOUT_SECONDS} s unless timeout is set; the bot usually needs longer, so a still-running result carries a job id, and grokbot_wait resumes it. ${OUTCOMES}`,
     defaults: { timeout: MCP_WAIT_TIMEOUT_SECONDS },
   },
   reply: {
@@ -63,6 +68,20 @@ function settledText(who: string, jobId: string, outcome: JobOutcome): string {
     case "awaiting-approval":
       return awaitingText(who, jobId, outcome);
   }
+}
+
+/** What a `grokbot_setup_bots` caller does next, with the tools of this server. */
+function setupText(who: string, jobId: string, outcome: JobOutcome): string {
+  const settled = outcome.status === "done" || outcome.status === "ambiguous";
+  const next = [
+    settled ? "Next:" : "Next, once the reply is in:",
+    "show the owner the project list from the reply and send their corrections with grokbot_reply",
+    `${JSON.stringify({ job: jobId, text: "<corrections>" })}.`,
+    `Wait for the "${SETUP_CHECK_PROJECT}" item the bot posts with grokbot_inbox_wait`,
+    `${JSON.stringify({ job: [jobId.slice(0, 8)] })},`,
+    `and close it with grokbot_inbox_done ${JSON.stringify({ id: "<item id>", outcome: "done" })}.`,
+  ].join(" ");
+  return `${settledText(who, jobId, outcome)} ${next}`;
 }
 
 const OWNER_ONLY = `${OWNER_ONLY_NOTE.charAt(0).toUpperCase()}${OWNER_ONLY_NOTE.slice(1)}`;
@@ -138,6 +157,8 @@ export const DISPATCH_SUMMARIES: ToolSummaries<DispatchCommandName> = {
       ...members.map(memberText),
     ].join("\n"),
   ask: ({ jobId, agent, outcome }) => outcomeText(agent.name, jobId, outcome),
+  "setup-bots": ({ jobId, agent, outcome }) =>
+    setupText(agent.name, jobId, outcome),
   reply: ({ jobId, agent, outcome }) => outcomeText(agent.name, jobId, outcome),
   send: ({ jobId, agent, queued }) =>
     `${

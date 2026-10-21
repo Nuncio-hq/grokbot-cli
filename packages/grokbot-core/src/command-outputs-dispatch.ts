@@ -19,17 +19,21 @@ export interface TeamMember {
   readonly status: LiveStatus;
 }
 
+/** A message sent to one agent and followed until it settles or the wait times out. */
+interface Asked {
+  readonly jobId: string;
+  readonly agent: Agent;
+  readonly outcome: JobOutcome;
+  /** What to do next: for `ask`, set only while the job is not settled; for `setup-bots`, always (see `next-step.ts`). */
+  readonly next?: string;
+}
+
 /** Phase 01 command results. */
 export interface DispatchOutputs {
   readonly agents: { readonly agents: readonly Agent[] };
   readonly team: { readonly members: readonly TeamMember[] };
-  readonly ask: {
-    readonly jobId: string;
-    readonly agent: Agent;
-    readonly outcome: JobOutcome;
-    /** What to do next, set only while the job is not settled (see `nextStep`). */
-    readonly next?: string;
-  };
+  readonly ask: Asked;
+  readonly "setup-bots": Asked;
   readonly reply: {
     readonly jobId: string;
     readonly agent: Agent;
