@@ -19,7 +19,7 @@
         "grokbot": "dist/cli.js",
       },
       "dependencies": {
-        "grokbot-core": "^0.4.0",
+        "grokbot-core": "^0.5.0",
         "uqr": "0.1.3",
       },
     },
@@ -34,7 +34,7 @@
         "grokbot-mcp": "dist/index.js",
       },
       "dependencies": {
-        "grokbot-core": "^0.4.0",
+        "grokbot-core": "^0.5.0",
       },
     },
   },
