@@ -57,11 +57,11 @@ jobs:
             fi
           done
       - name: Update bun.lock
-        # bun 1.4 updates the workspace versions on the first install and the
-        # workspace dependency ranges only on the second, so run it twice. A retry
-        # (bump none) publishes the tagged commit as it is and skips this.
+        # The version script already set the workspace ranges in bun.lock; this sets
+        # the workspace versions. A retry (bump none) publishes the tagged commit as
+        # it is, so it changes nothing here.
         if: ${{ inputs.bump != 'none' }}
-        run: bun install && bun install
+        run: bun install
       - run: bun run verify
 
       - name: Commit and tag

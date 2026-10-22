@@ -3,7 +3,8 @@ import { readFile, writeFile } from "node:fs/promises";
 /**
  * Sets the release version field by field, never with a global replace (0.1.4 once
  * bumped an outside dependency that way): each package's `version`, the cli and mcp
- * `grokbot-core` range, and GROKBOT_VERSION. Prints `version=x.y.z` for $GITHUB_OUTPUT.
+ * `grokbot-core` range (in their package.json and in bun.lock, where bun 1.4 leaves the
+ * workspace ranges stale), and GROKBOT_VERSION. Prints `version=x.y.z` for $GITHUB_OUTPUT.
  * Usage: bun packages/grokbot-core/scripts/set-release-version.ts <patch|minor|major|none>
  * `none` keeps the current version (to retry a release whose publish failed).
  */
@@ -15,7 +16,10 @@ const PACKAGES = ["grokbot-core", "grokbot-cli", "grokbot-mcp"];
 const packageUrl = (dir: string) =>
   new URL(`../../${dir}/package.json`, import.meta.url);
 const versionUrl = new URL("../src/version.ts", import.meta.url);
+const lockUrl = new URL("../../../bun.lock", import.meta.url);
 const VERSION_LINE = /^export const GROKBOT_VERSION = "[^"]*";$/m;
+/** A workspace's `grokbot-core` dependency range in bun.lock; the packages section uses another shape. */
+const LOCK_CORE_RANGE = /^(\s+"grokbot-core": )"\^\d+\.\d+\.\d+"(,?)$/gm;
 
 function nextVersion(current: string, bump: Bump): string {
   const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(current);
@@ -64,6 +68,15 @@ if (!VERSION_LINE.test(source)) {
 await writeFile(
   versionUrl,
   source.replace(VERSION_LINE, `export const GROKBOT_VERSION = "${version}";`),
+);
+
+const lock = await readFile(lockUrl, "utf8");
+await writeFile(
+  lockUrl,
+  lock.replace(
+    LOCK_CORE_RANGE,
+    (_line, key, comma) => `${key}"^${version}"${comma}`,
+  ),
 );
 
 console.log(`version=${version}`);
