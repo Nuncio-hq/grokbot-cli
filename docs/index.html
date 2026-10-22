@@ -425,7 +425,7 @@ GrokBot ── hosts ──────▶ bots ── which start runs, subagen
         <h2 id="plan-title">Four phases. <em>100% standalone</em> open-source engine.</h2>
         <p class="chapter-lead"><b>Grokbot-cli</b> is a standalone, host-agnostic workforce engine (<code>grokbot-core</code>, <code>grokbotagent-cli</code>, <code>grokbot-mcp</code>). A terminal, any agent runtime (for example <code>Claude Code</code>, <code>Codex</code>, <code>Cursor</code>, <code>Hermes</code>), a script, CI, or a host app consumes it from outside through its CLI, SDK, or MCP contract, for any purpose. This repo never contains host-, runtime- or account-specific code.</p>
       </div>
-      <span class="tag tag--ok">Standalone Engine · Phases 01–05, 07–10 Built · 06 Parked · 0.4.0 on npm</span>
+      <span class="tag tag--ok">Standalone Engine · Phases 01–05, 07–10 Built · 06 Parked · 0.5.1 on npm</span>
     </div>
 
     <div class="roadmap-columns">
@@ -1108,11 +1108,19 @@ packages/grokbot-mcp    <span class="c"># npm `grokbot-mcp`      · Thin stdio M
 
       <details class="archive-drawer" id="log">
         <summary>
-          <span class="archive-drawer__title"><span class="archive-drawer__idx">03</span> Dated Engineering Log (79 entries · 13–22 Oct 2026)</span>
+          <span class="archive-drawer__title"><span class="archive-drawer__idx">03</span> Dated Engineering Log (80 entries · 13–22 Oct 2026)</span>
           <span class="archive-drawer__meta">Expand</span>
         </summary>
         <div class="details-body">
           <ol class="log-timeline">
+            <li><time>22 Oct 2026</time><p><b>Released 0.5.1 of all three packages (owner); 0.5.0 was tagged but never published.</b> It holds the 0.75.0 follow-ups (<a href="#phase-10">Phase 10</a>) and <code>update-bots</code>, committed together as one <code>feat</code> because the two sessions' changes shared most files. CI <code>verify</code> was green on <code>main</code> before the release.
+              <ul>
+                <li><b>0.5.0:</b> the Release workflow (<code>bump=minor</code>, rehearsed first) pushed the release commit and tag <code>v0.5.0</code>, then npm answered 503 to the first publish during an npm incident ("Degraded Package Install and Publishing"). The retry (<code>bump=none</code>) stopped with "v0.5.0 is already tagged on another commit": bun 1.4 leaves the workspace <code>grokbot-core</code> ranges in <code>bun.lock</code> at the old version, so the retry's <code>bun install</code> changed <code>bun.lock</code> and committed again. Nothing of 0.5.0 reached npm and there is no GitHub release; the tag stays.</li>
+                <li><b>Fixed (two <code>fix(release)</code> commits):</b> <code>set-release-version.ts</code> now sets those ranges in <code>bun.lock</code> itself, field by field, and a retry skips the lockfile step. Installing twice was tried first: locally the second install refreshed the ranges, in CI it changed nothing. The 0.5.1 rehearsal then changed 11 lines in 5 files, the <code>bun.lock</code> ranges included.</li>
+                <li><b>0.5.1:</b> <code>bump=patch</code> pushed the release commit and tag, then publishing failed with ENEEDAUTH while the npm incident went on. Once npm had identified the issue, a <code>bump=none</code> retry published all three with provenance and created the GitHub release. The registry listed the versions about 6 minutes later and served the tarballs about 5 minutes after that.</li>
+                <li><b>After install:</b> on the owner's Mac <code>--version</code> printed 0.5.1, and <code>search</code> and <code>whoami</code> worked (catalog checked against 0.75.0). <code>update-bots --agent "Primary Test"</code> ended done in about 25 s: the cloud computer installed 0.5.1, and the bot kept the saved <code>grokbot-inbox</code> skill because the 0.5.1 copy is word for word the same.</li>
+              </ul>
+            </p></li>
             <li><time>22 Oct 2026</time><p><b>Built <a href="#phase-10">Phase 10</a>: every follow-up proposed after the 0.75.0 comparison (owner: "do for all").</b> Probes on the test bots came first, then five slices were built in parallel, reviewed and integrated.
               <ul>
                 <li><b>Probes</b> (test bots only): <code>EnsureSandBox</code> still returns no port tokens. The gateway's <code>searchConversation</code> answers <code>matches</code> (<code>entryId</code>, <code>seq</code>, <code>role</code>, <code>timestampMs</code>, <code>snippet</code>) and <code>isComplete</code>, newest first, with <code>beforeSeq</code> exclusive; <code>isComplete</code> stayed true on a full page with older matches, so it does not mean "no more". With the owner's go-ahead for the then sensitive-tagged reads, the review queue answered 403 and analytics 404 on a personal bot; no bot has suggestions; of the new tools <code>Primary Test</code> has only <code>ListCanvases</code>. Sends: a reply with <code>replyQuote</code> was stored as <code>replyQuote</code> and the bot named exactly that part (without it: "WHOLE"); <code>language</code> did not reach the bot; <code>x-cursor-timezone</code> did, and the server kept it for the whole account, so a probe zone showed on both test bots until a message with the Mac's own zone restored it right away.</li>
