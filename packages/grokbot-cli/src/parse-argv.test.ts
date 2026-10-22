@@ -3,7 +3,7 @@ import { PRIMARY } from "./fixtures/cli-fixtures.js";
 import { runCli } from "./fixtures/run-cli.js";
 
 const ASK_USAGE =
-  "Usage: grokbot ask <text> [--timeout <integer>] [--agent <string>] [--json]\n";
+  "Usage: grokbot ask <text> [--timeout <integer>] [--now] [--agent <string>] [--json]\n";
 const TAIL_USAGE =
   "Usage: grokbot tail [-n <integer>] [--agent <string>] [--json]\n";
 const GENERAL_USAGE =
@@ -28,7 +28,13 @@ describe("argv parsing", () => {
     expect(run.calls.map(({ name, input }) => ({ name, input }))).toEqual([
       {
         name: "ask",
-        input: { text: "hi", timeout: 600, agent: "Primary Test", json: true },
+        input: {
+          text: "hi",
+          timeout: 600,
+          now: false,
+          agent: "Primary Test",
+          json: true,
+        },
       },
     ]);
     expect(run.code).toBe(0);
@@ -42,6 +48,7 @@ describe("argv parsing", () => {
     expect(run.calls[0]?.input).toEqual({
       text: "hello there",
       timeout: 30,
+      now: false,
       agent: "Staff Test",
       json: false,
     });
@@ -59,6 +66,7 @@ describe("argv parsing", () => {
     expect(run.calls[0]?.input).toEqual({
       text: "--json is literal text",
       timeout: 600,
+      now: false,
       json: false,
     });
   });
@@ -90,7 +98,7 @@ describe("usage errors exit 2 and never build the runner", () => {
     [
       ["send", "-5 degrees outside"],
       `grokbot: send: unknown flag -5 degrees outside${DASH_HINT}\n` +
-        "Usage: grokbot send <text> [--agent <string>] [--json]\n",
+        "Usage: grokbot send <text> [--now] [--agent <string>] [--json]\n",
     ],
     [["tail", "-x"], `grokbot: tail: unknown flag -x\n${TAIL_USAGE}`],
     [

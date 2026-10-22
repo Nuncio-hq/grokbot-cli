@@ -55,6 +55,7 @@ describe("withUsageLog", () => {
       text: "SECRET PLAN",
       agent: "Primary Test",
       timeout: 600,
+      now: false,
       json: false,
     });
     const [event] = await log.read();
@@ -83,7 +84,7 @@ describe("withUsageLog", () => {
       sentMessageId: "m",
       queued: true,
     }));
-    await runner.run("send", { text: "x", json: false });
+    await runner.run("send", { text: "x", now: false, json: false });
     const [event] = await log.read();
     expect([event?.status, event?.bot]).toEqual(["queued", "main"]);
   });

@@ -45,13 +45,14 @@ const TAIL_HELP = [
 const ASK_HELP = [
   "Send a prompt and wait until the Done Rule settles",
   "",
-  "Usage: grokbot ask <text> [--timeout <integer>] [--agent <string>] [--json]",
+  "Usage: grokbot ask <text> [--timeout <integer>] [--now] [--agent <string>] [--json]",
   "",
   "Arguments:",
   "  <text>  Message to send to the agent (required)",
   "",
   "Flags:",
   "  --timeout <integer>  Seconds to wait before giving up (default: 600, min: 1)",
+  "  --now                Send at once even while the bot is busy, so it reads the message during its current work and may answer both in one reply (exit 5); without it the message waits in the queue (default: false)",
   "  --json               Return machine-readable JSON (default: false)",
   "",
 ].join("\n");

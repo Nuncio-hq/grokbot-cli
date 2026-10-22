@@ -72,6 +72,7 @@ describe("send", () => {
     const out = await runner.run("send", {
       text: "ping",
       agent: "primary-test",
+      now: false,
       json: false,
     });
 
@@ -228,6 +229,7 @@ describe("send", () => {
       const out = await runner.run("send", {
         text: "second ask",
         agent: AGENT,
+        now: false,
         json: false,
       });
       const saved = await jobStore(dir).load(out.jobId);
@@ -259,6 +261,7 @@ describe("send", () => {
     const out = await runner.run("send", {
       text: "hi",
       agent: AGENT,
+      now: false,
       json: false,
     });
     const saved = await jobStore(dir).load(out.jobId);
@@ -294,7 +297,7 @@ describe("send", () => {
       });
       const runner = createCommandRunner({ server, jobs: jobStore(dir) });
       const error = await runner
-        .run("send", { text: "ping", agent: AGENT, json: false })
+        .run("send", { text: "ping", agent: AGENT, now: false, json: false })
         .catch((e: unknown) => e);
       expect([
         error instanceof GrokBotError && error.code,

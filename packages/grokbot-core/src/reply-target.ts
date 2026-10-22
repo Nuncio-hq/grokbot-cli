@@ -62,13 +62,13 @@ async function hasEntry(
   return false;
 }
 
-/** A job's message must have gone out before there is a turn to take a bot message from. */
+/** A job's message must have gone out before there is a message to quote. */
 function assertSent(job: JobRecord): void {
   const { jobId, state } = job;
   const name = job.agentName ?? "the bot";
   if (state.status === "queued") {
     throw refuse(
-      `Job ${jobId} is still queued for ${name}: its message has not gone out. Run grokbot wait ${jobId}, then reply.`,
+      `Job ${jobId} is still queued for ${name}: its message has not gone out. Change it with grokbot edit ${jobId} "<text>" instead.`,
     );
   }
   if (state.status === "sending") {
@@ -110,10 +110,11 @@ async function jobAgent(
 }
 
 /**
- * The newest message the bot wrote in the job's own turn (a reply or a reply stored as a
- * blob, not a card, tool call or message to another bot), read from the transcript.
+ * The entry a reply on a job quotes: the newest message the bot wrote in the job's own turn
+ * (a reply or a reply stored as a blob, not a card, tool call or message to another bot),
+ * or the job's own message while the bot has written none, read from the transcript.
  */
-async function lastBotMessage(
+async function jobEntry(
   ctx: RunnerContext,
   job: JobRecord,
   agent: Agent,
@@ -124,36 +125,35 @@ async function lastBotMessage(
     { agentId: job.agentId, afterSeq: job.baselineUpdatedSeq },
     { signal },
   );
+  const echo = page.entries.find(
+    (e) => e.kind === "user-message" && e.clientNonce === job.sentMessageId,
+  );
+  if (!echo) {
+    throw refuse(
+      `Job ${job.jobId}'s message is not in ${agent.name}'s transcript (still landing, or the conversation was cleared). Pass --to <entryId> from grokbot tail --json.`,
+    );
+  }
   const turn = findTurn(
     page.entries,
     job.sentMessageId,
     await busyRecords(ctx.jobs, job),
   );
-  if (!turn) {
-    throw refuse(
-      `Job ${job.jobId}'s message is not in ${agent.name}'s transcript (was the conversation cleared?). Pass --to <entryId> from grokbot tail --json.`,
-    );
-  }
-  const last = turn.rows
+  const last = turn?.rows
     .filter(
       (e) =>
         e.kind === "reply" ||
         (e.kind === "blob" && e.entryKind === "send-message"),
     )
     .at(-1);
-  if (!last) {
-    throw refuse(
-      `${agent.name} has not posted a message in job ${job.jobId} yet. Run grokbot wait ${job.jobId} first, or pass --to <entryId> from grokbot tail --json.`,
-    );
-  }
-  return last.entryId;
+  return (last ?? echo).entryId;
 }
 
 /**
  * The bot and entry a reply answers. With a job, the bot is the job's and the entry is its
- * last bot message, or `to`. Without a job, `to` is required and the usual agent selection
- * (`--agent`, GROKBOT_AGENT, project route, primary Bot) names the bot. Refuses an unknown
- * job, a job whose message has not gone out, and a `to` that is not in the bot's transcript.
+ * last bot message, else the job's own message, or `to`. Without a job, `to` is required
+ * and the usual agent selection (`--agent`, GROKBOT_AGENT, project route, primary Bot) names
+ * the bot. Refuses an unknown job, a job whose message has not gone out, and a `to` that is
+ * not in the bot's transcript.
  */
 export async function resolveReplyTarget(
   ctx: RunnerContext,
@@ -171,7 +171,7 @@ export async function resolveReplyTarget(
     }
     assertSent(job);
     agent = await jobAgent(ctx, job, flag, signal);
-    replyToId = to ?? (await lastBotMessage(ctx, job, agent, signal));
+    replyToId = to ?? (await jobEntry(ctx, job, agent, signal));
   } else if (to !== undefined) {
     agent = await ctx.target(flag, signal);
     replyToId = to;

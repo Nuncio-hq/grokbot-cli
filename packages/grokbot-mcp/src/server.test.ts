@@ -121,7 +121,7 @@ describe("grokbot-mcp tools/list", () => {
         result: { tools: { name: string; annotations: object }[] };
       }
     ).result;
-    expect(tools.slice(0, 7).map((t) => t.name)).toEqual([
+    expect(tools.slice(0, 9).map((t) => t.name)).toEqual([
       "grokbot_agents",
       "grokbot_team",
       "grokbot_ask",
@@ -129,6 +129,8 @@ describe("grokbot-mcp tools/list", () => {
       "grokbot_wait",
       "grokbot_tail",
       "grokbot_interrupt",
+      "grokbot_reply",
+      "grokbot_edit",
     ]);
     expect(tools[0]).toEqual({
       name: "grokbot_agents",
@@ -174,6 +176,11 @@ describe("grokbot-mcp tools/list", () => {
             default: 45,
             minimum: 1,
           },
+          now: {
+            type: "boolean",
+            description: expect.any(String),
+            default: false,
+          },
           agent: {
             type: "string",
             description: expect.any(String),
@@ -184,7 +191,7 @@ describe("grokbot-mcp tools/list", () => {
       },
       annotations: { readOnlyHint: false, destructiveHint: false },
     });
-    expect(tools.slice(0, 7).map((t) => [t.name, t.annotations])).toEqual([
+    expect(tools.slice(0, 9).map((t) => [t.name, t.annotations])).toEqual([
       ["grokbot_agents", { readOnlyHint: true, destructiveHint: false }],
       ["grokbot_team", { readOnlyHint: true, destructiveHint: false }],
       ["grokbot_ask", { readOnlyHint: false, destructiveHint: false }],
@@ -192,6 +199,8 @@ describe("grokbot-mcp tools/list", () => {
       ["grokbot_wait", { readOnlyHint: true, destructiveHint: false }],
       ["grokbot_tail", { readOnlyHint: true, destructiveHint: false }],
       ["grokbot_interrupt", { readOnlyHint: false, destructiveHint: true }],
+      ["grokbot_reply", { readOnlyHint: false, destructiveHint: false }],
+      ["grokbot_edit", { readOnlyHint: false, destructiveHint: false }],
     ]);
     expect(new Set(tools.map((t) => t.name)).size).toBe(tools.length);
     expect(tools.every((t) => t.name.startsWith("grokbot_"))).toBe(true);

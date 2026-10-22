@@ -195,11 +195,12 @@ describe("message tag", () => {
 
   it("send starts with the project and the runtime, whichever way the bot was chosen", async () => {
     const routed = setup({ projectRoutes: routes(labeled()), caller: "omp" });
-    await routed.runner.run("send", { text: "hello", json: false });
+    await routed.runner.run("send", { text: "hello", now: false, json: false });
     const flagged = setup({ projectRoutes: routes(labeled()), caller: "omp" });
     await flagged.runner.run("send", {
       text: "again",
       agent: "Primary Test",
+      now: false,
       json: false,
     });
     expect([sentText(routed), sentText(flagged)]).toEqual([
@@ -212,10 +213,15 @@ describe("message tag", () => {
     const tagged = setup({ projectRoutes: routes(labeled()), caller: "codex" });
     await tagged.runner.run("send", {
       text: "[project: projectname · runtime: codex] tagged",
+      now: false,
       json: false,
     });
     const old = setup({ projectRoutes: routes(labeled()), caller: "codex" });
-    await old.runner.run("send", { text: "[ProjectName] old", json: false });
+    await old.runner.run("send", {
+      text: "[ProjectName] old",
+      now: false,
+      json: false,
+    });
     expect([sentText(tagged), sentText(old)]).toEqual([
       ["[Project: ProjectName · Runtime: Codex · Job: <job>] tagged"],
       ["[Project: ProjectName · Runtime: Codex · Job: <job>] old"],
@@ -227,11 +233,12 @@ describe("message tag", () => {
       projectRoutes: async () => pathRoute(),
       caller: "gemini",
     });
-    await plain.runner.run("send", { text: "hello", json: false });
+    await plain.runner.run("send", { text: "hello", now: false, json: false });
     const none = setup({ projectRoutes: noRoutes, caller: "cursor" });
     await none.runner.run("send", {
       text: "hello",
       agent: "Primary Test",
+      now: false,
       json: false,
     });
     expect([sentText(plain), sentText(none)]).toEqual([
@@ -245,11 +252,16 @@ describe("message tag", () => {
       projectRoutes: routes(labeled()),
       caller: "human",
     });
-    await labelled.runner.run("send", { text: "hello", json: false });
+    await labelled.runner.run("send", {
+      text: "hello",
+      now: false,
+      json: false,
+    });
     const none = setup({ projectRoutes: noRoutes, caller: "human" });
     await none.runner.run("send", {
       text: "hello",
       agent: "Primary Test",
+      now: false,
       json: false,
     });
     expect([sentText(labelled), sentText(none)]).toEqual([
@@ -263,6 +275,7 @@ describe("message tag", () => {
     await t.runner.run("send", {
       text: "hello",
       agent: "Primary Test",
+      now: false,
       json: false,
     });
     expect(sentText(t)).toEqual(["hello"]);
@@ -271,7 +284,7 @@ describe("message tag", () => {
   it("ask carries the tag too", async () => {
     const t = setup({ projectRoutes: routes(labeled()), caller: "omp" });
     await t.runner
-      .run("ask", { text: "hello", timeout: 1, json: false })
+      .run("ask", { text: "hello", timeout: 1, now: false, json: false })
       .catch(() => undefined);
     expect(sentText(t)).toEqual([
       "[Project: ProjectName · Runtime: omp · Job: <job>] hello",
@@ -285,7 +298,7 @@ describe("message tag", () => {
       `2026-10-20T03-18-28-912Z_${id}.jsonl`,
     );
     const t = setup({ projectRoutes: routes(labeled()), caller: "omp" });
-    await t.runner.run("send", { text: "hello", json: false });
+    await t.runner.run("send", { text: "hello", now: false, json: false });
     expect(sentText(t)).toEqual([
       `[Project: ProjectName · Runtime: omp · Session: omp:${id} · Job: <job>] hello`,
     ]);
@@ -296,7 +309,7 @@ describe("message tag", () => {
     await writeSession(folder, "2026-10-20T03-18-28-912Z_aaaa1111.jsonl");
     await writeSession(folder, "2026-10-20T03-19-28-912Z_bbbb2222.jsonl");
     const t = setup({ projectRoutes: routes(labeled()), caller: "omp" });
-    await t.runner.run("send", { text: "hello", json: false });
+    await t.runner.run("send", { text: "hello", now: false, json: false });
     expect(sentText(t)).toEqual([
       "[Project: ProjectName · Runtime: omp · Job: <job>] hello",
     ]);
@@ -310,6 +323,7 @@ describe("message tag", () => {
     });
     await t.runner.run("send", {
       text: "[ProjectName · Codex] old",
+      now: false,
       json: false,
     });
     expect(sentText(t)).toEqual([

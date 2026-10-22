@@ -9,7 +9,7 @@ const TEXT = {
 const REPLY_JOB = {
   type: "string",
   description:
-    "Job id (from send or ask) whose bot you answer, and whose last bot message is the one answered; omit it with --to",
+    "Job id (from send or ask) whose bot you answer: its last bot message is quoted, or the job's own message while the bot has written none; omit it with --to",
   position: 0,
 } as const;
 const REPLY_TEXT = {
@@ -21,7 +21,14 @@ const REPLY_TEXT = {
 const REPLY_TO = {
   type: "string",
   description:
-    "Entry id of the bot message to answer, from tail --json (default: the job's last bot message). Without a job, --agent or routing names the bot",
+    "Entry id to quote, from tail --json (default: the job's last bot message, else the job's own message). Without a job, --agent or routing names the bot",
+} as const;
+/** The sender, not grokbot, decides whether a message waits for a busy bot. */
+const NOW = {
+  type: "boolean",
+  description:
+    "Send at once even while the bot is busy, so it reads the message during its current work and may answer both in one reply (exit 5); without it the message waits in the queue",
+  default: false,
 } as const;
 /** `setup-bots` sends to the primary Bot, so the host's default agent and the folder's route do not apply. */
 const SETUP_AGENT = {
@@ -64,6 +71,7 @@ export const DISPATCH_COMMANDS = {
     params: {
       text: TEXT,
       timeout: TIMEOUT,
+      now: NOW,
       agent: AGENT_PARAM,
       json: JSON_PARAM,
     },
@@ -73,7 +81,7 @@ export const DISPATCH_COMMANDS = {
       "Dispatch a message, or queue it while the bot is busy, and return a resumable job id",
     safety: "writes",
     methods: [ROSTER, PRIMARY, ENTRIES, SEND],
-    params: { text: TEXT, agent: AGENT_PARAM, json: JSON_PARAM },
+    params: { text: TEXT, now: NOW, agent: AGENT_PARAM, json: JSON_PARAM },
   },
   wait: {
     summary: "Wait for a dispatched job id to finish",
@@ -122,7 +130,29 @@ export const DISPATCH_COMMANDS = {
       text: REPLY_TEXT,
       to: REPLY_TO,
       timeout: TIMEOUT,
+      now: NOW,
       agent: AGENT_PARAM,
+      json: JSON_PARAM,
+    },
+  },
+  edit: {
+    summary:
+      "Change the text of a message still queued for a busy bot, then send it if the bot is free",
+    safety: "writes",
+    methods: [ENTRIES, STATUSES, SEND],
+    params: {
+      job: {
+        type: "string",
+        description: "Job id of the queued message (from send, ask or reply)",
+        required: true,
+        position: 0,
+      },
+      text: {
+        type: "string",
+        description: "The new message; it replaces the queued text in full",
+        required: true,
+        position: 1,
+      },
       json: JSON_PARAM,
     },
   },

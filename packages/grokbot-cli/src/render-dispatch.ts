@@ -115,13 +115,23 @@ export const DISPATCH_RENDERERS: HumanRenderers<DispatchCommandName> = {
       {
         stdout: `${jobId}\n`,
         note: queued
-          ? `Queued for ${agent.name}: it is busy, so the message goes out once it is free. Send it and get the reply with: grokbot wait ${jobId}\n`
+          ? `Queued for ${agent.name}: it is busy, so the message goes out once it is free (change it until then with: grokbot edit ${jobId} "<text>"). Send it and get the reply with: grokbot wait ${jobId}\n`
           : `Sent to ${agent.name}. Get the reply with: grokbot wait ${jobId}\n`,
       },
       next,
     ),
   wait: ({ jobId, outcome, next }) =>
     withNext(outcomeText(jobId, outcome), next),
+  edit: ({ jobId, agentId, agentName, queued, next }) =>
+    withNext(
+      {
+        stdout: `${jobId}\n`,
+        note: queued
+          ? `Edited. Still queued for ${agentName ?? `agent ${agentId}`}: it goes out once the bot is free. Send it and get the reply with: grokbot wait ${jobId}\n`
+          : `Edited and sent to ${agentName ?? `agent ${agentId}`}, which was free. Get the reply with: grokbot wait ${jobId}\n`,
+      },
+      next,
+    ),
   tail: ({ agent, entries }) =>
     plain(
       entries.length === 0

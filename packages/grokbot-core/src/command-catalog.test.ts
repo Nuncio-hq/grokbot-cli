@@ -51,6 +51,12 @@ describe("commandJsonSchema", () => {
           default: 600,
           minimum: 1,
         },
+        now: {
+          type: "boolean",
+          description:
+            "Send at once even while the bot is busy, so it reads the message during its current work and may answer both in one reply (exit 5); without it the message waits in the queue",
+          default: false,
+        },
         agent: {
           type: "string",
           description: expect.any(String),
@@ -95,7 +101,7 @@ describe("parseCommandInput", () => {
   it("fills defaults for omitted params", () => {
     expect(parseCommandInput("ask", { text: "ping" })).toStrictEqual({
       ok: true,
-      input: { text: "ping", timeout: 600, json: false },
+      input: { text: "ping", timeout: 600, now: false, json: false },
     });
   });
 
@@ -129,7 +135,7 @@ describe("parseCommandInput", () => {
     ).toStrictEqual({
       ok: false,
       errors: [
-        'ask: unknown parameter "tiemout" (expected one of: text, timeout, agent, json)',
+        'ask: unknown parameter "tiemout" (expected one of: text, timeout, now, agent, json)',
       ],
     });
   });
@@ -158,6 +164,7 @@ describe("parseCommandInput", () => {
     expectTypeOf<CommandInput<"ask">>().toEqualTypeOf<{
       readonly text: string;
       readonly timeout: number;
+      readonly now: boolean;
       readonly json: boolean;
       readonly agent?: string;
     }>();

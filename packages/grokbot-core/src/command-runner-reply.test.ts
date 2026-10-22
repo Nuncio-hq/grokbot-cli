@@ -32,7 +32,7 @@ function setup(options?: QueueBotOptions, runner?: CommandRunnerOptions) {
     ...runner,
   });
   const send = (text: string) =>
-    run.run("send", { text, agent: AGENT, json: false });
+    run.run("send", { text, agent: AGENT, now: false, json: false });
   const wait = (job: string, timeout = 5) =>
     run.run("wait", { job, timeout, json: false });
   const reply = (input: {
@@ -40,7 +40,15 @@ function setup(options?: QueueBotOptions, runner?: CommandRunnerOptions) {
     text: string;
     to?: string;
     timeout?: number;
-  }) => run.run("reply", { timeout: 5, json: false, agent: AGENT, ...input });
+    now?: boolean;
+  }) =>
+    run.run("reply", {
+      timeout: 5,
+      now: false,
+      json: false,
+      agent: AGENT,
+      ...input,
+    });
   return { bot, send, wait, reply };
 }
 
@@ -159,6 +167,37 @@ describe("reply", () => {
   });
 });
 
+describe("reply on a job the bot has not answered yet", () => {
+  it("quotes the job's own message, queued behind the bot's work unless --now", async () => {
+    const { bot, send, reply } = setup();
+    const a = await send("task A");
+    const echoOfA = "entry-140";
+    const queued = await reply({ job: a.jobId, text: "also B", timeout: 1 });
+    const now = await reply({
+      job: a.jobId,
+      text: "also C",
+      timeout: 1,
+      now: true,
+    });
+    expect([
+      queued.replyToId,
+      (await jobs.load(queued.jobId))?.state.status,
+      now.replyToId,
+      (await jobs.load(now.jobId))?.botBusyAtSend,
+      bot.sentBodies().map((b) => [b.text, b.replyToId]),
+    ]).toEqual([
+      echoOfA,
+      "queued",
+      echoOfA,
+      true,
+      [
+        ["task A", undefined],
+        ["also C", echoOfA],
+      ],
+    ]);
+  });
+});
+
 describe("reply refusals", () => {
   async function refused(
     attempt: Promise<unknown>,
@@ -204,12 +243,6 @@ describe("reply refusals", () => {
     ]);
     expect(message).toContain(b.jobId);
     expect(await jobs.list()).toHaveLength(2);
-  });
-
-  it("refuses a job whose bot has posted nothing yet", async () => {
-    const { bot, send, reply } = setup();
-    const a = await send("task A");
-    await refused(reply({ job: a.jobId, text: "hi" }), bot, ["task A"]);
   });
 
   it("refuses text with neither a job nor --to", async () => {

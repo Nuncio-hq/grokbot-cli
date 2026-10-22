@@ -45,9 +45,20 @@ grokbot wait "$job" --timeout 1800
 
 grokbot starts every message it sends for you with a header, `[Project: <name> · Runtime: <runtime> · Session: <address> · Job: <job>]`, each part only when grokbot knows it (`Job` is the first 8 characters of the job id). The header is written by grokbot: never write, name or guess any of it yourself, in a message or in a brief. The bot copies the Session and the Job into the items it leaves, so they find this exact session and this exact job. `grokbot whoami` shows what grokbot detected: if the runtime is wrong the owner can set `GROKBOT_CLIENT` (for example `codex` or `hermes`), and if the session is none or unknown the owner can set `GROKBOT_SESSION` to the id their runtime shows for it (for example omp's `/session`).
 
-You can send several messages to one bot. `grokbot` gives a bot one of your messages at a time, so each job gets its own reply. A message sent while the bot is busy is queued: `send` still prints its job id, and stderr says it is queued. It goes out when the bot is free and some `send`, `ask` or `wait` on that bot runs, and a `wait` that finishes one job sends the next. So always `wait` on every job you send. To run tasks in parallel, send them to different bots. Never route around the queue by asking another bot to relay your message: the text then reaches the bot twice once the queue frees, and the relaying bot spends a turn. If a message stays queued longer than the task allows, tell the owner what it waits on.
+You can send several messages to one bot. By default `grokbot` gives a bot one of your messages at a time, so each job gets its own reply. A message sent while the bot is busy is queued: `send` still prints its job id, and stderr says it is queued. It goes out when the bot is free and some `send`, `ask` or `wait` on that bot runs, and a `wait` that finishes one job sends the next. So always `wait` on every job you send.
 
-A message typed in the app while your job runs can still share a run with it. Both jobs then end with exit 5.
+Busy means the bot itself is working: its run is going (subagents included), a card or a computer hand-off waits for the owner, another bot it handed work to is still on it, or a message it received has no answer yet. Cursor cloud agents it launched are not the bot. They work on their own while the bot is free; only a cloud agent's report, once it arrives, keeps the bot busy until it has handled it. So a bot that starts your tasks as cloud agents is free again as soon as its run ends, often within a minute, while the `wait` on your message keeps going until the agents report back. Never guess how long a message would wait: send it, and stderr tells you whether it was queued.
+
+You decide whether a message waits:
+
+- **Queue it** (the default) when it is a separate task. It gets its own reply once the bot is free.
+- **Send it with `--now`** (`send`, `ask` and `reply` take it) when the bot should take it into the work it is doing for you right now, such as a detail you forgot. It goes out at once, the bot reads it during that work, and it may answer both messages in one reply: both jobs then end with exit 5, with every reply of that run. Use it only on your own work in progress, never while the bot works for someone else.
+
+A queued message can still change before it goes out: `grokbot edit <job> "<new text>"` replaces its text in full, and grokbot keeps the header. Once a message has gone out it cannot change. Reply to it instead: `grokbot reply <job> "..."` quotes the bot's last message in that job, or your own message while the bot has written none, and takes `--now` too.
+
+Give work to the bot that already has it: the one the owner, `GROKBOT_AGENT` or the project route names. One message may list several tasks, and a bot that works through cloud agents or subagents runs them side by side. To run tasks in parallel on more than one bot, use other bots that already exist and fit the work. Never hire a bot to skip a queue or to finish sooner: hiring is the owner's call (see "Manage the workforce"). Never route around the queue by asking another bot to relay your message either: the text then reaches the bot twice once the queue frees, and the relaying bot spends a turn. If a message stays queued longer than the task allows, tell the owner what it waits on, and let them decide whether another bot should take it.
+
+A message typed in the app while your job runs, or one sent with `--now`, can share a run with it. Both jobs then end with exit 5.
 
 Read the exit code:
 
@@ -58,7 +69,7 @@ Read the exit code:
 | 2 | Usage error. stderr prints the usage line. | Fix the arguments. |
 | 3 | Awaiting approval. A card or a computer hand-off blocks the bot. | Follow "Approval cards" below. |
 | 4 | Still running, or still queued, after `--timeout`. stdout is the job id. | `grokbot wait <job>` resumes it. |
-| 5 | Ambiguous. One run answered this message together with another, such as one typed in the app. stdout has every reply of that run, in order. stderr says which message it shared. | Pick the reply that answers your task, or ask again once the bot is idle. |
+| 5 | Ambiguous. One run answered this message together with another, such as one typed in the app or sent with `--now`. stdout has every reply of that run, in order. stderr says which message it shared. | Pick the reply that answers your task, or ask again once the bot is idle. |
 | 130 | Interrupted. stderr has `Resume with: grokbot wait <job>`. | Resume it. |
 
 `send` and a still-running `ask`, `reply` or `wait` end with a `Next:` line (the JSON has it as `next`) naming the next step: wait for the answer with `grokbot wait <job>`, and for anything the bot leaves later with `grokbot inbox wait --job <job8>`. If your runtime can run a command in the background and tell you when it ends, run the wait that way and carry on; otherwise run it before you finish. Never wait in a sleep loop.
@@ -71,16 +82,17 @@ Add `--json` when you parse output. stdout is then one JSON document, and job id
 
 ## Reply to a bot
 
-Use `grokbot reply <job> "..."` to answer a bot's question or to give feedback on one result. It works like Reply in the app: the bot sees which of its messages you answer, so a short "yes, the second option" or "shorter, please" is understood. It waits like `ask` (same exit codes, `job <id>` on stderr) and answers the last message the bot posted for that job. The reply gets its own job id, so `wait` on that one next.
+Use `grokbot reply <job> "..."` to answer a bot's question, to give feedback on one result, or to add to a task you sent. It works like Reply in the app: the bot sees which message you quote, so a short "yes, the second option" or "shorter, please" is understood. It waits like `ask` (same exit codes, `job <id>` on stderr) and quotes the last message the bot posted for that job, or your own message for that job while the bot has posted none. Add `--now` when the bot should read it during the work it is doing for you (see "Dispatch work"). The reply gets its own job id, so `wait` on that one next.
 
 ```bash
 grokbot reply "$job" "Yes, use the second option"
+grokbot reply "$job" "Also cover the empty state" --now   # adds to the task the bot is on
 grokbot tail --json -n 30 --agent Researcher      # each row has an entryId
 grokbot reply "$job" "Same fix for this one" --to <entryId>
 grokbot reply "Looks good, ship it" --to <entryId> --agent Researcher   # no job
 ```
 
-`--to <entryId>` answers an older message instead; take the id from `grokbot tail --json`, and it must be a row of that bot's chat. With no job, give the text alone and let `--agent`, `GROKBOT_AGENT` or the folder's project route name the bot. `reply` refuses a job that is unknown or still queued (run `grokbot wait <job>` first), and an entry that is not in that bot's chat.
+`--to <entryId>` quotes another message instead; take the id from `grokbot tail --json`, and it must be a row of that bot's chat. With no job, give the text alone and let `--agent`, `GROKBOT_AGENT` or the folder's project route name the bot. `reply` refuses a job that is unknown or still queued (change a queued message with `grokbot edit <job> "..."` instead), and an entry that is not in that bot's chat.
 
 ## First-time setup
 
@@ -193,7 +205,7 @@ grokbot room-members "Launch room" --member Researcher,Writer,Designer
 grokbot fire Researcher --yes              # owner OK first
 ```
 
-`hire` gives each bot its own `/workspace/staff/<slug>` folder. Running it again with the same name re-briefs that bot and keeps its instructions unless you pass new ones.
+`hire` gives each bot its own `/workspace/staff/<slug>` folder. Running it again with the same name re-briefs that bot and keeps its instructions unless you pass new ones. Hire only when the owner asks for a new bot or agrees to one you propose: a hired bot stays on the owner's account and in their app until someone fires it.
 
 Skills live in one Box-wide library. The bot you name only routes the call, and every change applies to all bots. `skills-list` sorts them into two types:
 
@@ -289,12 +301,13 @@ Nothing here changes an item by itself; the bots do that on their own computer.
 | --- | --- | --- |
 | `grokbot agents` | read-only | List GrokBot agents on the account |
 | `grokbot team` | read-only | List agents with live running/idle/awaiting status |
-| `grokbot ask <text> [--timeout <integer>] [--agent <string>]` | writes | Send a prompt and wait until the Done Rule settles |
-| `grokbot send <text> [--agent <string>]` | writes | Dispatch a message, or queue it while the bot is busy, and return a resumable job id |
+| `grokbot ask <text> [--timeout <integer>] [--now] [--agent <string>]` | writes | Send a prompt and wait until the Done Rule settles |
+| `grokbot send <text> [--now] [--agent <string>]` | writes | Dispatch a message, or queue it while the bot is busy, and return a resumable job id |
 | `grokbot wait <job> [--timeout <integer>]` | read-only | Wait for a dispatched job id to finish |
 | `grokbot tail [-n <integer>] [--agent <string>]` | read-only | Read recent decoded transcript entries |
 | `grokbot interrupt [--agent <string>]` | writes | Interrupt the active run on an agent |
-| `grokbot reply [job] <text> [--to <string>] [--timeout <integer>] [--agent <string>]` | writes | Reply to one of a bot's messages, like Reply in the app, and wait until the Done Rule settles |
+| `grokbot reply [job] <text> [--to <string>] [--timeout <integer>] [--now] [--agent <string>]` | writes | Reply to one of a bot's messages, like Reply in the app, and wait until the Done Rule settles |
+| `grokbot edit <job> <text>` | writes | Change the text of a message still queued for a busy bot, then send it if the bot is free |
 | `grokbot setup-bots [--timeout <integer>] [--agent <string>]` | writes | Set up the bots' side: send the bot setup prompt to the primary Bot and wait until the Done Rule settles |
 | `grokbot hire <name> --title <string> --description <string> [--instructions <string>] [--instructions-file <string>]` | writes | Create a bot with a role and its own /workspace/staff folder |
 | `grokbot update <agent> [--title <string>] [--description <string>] [--instructions <string>] [--instructions-file <string>]` | writes | Change a bot's title, description, or instructions |

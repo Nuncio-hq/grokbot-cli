@@ -26,8 +26,8 @@ afterEach(async () => {
 function setup(options?: QueueBotOptions) {
   const bot = queueBot(options);
   const runner = createCommandRunner({ server: bot.server, jobs });
-  const send = (text: string) =>
-    runner.run("send", { text, agent: AGENT, json: false });
+  const send = (text: string, now = false) =>
+    runner.run("send", { text, agent: AGENT, now, json: false });
   const wait = (
     job: string,
     timeout = 5,
@@ -38,11 +38,44 @@ function setup(options?: QueueBotOptions) {
       { job, timeout, json: false },
       onEvent ? { onEvent } : {},
     );
-  return { bot, send, wait };
+  const edit = (job: string, text: string) =>
+    runner.run("edit", { job, text, json: false });
+  return { bot, send, wait, edit };
 }
 
 const replyOf = (outcome: { status: string; finalReply?: string }) =>
   outcome.status === "done" ? outcome.finalReply : outcome.status;
+
+describe("the sender decides: --now and edit", () => {
+  it("sends a --now message while the bot is busy, recorded as busy, and leaves earlier queued ones in place", async () => {
+    const { bot, send } = setup();
+    await send("task A");
+    const b = await send("task B");
+    const c = await send("also for A", true);
+    expect([
+      c.queued,
+      (await jobs.load(c.jobId))?.botBusyAtSend,
+      (await jobs.load(b.jobId))?.state.status,
+      bot.sends(),
+    ]).toEqual([false, true, "queued", ["task A", "also for A"]]);
+  });
+
+  it("edits a queued message, sends the new text once the bot is free, and refuses after it went out", async () => {
+    const { bot, send, edit } = setup();
+    await send("task A");
+    const b = await send("task B");
+    const whileBusy = await edit(b.jobId, "task B, v2");
+    bot.finish("RESULT A");
+    const whenFree = await edit(b.jobId, "task B, v3");
+    const late = await edit(b.jobId, "task B, v4").catch((e: unknown) => e);
+    expect([
+      whileBusy.queued,
+      whenFree.queued,
+      late instanceof GrokBotError,
+      bot.sends(),
+    ]).toEqual([true, false, true, ["task A", "task B, v3"]]);
+  });
+});
 
 describe("one message per bot at a time", () => {
   it("queues B while A runs, sends it when A's turn ends, and gives each its own reply", async () => {

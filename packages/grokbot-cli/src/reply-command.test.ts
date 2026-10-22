@@ -26,6 +26,7 @@ describe("grokbot reply arguments", () => {
           job: "job-1",
           text: "Yes, the second one",
           timeout: 600,
+          now: false,
           json: false,
         },
       },
@@ -42,6 +43,7 @@ describe("grokbot reply arguments", () => {
       text: "About this one",
       to: "t4s1",
       timeout: 30,
+      now: false,
       json: false,
     });
   });
@@ -56,6 +58,7 @@ describe("grokbot reply arguments", () => {
       to: "t4s1",
       agent: "Primary Test",
       timeout: 600,
+      now: false,
       json: false,
     });
   });

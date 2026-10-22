@@ -9,6 +9,7 @@ import type {
 import { dispatchMessage, followJob } from "./command-runner-jobs.js";
 import type { DispatchCommandName } from "./command-specs-dispatch.js";
 import { GrokBotError } from "./contracts.js";
+import { advanceQueue, editQueued } from "./job-queue.js";
 import { nextStep, nextStepUnless, setupNextStep } from "./next-step.js";
 import { resolveReplyTarget } from "./reply-target.js";
 import { asJsonObject, parseEntriesResponse } from "./transcript.js";
@@ -24,17 +25,15 @@ export function dispatchHandlers(
     text: string,
     timeout: number,
     run: HandlerRun,
+    now = false,
   ) => {
     const origin = await ctx.beginJob();
     const tagged = await ctx.tagged(text, origin);
-    const job = await dispatchMessage(
-      ctx,
-      agent,
-      tagged,
-      run.signal,
-      undefined,
+    const job = await dispatchMessage(ctx, agent, tagged, {
+      signal: run.signal,
       origin,
-    );
+      now,
+    });
     const { jobId, agentId } = job;
     run.onEvent?.({ type: "dispatched", jobId, agentId });
     return { jobId, outcome: await followJob(ctx, job, timeout, run) };
@@ -67,14 +66,11 @@ export function dispatchHandlers(
       const agent = await target(input.agent, signal);
       const origin = await ctx.beginJob();
       const text = await ctx.tagged(input.text, origin);
-      const job = await dispatchMessage(
-        ctx,
-        agent,
-        text,
+      const job = await dispatchMessage(ctx, agent, text, {
         signal,
-        undefined,
         origin,
-      );
+        now: input.now,
+      });
       const { jobId, sentMessageId } = job;
       const queued = job.state.status === "queued";
       return { jobId, agent, sentMessageId, queued, next: nextStep(jobId) };
@@ -87,6 +83,7 @@ export function dispatchHandlers(
         input.text,
         input.timeout,
         run,
+        input.now,
       );
       return { jobId, agent, outcome, ...nextStepUnless(jobId, outcome) };
     },
@@ -110,14 +107,12 @@ export function dispatchHandlers(
       );
       const origin = await ctx.beginJob();
       const text = await ctx.tagged(input.text, origin);
-      const job = await dispatchMessage(
-        ctx,
-        agent,
-        text,
-        run.signal,
+      const job = await dispatchMessage(ctx, agent, text, {
+        signal: run.signal,
         replyToId,
         origin,
-      );
+        now: input.now,
+      });
       const { jobId, agentId } = job;
       run.onEvent?.({ type: "dispatched", jobId, agentId });
       const outcome = await followJob(ctx, job, input.timeout, run);
@@ -127,6 +122,31 @@ export function dispatchHandlers(
         replyToId,
         outcome,
         ...nextStepUnless(jobId, outcome),
+      };
+    },
+
+    edit: async (input, { signal }) => {
+      const job = await ctx.jobs.load(input.job);
+      if (!job) {
+        throw new GrokBotError(
+          "not-found",
+          `No saved job "${input.job}" in ${ctx.jobs.dir}. Use the job id printed by send, ask or reply.`,
+        );
+      }
+      const { jobId, agentId, agentName, session } = job;
+      const text = await ctx.tagged(input.text, {
+        jobId,
+        ...(session !== undefined && { session }),
+      });
+      await editQueued(ctx, job, text, signal);
+      await advanceQueue(ctx, agentId, jobId, signal);
+      const queued = (await ctx.jobs.load(jobId))?.state.status === "queued";
+      return {
+        jobId,
+        agentId,
+        ...(agentName !== undefined && { agentName }),
+        queued,
+        next: nextStep(jobId),
       };
     },
 

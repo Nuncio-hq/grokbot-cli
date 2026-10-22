@@ -38,7 +38,7 @@ export const DISPATCH_OVERRIDES: McpOverrides<DispatchCommandName> = {
     defaults: { timeout: MCP_WAIT_TIMEOUT_SECONDS },
   },
   reply: {
-    note: `Answers one bot message like Reply in the app: pass job (the bot's last message in that job is answered) or to (an entryId from grokbot_tail) with agent. Waits ${MCP_WAIT_TIMEOUT_SECONDS} s unless timeout is set; a still-running result carries a job id, and grokbot_wait resumes it. ${OUTCOMES}`,
+    note: `Quotes one message like Reply in the app: pass job (the bot's last message in that job, or the job's own message while the bot has written none) or to (an entryId from grokbot_tail) with agent. Waits ${MCP_WAIT_TIMEOUT_SECONDS} s unless timeout is set; a still-running result carries a job id, and grokbot_wait resumes it. ${OUTCOMES}`,
     defaults: { timeout: MCP_WAIT_TIMEOUT_SECONDS },
   },
   wait: {
@@ -163,11 +163,17 @@ export const DISPATCH_SUMMARIES: ToolSummaries<DispatchCommandName> = {
   send: ({ jobId, agent, queued }) =>
     `${
       queued
-        ? `Queued for ${agent.name}: it is busy, so the message goes out once it is free. Job ${jobId} is saved; ${waitHint(jobId)} to send it and get the reply.`
+        ? `Queued for ${agent.name}: it is busy, so the message goes out once it is free; grokbot_edit with job ${jobId} changes it until then. Job ${jobId} is saved; ${waitHint(jobId)} to send it and get the reply.`
         : `Sent to ${agent.name}. Job ${jobId} is saved; ${waitHint(jobId)} for the reply.`
     } ${inboxWaitHint(jobId)}`,
   wait: ({ jobId, agentId, agentName, outcome }) =>
     outcomeText(agentName ?? `Agent ${agentId}`, jobId, outcome),
+  edit: ({ jobId, agentId, agentName, queued }) =>
+    `${
+      queued
+        ? `Edited. Still queued for ${agentName ?? `agent ${agentId}`}: it goes out once the bot is free; ${waitHint(jobId)} to send it and get the reply.`
+        : `Edited and sent to ${agentName ?? `agent ${agentId}`}, which was free; ${waitHint(jobId)} for the reply.`
+    } ${inboxWaitHint(jobId)}`,
   tail: ({ agent, entries }) =>
     [
       `${agent.name}, last ${plural(entries.length, "entry", "entries")}:`,

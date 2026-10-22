@@ -29,6 +29,7 @@ export const ASK = {
   text: "ping",
   agent: "Trace Bot",
   timeout: 1,
+  now: false,
   json: false,
 };
 const OLD_TURN = textReplyRow(141, "old turn");

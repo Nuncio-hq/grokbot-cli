@@ -6,6 +6,7 @@ import {
   type JobContext,
   type JobOrigin,
   newQueuedJob,
+  sendAtOnce,
   untilSent,
 } from "./job-queue.js";
 import {
@@ -19,27 +20,42 @@ import { waitForDone } from "./wait-for-done.js";
 
 export type { JobContext } from "./job-queue.js";
 
+export interface DispatchOptions {
+  readonly signal?: AbortSignal;
+  /** Sends it as a reply to that transcript entry, also when it waits in the queue first. */
+  readonly replyToId?: string;
+  /** The job id the text's header already names, with the sender's session. */
+  readonly origin?: JobOrigin;
+  /**
+   * Sends it at once even while the bot is busy, instead of queueing it: the caller wants
+   * the bot to read it during its current work, and accepts a shared reply (ambiguous).
+   */
+  readonly now?: boolean;
+}
+
 /**
  * Saves `text` as a queued job, then sends the bot's queue if the bot is free, so a bot
- * only ever has one of our messages in hand (job-queue.ts). The job comes back pending
- * when it went out now, queued when it waits behind earlier work. A refused message
- * leaves no job, and so does an error before the send. Any other send error keeps the sending record: the message may have
- * landed, and `wait` finds its echo. `replyToId` sends it as a reply to that transcript
- * entry, also when it waits in the queue first. `origin` is the job id the text's header
- * already names, with the sender's session.
+ * only ever has one of our messages in hand (job-queue.ts), unless `now` sends this one at
+ * once. The job comes back pending when it went out now, queued when it waits behind
+ * earlier work. A refused message leaves no job, and so does an error before the send. Any
+ * other send error keeps the sending record: the message may have landed, and `wait` finds
+ * its echo.
  */
 export async function dispatchMessage(
   ctx: JobContext,
   agent: Agent,
   text: string,
-  signal?: AbortSignal,
-  replyToId?: string,
-  origin?: JobOrigin,
+  { signal, replyToId, origin, now = false }: DispatchOptions = {},
 ): Promise<JobRecord> {
   const queued = newQueuedJob(agent, text, replyToId, origin);
   await ctx.jobs.save(queued);
   try {
-    await advanceQueue(ctx, agent.agentId, queued.jobId, signal);
+    await (now ? sendAtOnce : advanceQueue)(
+      ctx,
+      agent.agentId,
+      queued.jobId,
+      signal,
+    );
   } catch (error) {
     // Never sent (refused, or still queued): drop it rather than send it later unseen.
     const state = (await ctx.jobs.load(queued.jobId))?.state;

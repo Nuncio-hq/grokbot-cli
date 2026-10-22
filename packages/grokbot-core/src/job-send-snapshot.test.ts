@@ -118,48 +118,36 @@ describe("snapshotBeforeSend follows each hand-off by its ids", () => {
     ]);
   });
 
-  it("treats a cloud-agent hand-off as before: busy for two minutes, then idle", async () => {
+  it("never counts a running cloud agent as busy, only its landed report until the bot answers it", async () => {
     const cloud = {
       id: "bc-00000000-0000-4000-8000-0000000000aa",
       name: "bc-00000000-0000-4000-8000-0000000000aa",
     };
-    const at = (ageMs: number) => {
-      const now = Date.now();
-      return [
-        ownerRow(
-          10,
-          "Start a cloud agent.",
-          "cloud-1",
-          "rs-1",
-          now - ageMs - 2_000,
-        ),
-        withEntryId(
-          assistantRow(11, "Count the files.", {
-            toAgent: { ...cloud, kind: "cloud-agent" },
-            requestId: "rs-1",
-            timestampMs: now - ageMs,
-          }),
-          "agent-outbound-ff0001",
-        ),
-        noteRow(12, "Started.", "rs-1", now - ageMs + 1_000),
-      ];
-    };
-    expect((await busy(PRIMARY.id, { [PRIMARY.id]: at(30_000) })).botBusy).toBe(
-      true,
-    );
-    expect(
-      (await busy(PRIMARY.id, { [PRIMARY.id]: at(300_000) })).botBusy,
-    ).toBe(false);
-    const answered = [
-      ...at(300_000),
-      delegateReplyRow(13, "Counted 3.", cloud, { clientNonce: "ff0002" }),
-      noteRow(14, "FINAL: 3 files", "rs-2", Date.now() - 100_000),
-    ];
-    expect(
-      (await busy(PRIMARY.id, { [PRIMARY.id]: answered })).log.some(
-        (c) => c.method === "ListGrokBotAgentStatuses" && c.body.agentIds,
+    const now = Date.now();
+    const launched = [
+      ownerRow(10, "Start a cloud agent.", "cloud-1", "rs-1", now - 32_000),
+      withEntryId(
+        assistantRow(11, "Count the files.", {
+          toAgent: { ...cloud, kind: "cloud-agent" },
+          requestId: "rs-1",
+          timestampMs: now - 30_000,
+        }),
+        "agent-outbound-ff0001",
       ),
-    ).toBe(true);
+      noteRow(12, "Started.", "rs-1", now - 29_000),
+    ];
+    const reported = [
+      ...launched,
+      delegateReplyRow(13, "Counted 3.", cloud, { clientNonce: "ff0002" }),
+    ];
+    const answered = [
+      ...reported,
+      noteRow(14, "FINAL: 3 files", "rs-2", now - 1_000),
+    ];
+    const states = [];
+    for (const rows of [launched, reported, answered])
+      states.push((await busy(PRIMARY.id, { [PRIMARY.id]: rows })).botBusy);
+    expect(states).toEqual([false, true, false]);
   });
 
   it("is busy while a landed hand-off answer is fresh, and idle once the bot handled it without a reply", async () => {

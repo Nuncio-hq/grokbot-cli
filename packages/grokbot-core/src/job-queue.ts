@@ -204,6 +204,77 @@ export function advanceQueue(
 }
 
 /**
+ * Sends queued job `jobId` now, under the bot's lock, even while the bot is busy: the caller
+ * chose to reach the bot during its current work. The snapshot still records whether the bot
+ * was busy, so a run that answers this message together with another ends ambiguous. Jobs
+ * queued earlier keep their place. A refusal is thrown.
+ */
+export function sendAtOnce(
+  ctx: JobContext,
+  agentId: string,
+  jobId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  return withAgentLock(
+    ctx.jobs.dir,
+    agentId,
+    async () => {
+      const saved = await ctx.jobs.list();
+      const job = saved.find((j) => j.jobId === jobId);
+      if (job?.state.status !== "queued") return;
+      const snapshot = await snapshotBeforeSend(
+        ctx.server,
+        agentId,
+        inFlightIds(saved, agentId),
+        signal,
+      );
+      const refused = await sendQueued(ctx, job, snapshot, signal);
+      if (refused !== undefined) throw refused;
+    },
+    signal,
+  );
+}
+
+/**
+ * Replaces the text of a message still waiting in the queue, under the bot's lock so the
+ * queue never sends it while it changes. Refuses a job whose message already went out (a
+ * reply quotes it instead) or never will.
+ */
+export function editQueued(
+  ctx: JobContext,
+  job: JobRecord,
+  text: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const name = job.agentName ?? "the bot";
+  return withAgentLock(
+    ctx.jobs.dir,
+    job.agentId,
+    async () => {
+      const now = await ctx.jobs.load(job.jobId);
+      if (!now)
+        throw new GrokBotError("not-found", `job ${job.jobId} left the store`);
+      const { state } = now;
+      if (state.status === "queued") {
+        await ctx.jobs.save({ ...now, text });
+        return;
+      }
+      if (state.status === "failed" && state.notSent) {
+        throw new GrokBotError(
+          "not-found",
+          `Job ${job.jobId} was never sent (${state.error}), so there is nothing to edit. Send the new text with grokbot send.`,
+        );
+      }
+      throw new GrokBotError(
+        "not-found",
+        `Job ${job.jobId} already went to ${name}, so its message can no longer change. Reply to it instead with grokbot reply ${job.jobId} "<text>" (add --now to reach the bot during its current work).`,
+      );
+    },
+    signal,
+  );
+}
+
+/**
  * Waits until queued `job` is sent, advancing the bot's queue whenever the bot is free.
  * Returns the job as saved: still queued when the deadline passes first.
  */

@@ -115,7 +115,7 @@ export async function saveRoutineInChat(
     ctx,
     agent,
     routineInstruction(spec, options.current),
-    run.signal,
+    { signal: run.signal },
   );
   const { jobId } = job;
   run.onEvent?.({ type: "dispatched", jobId, agentId: agent.agentId });

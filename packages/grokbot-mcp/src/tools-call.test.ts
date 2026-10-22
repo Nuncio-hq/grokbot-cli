@@ -33,6 +33,7 @@ describe("grokbot-mcp tools/call", () => {
         input: {
           text: "ping",
           timeout: 45,
+          now: false,
           agent: "Primary Test",
           json: false,
         },
@@ -60,8 +61,8 @@ describe("grokbot-mcp tools/call", () => {
       call(4, "grokbot_wait", { job: "job-1", timeout: 900 }),
     );
     expect(calls.map((c) => [c.name, c.input])).toEqual([
-      ["ask", { text: "ping", timeout: 600, json: false }],
-      ["ask", { text: "ping", timeout: 45, json: false }],
+      ["ask", { text: "ping", timeout: 600, now: false, json: false }],
+      ["ask", { text: "ping", timeout: 45, now: false, json: false }],
       ["wait", { job: "job-1", timeout: 45, json: false }],
       ["wait", { job: "job-1", timeout: 900, json: false }],
     ]);

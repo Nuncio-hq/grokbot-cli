@@ -130,14 +130,11 @@ async function sendAndRecord(
 ): Promise<SentToBot> {
   const { item, agent, replyToId } = prepared;
   await ctx.inboxState.read();
-  const job = await dispatchMessage(
-    ctx,
-    agent,
-    text,
-    run.signal,
+  const job = await dispatchMessage(ctx, agent, text, {
+    signal: run.signal,
     replyToId,
     origin,
-  );
+  });
   try {
     await ctx.inboxState.markHandled(
       item.id,

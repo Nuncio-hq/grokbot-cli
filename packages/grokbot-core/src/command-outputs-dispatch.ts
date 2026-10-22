@@ -59,6 +59,16 @@ export interface DispatchOutputs {
     readonly outcome: JobOutcome;
     readonly next?: string;
   };
+  readonly edit: {
+    readonly jobId: string;
+    readonly agentId: string;
+    /** The agent's name, recorded at send; absent on jobs saved before 16 Oct 2026. */
+    readonly agentName?: string;
+    /** Still waiting for the bot; false when the edit found it free and sent the message. */
+    readonly queued: boolean;
+    /** What to do next: the message is not settled (see `nextStep`). */
+    readonly next?: string;
+  };
   readonly tail: {
     readonly agent: Agent;
     readonly entries: readonly TranscriptEntry[];

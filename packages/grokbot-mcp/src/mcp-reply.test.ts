@@ -40,6 +40,11 @@ describe("grokbot_reply over MCP", () => {
                   default: 45,
                   minimum: 1,
                 },
+                now: {
+                  type: "boolean",
+                  description: expect.any(String),
+                  default: false,
+                },
                 agent: { type: "string", description: expect.any(String) },
               },
             }),
@@ -62,6 +67,7 @@ describe("grokbot_reply over MCP", () => {
           job: "job-1",
           text: "Yes, the second one",
           timeout: 45,
+          now: false,
           json: false,
         },
       },
@@ -93,6 +99,7 @@ describe("grokbot_reply over MCP", () => {
       to: "t4s1",
       agent: "Primary Test",
       timeout: 45,
+      now: false,
       json: false,
     });
   });

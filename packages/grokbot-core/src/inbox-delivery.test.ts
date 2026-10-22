@@ -44,7 +44,7 @@ const forMe = (id: string, extra: Partial<InboxItem> = {}) =>
 
 describe("the header names the job", () => {
   const send = (w: InboxWorld) =>
-    w.runner.run("send", { text: "hello", json: false });
+    w.runner.run("send", { text: "hello", now: false, json: false });
 
   it("ends an agent's header with the job and keeps the session on the job record", async () => {
     const w = await start();
@@ -70,7 +70,11 @@ describe("items for this session's jobs", () => {
         inboxItem("jobo0002", { to: { job: "ffffffff" } }),
       ],
     });
-    const { jobId } = await w.runner.run("send", { text: "hi", json: false });
+    const { jobId } = await w.runner.run("send", {
+      text: "hi",
+      now: false,
+      json: false,
+    });
     await w.jobs.save({
       ...(await w.jobs.load(jobId)),
       jobId: "a1b2c3d4-0000-4000-8000-000000000000",
@@ -162,7 +166,11 @@ describe("inbox wait", () => {
 
   it("watches the jobs this session sent, and only those, without --job", async () => {
     const w = await start();
-    const { jobId } = await w.runner.run("send", { text: "hi", json: false });
+    const { jobId } = await w.runner.run("send", {
+      text: "hi",
+      now: false,
+      json: false,
+    });
     const handle = jobId.slice(0, 8);
     leave(w, inboxItem("mine0001", { to: { job: handle } }));
     leave(w, inboxItem("othr0002", { to: { job: "ffffffff" } }));
@@ -381,7 +389,11 @@ describe("catch-up notices", () => {
 describe("the next step after a send", () => {
   it("is on send, with the job and its handle", async () => {
     const w = await start();
-    const out = await w.runner.run("send", { text: "hi", json: false });
+    const out = await w.runner.run("send", {
+      text: "hi",
+      now: false,
+      json: false,
+    });
     expect(out.next).toContain(`grokbot wait ${out.jobId}`);
     expect(out.next).toContain(
       `grokbot inbox wait --job ${out.jobId.slice(0, 8)}`,
