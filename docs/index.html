@@ -425,7 +425,7 @@ GrokBot ── hosts ──────▶ bots ── which start runs, subagen
         <h2 id="plan-title">Four phases. <em>100% standalone</em> open-source engine.</h2>
         <p class="chapter-lead"><b>Grokbot-cli</b> is a standalone, host-agnostic workforce engine (<code>grokbot-core</code>, <code>grokbotagent-cli</code>, <code>grokbot-mcp</code>). A terminal, any agent runtime (for example <code>Claude Code</code>, <code>Codex</code>, <code>Cursor</code>, <code>Hermes</code>), a script, CI, or a host app consumes it from outside through its CLI, SDK, or MCP contract, for any purpose. This repo never contains host-, runtime- or account-specific code.</p>
       </div>
-      <span class="tag tag--ok">Standalone Engine · Phases 01–05, 07–09 Built · 06 Parked · 0.2.1 on npm</span>
+      <span class="tag tag--ok">Standalone Engine · Phases 01–05, 07–09 Built · 06 Parked · 0.4.0 on npm</span>
     </div>
 
     <div class="roadmap-columns">
@@ -1085,11 +1085,12 @@ packages/grokbot-mcp    <span class="c"># npm `grokbot-mcp`      · Thin stdio M
 
       <details class="archive-drawer" id="log">
         <summary>
-          <span class="archive-drawer__title"><span class="archive-drawer__idx">03</span> Dated Engineering Log (75 entries · 13–22 Oct 2026)</span>
+          <span class="archive-drawer__title"><span class="archive-drawer__idx">03</span> Dated Engineering Log (76 entries · 13–22 Oct 2026)</span>
           <span class="archive-drawer__meta">Expand</span>
         </summary>
         <div class="details-body">
           <ol class="log-timeline">
+            <li><time>22 Oct 2026</time><p><b>Released 0.4.0 of all three packages (owner).</b> Holds <code>setup-bots</code>, the queue changes (cloud agents no longer make a bot busy, <code>--now</code>, <code>grokbot edit</code>, replies that quote the job's own message) and the Vocabulary chapter. <code>bun run verify</code> green locally, the Release workflow with <code>bump=minor</code> verified, committed <code>chore(release): version packages 0.4.0</code>, tagged <code>v0.4.0</code>, published with provenance and created the GitHub release; npm showed the CLI about 45 s later and <code>grokbot-core</code> about a minute after that. Installed globally on the owner's Mac: <code>--version</code> 0.4.0, <code>edit --help</code> and <code>agents</code> worked. The bots' cloud computer still has 0.3.0 until <code>setup-bots</code> runs again; nothing on the bots' side changed.</p></li>
             <li><time>22 Oct 2026</time><p><b>Added a <a href="#vocabulary">Vocabulary</a> chapter: one word, one meaning (owner).</b> The owner set the core words: an agent works in a session of a runtime (the harness: Claude Code, Codex, Hermes and others), GrokBot is the application, grokbot-cli is ours, and a bot lives inside GrokBot. The chapter adds the words these pages and the skill already use (owner, session, host, primary Bot, message, job, reply, run, busy, queue, Done Rule, hand-off, subagent, cloud agent, card, inbox item, cloud computer, project route, skill, routine, room), each with what it is not. The API's own words stay in code (<code>agentId</code>, <code>--agent</code> and <code>grokbot agents</code> name a bot); prose says bot. <code>AGENTS.md</code> points agents at the chapter. Older log entries are left as written.</p></li>
             <li><time>21 Oct 2026</time><p><b>A running cloud agent no longer makes its bot busy, and the sender decides whether a message waits: <code>--now</code>, <code>grokbot edit</code>, and replies that quote your own message (owner).</b> In another project's session the owner asked the agent runtime to hand more work to that project's bot. One message with four tasks went out; a fifth task missed it, and instead of sending it the runtime hired a second bot, reasoning that a second message would wait about an hour until all four tasks finished.
               <ul>
