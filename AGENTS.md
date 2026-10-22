@@ -2,6 +2,8 @@
 
 **Read `docs/index.html` first. It is the single source of truth** (visual architecture, decisions, 4-phase roadmap, verified capabilities, rules, open questions, log). `docs/reference.html` has the CLI quick start, request lifecycle, and every GrokBot tool and API method; `docs/grokbot-tools-and-api.json` is the machine-searchable catalog.
 
+**Use the words in its Vocabulary** (`docs/index.html#vocabulary`) in code comments, docs, the shipped skill, messages to bots and chat: an *agent* works in a *runtime* (Claude Code, Codex, Hermes…), *GrokBot* is the application, *grokbot-cli* is ours, and a *bot* lives inside GrokBot, even where the API calls it an agent.
+
 ## Workspace Layout (Bun Monorepo · MIT License · `Nuncio-hq/grokbot-cli`)
 
 | Path | Purpose |

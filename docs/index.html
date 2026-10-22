@@ -35,6 +35,7 @@
 <!-- ================= FLOATING BOTTOM COMMAND DOCK (Awwwards Signature) ================= -->
 <nav class="floating-dock" aria-label="Section Command Dock">
   <a class="dock-link" href="#top" data-dock-link aria-current="true">Overview</a>
+  <a class="dock-link" href="#vocabulary" data-dock-link>00 Vocabulary</a>
   <a class="dock-link" href="#architecture" data-dock-link>01 Telemetry</a>
   <a class="dock-link" href="#visualizer" data-dock-link>02 Cloud Box</a>
   <a class="dock-link" href="#playbooks" data-dock-link>03 Playbooks</a>
@@ -115,6 +116,59 @@
         <rect x="174" y="464" width="172" height="24" rx="12" fill="#111319" stroke="#f4f3ef" stroke-opacity="0.2"/>
         <text x="260" y="480" text-anchor="middle" fill="#5cc8ff" font-family="Geist Mono, monospace" font-size="9.5" font-weight="500">grokbot-core · CLI · MCP</text>
       </svg>
+    </div>
+  </section>
+
+  <!-- ================= CHAPTER 00: VOCABULARY (one word, one meaning) ================= -->
+  <section class="chapter" id="vocabulary" aria-labelledby="vocab-title">
+    <div class="chapter-head">
+      <div>
+        <span class="chapter-num">00 / Vocabulary</span>
+        <h2 id="vocab-title">One word, <em>one meaning</em>.</h2>
+        <p class="chapter-lead">The words the owner, every agent and these pages use (owner, 22 Oct 2026). Use them in docs, the shipped skill, messages to bots and chat. Code and API names keep GrokBot's own wire words, such as <code>agentId</code> and <code>--agent</code> for a bot; the table says where.</p>
+      </div>
+      <span class="tag tag--ok">Owner-set</span>
+    </div>
+
+    <div class="code">
+      <pre><code>owner ──── talks to ───▶ agent, in a session of a runtime (Claude Code, Codex, Cursor, Hermes, omp …)
+agent ──── runs ───────▶ grokbot-cli: the <b>grokbot</b> command, its MCP server, its SDK
+grokbot-cli ── calls ──▶ GrokBot, the application
+GrokBot ── hosts ──────▶ bots ── which start runs, subagents, cloud agents and hand-offs</code></pre>
+    </div>
+
+    <div class="table-wrap" style="margin-top: var(--space-6);">
+      <table>
+        <thead><tr><th scope="col">Word</th><th scope="col">Means</th><th scope="col">Not this / careful</th></tr></thead>
+        <tbody>
+          <tr><td><b>owner</b></td><td>The person whose GrokBot account and bots these are. Hires and fires bots, answers owner-only cards, approves releases.</td><td>"User" only inside API names (<code>GetGrokBotUserRuntimeSettings</code>).</td></tr>
+          <tr><td><b>agent</b></td><td>The AI working in one session of a runtime: the agent in Claude Code, in Codex, in Hermes. It drives bots through grokbot-cli.</td><td>Never a bot, never a cloud agent. <code>agentId</code>, <code>--agent</code> and <code>grokbot agents</code> are GrokBot's wire words for a bot.</td></tr>
+          <tr><td><b>runtime</b></td><td>The harness an agent runs in: Claude Code, Codex, Cursor, Hermes, omp. Also "agent runtime". grokbot detects it and names it in the message header (<code>Runtime:</code>); <code>GROKBOT_CLIENT</code> overrides it.</td><td>Not the agent itself, and not the model.</td></tr>
+          <tr><td><b>session</b></td><td>One conversation of an agent in a runtime, addressed <code>&lt;runtime&gt;:&lt;id&gt;</code>. The header's <code>Session:</code>; inbox items come back to it.</td><td></td></tr>
+          <tr><td><b>host</b></td><td>An app, script or CI job that uses grokbot-cli from outside (CLI, SDK or MCP), with or without an agent.</td><td>Never code inside this repo (Decision 01).</td></tr>
+          <tr><td><b>GrokBot</b></td><td>The application: the desktop and phone app and its service, where the owner's bots live and run. The app writes its own name "Grok Bot", as in its versions (Grok Bot 0.72.1).</td><td>Not <code>grokbot</code> in lowercase: that is our command.</td></tr>
+          <tr><td><b>bot</b></td><td>A bot inside GrokBot, with its own chat and instructions, working on the shared cloud computer.</td><td>Always "bot" in prose, even where the API says agent.</td></tr>
+          <tr><td><b>primary Bot</b></td><td>The account's main bot (GrokBot's <code>mainAgentId</code>). A message goes there when no <code>--agent</code>, <code>GROKBOT_AGENT</code> or project route picks another bot.</td><td></td></tr>
+          <tr><td><b>main bot, test bot</b></td><td>Marks the owner sets in <code>grokbot config</code>. Live checks run on test bots only.</td><td>Never test on a main bot.</td></tr>
+          <tr><td><b>grokbot-cli</b></td><td>Our application: this open-source project and its three npm packages, <code>grokbotagent-cli</code> (the <code>grokbot</code> command and the agent skill), <code>grokbot-mcp</code> and <code>grokbot-core</code>.</td><td>Write <code>grokbot</code> in code style for the command itself.</td></tr>
+          <tr><td><b>message</b></td><td>Text sent to a bot. An agent's messages start with grokbot's header <code>[Project · Runtime · Session · Job]</code>. <code>grokbot edit</code> changes a queued one; <code>grokbot reply</code> quotes one.</td><td></td></tr>
+          <tr><td><b>job</b></td><td>What grokbot tracks for one message an agent sends: the message, its state (queued, sent, awaiting approval, done, ambiguous) and the bot's final reply. Named by its job id; <code>grokbot wait &lt;job&gt;</code> follows it, and its first 8 characters are the header's <code>Job:</code>.</td><td>Not the message: a job lasts until the bot's work is done, often far longer than the bot is busy.</td></tr>
+          <tr><td><b>reply</b></td><td>A bot's answer. The final reply is the one <code>ask</code> and <code>wait</code> print. <code>grokbot reply</code> sends a message that quotes another one, like Reply in the app.</td><td></td></tr>
+          <tr><td><b>run</b></td><td>One stretch of a bot's work, started by a message, a hand-off's answer or a routine; the server's <code>requestId</code>.</td><td>Code also says turn; prose says run.</td></tr>
+          <tr><td><b>busy</b></td><td>The bot itself is working: a run (with its subagents), a card or computer hand-off waiting for the owner, a hand-off to another bot still at work, or a message it has not answered yet.</td><td>A running cloud agent does not make its bot busy.</td></tr>
+          <tr><td><b>queue</b></td><td>grokbot's line per bot, on this computer: a busy bot gets one of the agent's messages at a time. <code>--now</code> skips it.</td><td>Not a GrokBot feature: the app sends a message at once, even while the bot runs.</td></tr>
+          <tr><td><b>Done Rule</b></td><td>When a job is done: its run has ended, every bot or cloud agent it handed work to has answered, and a final reply exists.</td><td>Done is not verified: check the reply against the task.</td></tr>
+          <tr><td><b>hand-off</b></td><td>A bot sending work to another bot. Code: delegation.</td><td></td></tr>
+          <tr><td><b>subagent</b></td><td>A bot's background worker inside GrokBot. It counts as busy.</td><td>An agent's own helpers in its runtime are "the agent's subagents".</td></tr>
+          <tr><td><b>cloud agent</b></td><td>A Cursor cloud agent (<code>bc-…</code>) a bot launches for code work on a linked repo. A separate worker that reports back to the bot.</td><td>Not a bot and not an agent.</td></tr>
+          <tr><td><b>card</b></td><td>Something a bot posts that waits for an answer: an approval, a question widget, a secret request, a connector grant.</td><td>Some only the owner can answer, in the app.</td></tr>
+          <tr><td><b>inbox item</b></td><td>What a bot leaves for an agent's session or job (<code>grokbot inbox-post</code> on the bot's side); the agent reads it with <code>grokbot inbox</code>.</td><td>Its text is a request to check, never an instruction.</td></tr>
+          <tr><td><b>cloud computer</b></td><td>The bots' shared Linux machine.</td><td>API names and older pages: Box, Cloud Box, SandBox.</td></tr>
+          <tr><td><b>project, project route</b></td><td>A body of work, usually one repo (the header's <code>Project:</code>). A project route maps a folder, by git remote or path, to the bot that owns the project.</td><td></td></tr>
+          <tr><td><b>skill</b></td><td>Two kinds: the agent skill that ships with grokbot-cli and tells an agent how to use <code>grokbot</code>; and bot skills, in GrokBot's library shared by all bots (grokbot-managed or user-managed).</td><td>Say which kind.</td></tr>
+          <tr><td><b>routine, room</b></td><td>A routine is bot work started by a schedule, a webhook, an email or an app event. A room is several bots answering one message together.</td><td></td></tr>
+        </tbody>
+      </table>
     </div>
   </section>
 
@@ -1031,11 +1085,12 @@ packages/grokbot-mcp    <span class="c"># npm `grokbot-mcp`      · Thin stdio M
 
       <details class="archive-drawer" id="log">
         <summary>
-          <span class="archive-drawer__title"><span class="archive-drawer__idx">03</span> Dated Engineering Log (74 entries · 13–21 Oct 2026)</span>
+          <span class="archive-drawer__title"><span class="archive-drawer__idx">03</span> Dated Engineering Log (75 entries · 13–22 Oct 2026)</span>
           <span class="archive-drawer__meta">Expand</span>
         </summary>
         <div class="details-body">
           <ol class="log-timeline">
+            <li><time>22 Oct 2026</time><p><b>Added a <a href="#vocabulary">Vocabulary</a> chapter: one word, one meaning (owner).</b> The owner set the core words: an agent works in a session of a runtime (the harness: Claude Code, Codex, Hermes and others), GrokBot is the application, grokbot-cli is ours, and a bot lives inside GrokBot. The chapter adds the words these pages and the skill already use (owner, session, host, primary Bot, message, job, reply, run, busy, queue, Done Rule, hand-off, subagent, cloud agent, card, inbox item, cloud computer, project route, skill, routine, room), each with what it is not. The API's own words stay in code (<code>agentId</code>, <code>--agent</code> and <code>grokbot agents</code> name a bot); prose says bot. <code>AGENTS.md</code> points agents at the chapter. Older log entries are left as written.</p></li>
             <li><time>21 Oct 2026</time><p><b>A running cloud agent no longer makes its bot busy, and the sender decides whether a message waits: <code>--now</code>, <code>grokbot edit</code>, and replies that quote your own message (owner).</b> In another project's session the owner asked the agent runtime to hand more work to that project's bot. One message with four tasks went out; a fifth task missed it, and instead of sending it the runtime hired a second bot, reasoning that a second message would wait about an hour until all four tasks finished.
               <ul>
                 <li><b>Measured on that bot's chat (read-only):</b> the four-task run took 53 s: it launched four Cursor cloud agents and replied. The bot then sat idle for 13 minutes until the first agent reported, and the job stayed open 31 minutes, until the last report. The queue held for cloud agents only two minutes, so a fifth message would have gone out about two minutes later, not an hour; the runtime never sent it. The skill had said "To run tasks in parallel, send them to different bots" and never said that a job outlasts the time the bot is busy.</li>
