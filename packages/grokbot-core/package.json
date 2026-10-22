@@ -1,6 +1,6 @@
 {
   "name": "grokbot-core",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "TypeScript SDK, RPC client, live stream, and Done Rule for GrokBot workforce orchestration.",
   "license": "MIT",
   "type": "module",
