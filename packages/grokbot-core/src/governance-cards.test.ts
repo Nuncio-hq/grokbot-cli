@@ -73,6 +73,7 @@ describe("openCards", () => {
         type: "widget",
         prompt: "Pick a color",
         options: ["Red", "Blue"],
+        ownerOnly: false,
       },
       {
         entryId: "entry-5",
@@ -150,6 +151,80 @@ describe("openCards", () => {
         seq: "4",
         type: "virtual-card-approval",
         summary: "Virtual card purchase: Cable",
+      },
+    ]);
+  });
+
+  it("types a rule-change widget as owner-only while an ordinary widget stays answerable", () => {
+    const proposal = {
+      type: "widget",
+      widget: {
+        prompt: "Save this rule?",
+        options: [{ label: "Save" }, { label: "Cancel" }],
+        ruleChange: { kind: "add", effect: "allow", text: "Run git status" },
+      },
+    };
+    expect(
+      openCards([
+        sendMessageRow(1, proposal),
+        widget(2),
+        sendMessageRow(3, proposal, "r", 3, {
+          respondedValue: "Added the rule.",
+        }),
+        sendMessageRow(4, proposal, "r", 4, { widgetDismissed: true }),
+      ]),
+    ).toEqual([
+      {
+        entryId: "entry-1",
+        seq: "1",
+        type: "widget",
+        prompt:
+          'The bot proposes a rule to add: "Allow without asking: Run git status"',
+        options: [],
+        ownerOnly: true,
+      },
+      {
+        entryId: "entry-2",
+        seq: "2",
+        type: "widget",
+        prompt: "Pick a color",
+        options: ["Red", "Blue"],
+        ownerOnly: false,
+      },
+    ]);
+  });
+
+  it("lists an appearance picker and an email offer until the owner answers or the bot replaces the offer", () => {
+    const offer = {
+      type: "email-offer",
+      email: "bot@example.com",
+      site: "shop.example.com",
+    };
+    expect(
+      openCards([
+        sendMessageRow(1, { type: "appearance-picker" }),
+        sendMessageRow(2, offer),
+        sendMessageRow(3, { type: "appearance-picker" }, "r", 3, {
+          respondedValue: "{}",
+        }),
+        sendMessageRow(4, offer, "r", 4, {
+          respondedValue: "email-offer:not-now",
+        }),
+        sendMessageRow(5, { ...offer, replaced: true }),
+      ]),
+    ).toEqual([
+      {
+        entryId: "entry-1",
+        seq: "1",
+        type: "appearance-picker",
+        summary: "The bot offers you a look for itself (shape and colour)",
+      },
+      {
+        entryId: "entry-2",
+        seq: "2",
+        type: "email-offer",
+        summary:
+          "The bot offers an email address of its own: bot@example.com (for shop.example.com)",
       },
     ]);
   });

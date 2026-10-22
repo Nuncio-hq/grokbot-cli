@@ -45,6 +45,8 @@ export interface JobRecord {
   readonly queuedAtMs?: number;
   /** The transcript entry this message replies to (`grokbot reply`); absent on a plain send. */
   readonly replyToId?: string;
+  /** The part of that entry the message quotes (`grokbot reply --quote`); only ever set with `replyToId`. */
+  readonly replyQuote?: string;
   /**
    * The sender's session address (`<runtime>:<id>`), when grokbot could tell which agent
    * session sent the message; absent for a person and on jobs saved before it was recorded.
@@ -114,6 +116,8 @@ function pickRecord(job: JobRecord): JobRecord {
     ...(job.text !== undefined && { text: job.text }),
     ...(job.queuedAtMs !== undefined && { queuedAtMs: job.queuedAtMs }),
     ...(job.replyToId !== undefined && { replyToId: job.replyToId }),
+    ...(job.replyToId !== undefined &&
+      job.replyQuote !== undefined && { replyQuote: job.replyQuote }),
     ...(job.session !== undefined && { session: job.session }),
     sentMessageId: job.sentMessageId,
     sentAtMs: job.sentAtMs,
@@ -180,6 +184,7 @@ function parseJobRecord(raw: unknown): JobRecord {
   const [agentName, text] = [str("agentName"), str("text")];
   const { botBusyAtSend: busy, queuedAtMs } = o;
   const [replyToId, session] = [str("replyToId"), str("session")];
+  const replyQuote = replyToId === undefined ? undefined : str("replyQuote");
   return {
     jobId,
     agentId,
@@ -187,6 +192,7 @@ function parseJobRecord(raw: unknown): JobRecord {
     ...(text !== undefined && { text }),
     ...(typeof queuedAtMs === "number" && { queuedAtMs }),
     ...(replyToId !== undefined && { replyToId }),
+    ...(replyQuote !== undefined && { replyQuote }),
     ...(session !== undefined && { session }),
     sentMessageId,
     sentAtMs,

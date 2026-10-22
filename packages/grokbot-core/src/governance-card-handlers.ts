@@ -109,12 +109,23 @@ export async function answerWidget(
     );
   }
   const agent = await ctx.target(input.agent, signal);
-  const card = selectCard(
-    await cardsOf(ctx, agent, signal),
-    ANSWERABLE,
-    input.card,
-    agent,
-  );
+  const open = await cardsOf(ctx, agent, signal);
+  // Without --card a value can only mean an ordinary question, so a rule proposal beside
+  // one is not a candidate. A lone proposal still selects, to be refused below.
+  const ordinary = open.filter((c) => c.type === "widget" && !c.ownerOnly);
+  const pool =
+    input.dismiss || input.card !== undefined || ordinary.length === 0
+      ? open
+      : ordinary;
+  const card = selectCard(pool, ANSWERABLE, input.card, agent);
+  // The app saves the rule before it answers the widget, so a value from here would only
+  // tell the bot the rule was saved. Dismissing is the one thing the app also does.
+  if (!input.dismiss && card.type === "widget" && card.ownerOnly) {
+    throw new GrokBotError(
+      "safety",
+      `${card.prompt}: ${OWNER_ONLY_NOTE}. Answering from grokbot would not apply the rule. To close the card without applying it, run grokbot answer --dismiss.`,
+    );
+  }
   const ids = { agentId: agent.agentId, entryId: card.entryId };
   const method = input.dismiss
     ? "DismissGrokBotWidget"

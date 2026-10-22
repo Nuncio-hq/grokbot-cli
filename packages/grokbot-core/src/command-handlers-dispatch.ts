@@ -1,6 +1,6 @@
 import { IDLE_STATUS, parseAgentStatusesResponse } from "./agent-status.js";
 import type { Agent } from "./agents.js";
-import { BOT_SETUP_PROMPT } from "./bot-setup-prompt.js";
+import { BOT_SETUP_PROMPT, botUpdatePrompt } from "./bot-setup-prompt.js";
 import type {
   CommandHandlers,
   HandlerRun,
@@ -9,10 +9,12 @@ import type {
 import { dispatchMessage, followJob } from "./command-runner-jobs.js";
 import type { DispatchCommandName } from "./command-specs-dispatch.js";
 import { GrokBotError } from "./contracts.js";
+import { parseConversationSearch } from "./conversation-search.js";
 import { advanceQueue, editQueued } from "./job-queue.js";
 import { nextStep, nextStepUnless, setupNextStep } from "./next-step.js";
 import { resolveReplyTarget } from "./reply-target.js";
 import { asJsonObject, parseEntriesResponse } from "./transcript.js";
+import { GROKBOT_VERSION } from "./version.js";
 
 export function dispatchHandlers(
   ctx: RunnerContext,
@@ -38,6 +40,15 @@ export function dispatchHandlers(
     run.onEvent?.({ type: "dispatched", jobId, agentId });
     return { jobId, outcome: await followJob(ctx, job, timeout, run) };
   };
+
+  /**
+   * Notes that the bots were just asked, and answered, to run this grokbot, which ends the
+   * update notice. Best effort: the update already happened, and the record is only a hint.
+   */
+  const botsUpdated = () =>
+    ctx.botsVersion
+      .write({ version: GROKBOT_VERSION, updatedAtMs: ctx.now() })
+      .catch(() => undefined);
 
   return {
     agents: async (_input, { signal }) => ({
@@ -96,11 +107,30 @@ export function dispatchHandlers(
         input.timeout,
         run,
       );
+      if (outcome.status === "done") await botsUpdated();
       return { jobId, agent, outcome, next: setupNextStep(jobId, outcome) };
     },
 
+    "update-bots": async (input, run) => {
+      const agent = await primaryTarget(input.agent, run.signal);
+      const { jobId, outcome } = await sendAndFollow(
+        agent,
+        botUpdatePrompt(GROKBOT_VERSION),
+        input.timeout,
+        run,
+      );
+      if (outcome.status === "done") await botsUpdated();
+      return {
+        jobId,
+        agent,
+        outcome,
+        version: GROKBOT_VERSION,
+        ...nextStepUnless(jobId, outcome),
+      };
+    },
+
     reply: async (input, run) => {
-      const { agent, replyToId } = await resolveReplyTarget(
+      const { agent, replyToId, replyQuote } = await resolveReplyTarget(
         ctx,
         input,
         run.signal,
@@ -109,7 +139,10 @@ export function dispatchHandlers(
       const text = await ctx.tagged(input.text, origin);
       const job = await dispatchMessage(ctx, agent, text, {
         signal: run.signal,
-        replyToId,
+        reply: {
+          replyToId,
+          ...(replyQuote !== undefined && { replyQuote }),
+        },
         origin,
         now: input.now,
       });
@@ -179,6 +212,25 @@ export function dispatchHandlers(
         ),
       );
       return { agent, entries: page.entries };
+    },
+
+    search: async (input, { signal }) => {
+      const agent = await target(input.agent, signal);
+      const raw = await ctx.gateway.call(
+        "searchConversation",
+        {
+          agentId: agent.agentId,
+          query: input.query,
+          limit: input.limit,
+          ...(input.before !== undefined && { beforeSeq: input.before }),
+        },
+        { signal },
+      );
+      return {
+        agent,
+        query: input.query,
+        ...parseConversationSearch(raw, input.limit),
+      };
     },
 
     interrupt: async (input, { signal }) => {

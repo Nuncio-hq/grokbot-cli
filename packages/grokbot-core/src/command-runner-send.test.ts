@@ -68,7 +68,12 @@ describe("send", () => {
         SendGrokBotUserMessage: [ACCEPTED],
       },
     });
-    const runner = createCommandRunner({ server, jobs: jobStore(dir) });
+    // Off macOS a message carries no language; the real platform would add one here.
+    const runner = createCommandRunner({
+      server,
+      jobs: jobStore(dir),
+      system: { platform: "linux" },
+    });
     const out = await runner.run("send", {
       text: "ping",
       agent: "primary-test",

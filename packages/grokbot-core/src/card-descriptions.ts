@@ -8,7 +8,9 @@ export const OWNER_ONLY_NOTE =
 
 /**
  * Card kinds grokbot resolves itself (answer, approve, deny). Every other kind waits on
- * the owner in the app: spending, credentials and connections stay owner actions.
+ * the owner in the app: spending, credentials and connections stay owner actions. Within a
+ * resolvable kind, `describeCard` still marks single cards owner-only (phone calls, bot
+ * shares, rule-change widgets).
  */
 export const CLI_RESOLVABLE: readonly CardType[] = [
   "widget",
@@ -131,7 +133,49 @@ const OWNER_TEXT: Partial<Record<CardType, (message: JsonObject) => string>> = {
     const phone = text(permission, "machineLabel");
     return `Permission on the owner's phone${tool ? `: ${tool}` : ""}${phone ? ` (${phone})` : ""}`;
   },
+  "appearance-picker": () =>
+    "The bot offers you a look for itself (shape and colour)",
+  "email-offer": (m) => {
+    const email = text(m, "email");
+    const site = text(m, "site");
+    return `The bot offers an email address of its own${email ? `: ${email}` : ""}${site ? ` (for ${site})` : ""}`;
+  },
 };
+
+const EFFECT_LABEL: Readonly<Record<string, string>> = {
+  allow: "Allow without asking",
+  ask_first: "Ask first",
+};
+
+/** `Allow without asking: <text>`; an unknown effect shows just the quoted rule text. */
+function ruleLine(effect: string, rule: string): string {
+  const label = EFFECT_LABEL[effect];
+  return `"${label ? `${label}: ` : ""}${rule}"`;
+}
+
+/**
+ * A `widget` carrying `message.widget.ruleChange` (GrokBot app 0.75.0) proposes a change
+ * to the owner's approval rules. The app saves the rule itself before it answers the
+ * widget, so an answer from grokbot would only tell the bot the rule was saved. Absent
+ * when the widget is an ordinary question.
+ */
+function ruleChangeText(widget: JsonObject): string | undefined {
+  const change = asJsonObject(widget.ruleChange);
+  if (!change) return undefined;
+  const rule = ruleLine(text(change, "effect"), text(change, "text"));
+  switch (text(change, "kind")) {
+    case "add":
+      return `The bot proposes a rule to add: ${rule}`;
+    case "delete":
+      return `The bot proposes to delete a rule: ${rule}`;
+    case "update": {
+      const old = text(change, "replaces");
+      return `The bot proposes a rule update: ${rule}${old ? ` (replaces "${old}")` : ""}`;
+    }
+    default:
+      return `The bot proposes a rule change: ${rule}`;
+  }
+}
 
 /** A plain description of one card, from its transcript message. */
 export function describeCard(
@@ -139,11 +183,13 @@ export function describeCard(
   message: JsonObject,
 ): CardDescription {
   switch (cardType) {
-    case "widget":
-      return {
-        text: text(child(message, "widget"), "prompt") || "Question",
-        ownerOnly: false,
-      };
+    case "widget": {
+      const widget = child(message, "widget");
+      const proposal = ruleChangeText(widget);
+      return proposal === undefined
+        ? { text: text(widget, "prompt") || "Question", ownerOnly: false }
+        : { text: proposal, ownerOnly: true };
+    }
     case "auto-review-approval":
       return autoReview(child(message, "approval"));
     case "local-tool-permission": {

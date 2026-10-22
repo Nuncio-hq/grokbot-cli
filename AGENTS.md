@@ -15,7 +15,7 @@
 | `packages/grokbot-cli/skills/grokbot/SKILL.md` | Agent skill shipped in the CLI package, for any agent runtime; its command table is generated (`bun run gen:skill`) and a test fails on drift |
 | `grokbot` | Legacy Python stdlib CLI prototype (kept for the owner; agents use the TS CLI) |
 | `docs/index.html` | Visual source of truth (decisions, roadmap, verified facts, rules, log) |
-| `docs/grokbot-tools-and-api.json` | Canonical data for 148 bot tools & 338 RPC methods (`python3 docs/build-reference.py` generates `docs/reference.html`) |
+| `docs/grokbot-tools-and-api.json` | Canonical data for 164 bot tools & 367 RPC methods (`python3 docs/build-reference.py` generates `docs/reference.html`) |
 
 ## One-way Dependencies & Verification Gate
 
@@ -33,5 +33,5 @@
 - **Safety tags.** Check `docs/grokbot-tools-and-api.json` before calling a new RPC method. Never call methods tagged `destructive`, `sensitive`, or `staff-only` without the owner's OK.
 - **Test only on test bots**: bots marked `test` in `grokbot config` (the maintainer's are `Primary Test` `f882ec52-17b1-4639-b0fc-07fed7526b09` and `Staff Test` `201a8cb2-e34a-4dd6-858c-c8601d5c2aa5`), never on a bot marked `main`. Always pass `--agent` in live checks: without it (and without `GROKBOT_AGENT` or a project route) `grokbot` goes to the account's primary Bot.
 - **Language & git.** Reply to the owner in the language they write in; code, comments, and docs in English. Conventional commits, no AI references, commit only when asked.
-- **Releases.** Only through the on-demand `Release` workflow on `main` (`gh workflow run release.yml -f bump=patch`, `-f dry_run=true` to rehearse), and only when the owner asks. Never bump versions by hand with a global replace.
+- **Releases.** Only through the on-demand `Release` workflow on `main` (`gh workflow run release.yml -f bump=patch`, `-f dry_run=true` to rehearse), and only when the owner asks. Never bump versions by hand with a global replace. After installing a release on the owner's Mac, run `grokbot update-bots --agent <test bot>`: the cloud computer is shared, so asking a test bot updates it for every bot without writing to a main bot.
 - **Docs sync.** After editing `docs/grokbot-tools-and-api.json`, always run `python3 docs/build-reference.py`.

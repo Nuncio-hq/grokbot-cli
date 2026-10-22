@@ -6,6 +6,7 @@ import {
 } from "./agent-status.js";
 import { describeBoxHandoff, describeCard } from "./card-descriptions.js";
 import type { DelegationContext } from "./delegations.js";
+import { describeReply } from "./reply-summary.js";
 import {
   type BlobEntry,
   type CardEntry,
@@ -164,6 +165,16 @@ type TextReplyEntry = ReplyEntry & {
   readonly reply: Extract<ReplyEntry["reply"], { type: "text" }>;
 };
 
+/**
+ * A text reply's words. A reply that is only cards (empty text) reads as their tags,
+ * `[weather: Berlin, 18 °C]`, so the answer is never blank. Never a link.
+ */
+function textOf(reply: TextReplyEntry["reply"]): string {
+  return reply.content.trim() === "" && reply.cards
+    ? describeReply(reply)
+    : reply.content;
+}
+
 type MediaReply = Extract<
   ReplyEntry["reply"],
   { type: "attachment" | "visualization" }
@@ -207,7 +218,7 @@ function roomReplyText(replies: readonly ReplyEntry[]): string | undefined {
     if (!author || reply.type !== "text") continue;
     const key = author.id ?? author.name;
     byMember.delete(key);
-    byMember.set(key, `${author.name}: ${reply.content}`);
+    byMember.set(key, `${author.name}: ${textOf(reply)}`);
   }
   return byMember.size === 0 ? undefined : [...byMember.values()].join("\n");
 }
@@ -221,7 +232,7 @@ function sharedReplyText(
   marker: string | undefined,
 ): string {
   const texts = turn.flatMap((e) =>
-    e.kind === "reply" && e.reply.type === "text" ? [e.reply.content] : [],
+    e.kind === "reply" && e.reply.type === "text" ? [textOf(e.reply)] : [],
   );
   if (marker !== undefined) texts.push(marker);
   return texts.join("\n\n");
@@ -427,6 +438,6 @@ function judgeTurn(
       replies,
     };
   }
-  const finalReply = roomReplyText(replies) ?? final.reply.content;
+  const finalReply = roomReplyText(replies) ?? textOf(final.reply);
   return { status: "done", finalReply, replies };
 }

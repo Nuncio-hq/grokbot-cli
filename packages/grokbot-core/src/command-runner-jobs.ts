@@ -6,6 +6,7 @@ import {
   type JobContext,
   type JobOrigin,
   newQueuedJob,
+  type ReplyRef,
   sendAtOnce,
   untilSent,
 } from "./job-queue.js";
@@ -22,8 +23,11 @@ export type { JobContext } from "./job-queue.js";
 
 export interface DispatchOptions {
   readonly signal?: AbortSignal;
-  /** Sends it as a reply to that transcript entry, also when it waits in the queue first. */
-  readonly replyToId?: string;
+  /**
+   * Sends it as a reply to that transcript entry (and quotes part of it, when it names
+   * a quote), also when it waits in the queue first.
+   */
+  readonly reply?: ReplyRef;
   /** The job id the text's header already names, with the sender's session. */
   readonly origin?: JobOrigin;
   /**
@@ -45,9 +49,11 @@ export async function dispatchMessage(
   ctx: JobContext,
   agent: Agent,
   text: string,
-  { signal, replyToId, origin, now = false }: DispatchOptions = {},
+  { signal, reply, origin, now = false }: DispatchOptions = {},
 ): Promise<JobRecord> {
-  const queued = newQueuedJob(agent, text, replyToId, origin);
+  // A bad GROKBOT_TIMEZONE stops the send here, before a job is saved or the bot is read.
+  ctx.sendLocale();
+  const queued = newQueuedJob(agent, text, reply, origin);
   await ctx.jobs.save(queued);
   try {
     await (now ? sendAtOnce : advanceQueue)(

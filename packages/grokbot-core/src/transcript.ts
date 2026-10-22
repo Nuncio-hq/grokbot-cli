@@ -13,7 +13,9 @@ export type Generation = string & { readonly __brand: "Generation" };
  * rest come from the GrokBot app 0.71.2 renderer, each with the open test it uses, and
  * are unchanged in 0.72.0. The 0.72.0 type `visualization` is a reply (an inline visual),
  * and `notifications-enable` (a prompt to allow notifications) asks for no decision, so
- * it stays an unknown row.
+ * it stays an unknown row. The 0.75.0 renderer adds `appearance-picker` and `email-offer`;
+ * both wait on the owner. A rule-change proposal is a `widget` with `widget.ruleChange`,
+ * not a type of its own (see card-descriptions.ts).
  */
 export const CARD_TYPES = [
   "widget",
@@ -29,6 +31,8 @@ export const CARD_TYPES = [
   "cookie-origin-approval",
   "meeting-join-consent",
   "mobile-tool-permission",
+  "appearance-picker",
+  "email-offer",
 ] as const;
 export type CardType = (typeof CARD_TYPES)[number];
 
@@ -36,7 +40,7 @@ export type Reply =
   | {
       readonly type: "text";
       readonly content: string;
-      /** 0.72.0 `message.cards` (places, shopping), tolerantly parsed; absent when none parse. */
+      /** `message.cards` (places, shopping, weather, shipment, purchase), tolerantly parsed; absent when none parse. */
       readonly cards?: readonly ReplyCard[];
     }
   | {
@@ -239,6 +243,8 @@ const CREDENTIAL_SETTLED = new Set(["approved", "denied", "failed"]);
  * one `widgetDismissed` (older rows `widgetSkipped`), a filled secret request `secretProvided`,
  * a submitted or dismissed Secure Form `formResolution` or `widgetDismissed`. A credential
  * request closes only on approved, denied or failed: "retryable" and "filling" stay open.
+ * An `appearance-picker` or `email-offer` closes on `respondedValue`; an `email-offer`
+ * also closes when the bot replaced the address (`message.replaced`), which the app mutes.
  *
  * `connector` and `scm-connect` are absent here on purpose. The app keys those cards only
  * by what they ask (`connector:<variant>:<connector>`, `scm-connect:<provider>:<intent>:<reason>`);
@@ -258,6 +264,10 @@ const CLOSED_BY_BODY: Partial<Record<CardType, (body: JsonObject) => boolean>> =
       body.widgetDismissed === true,
     "credential-request": (body) =>
       CREDENTIAL_SETTLED.has(readString(body, "credentialResolution") ?? ""),
+    "appearance-picker": (body) => Boolean(body.respondedValue),
+    "email-offer": (body) =>
+      Boolean(body.respondedValue) ||
+      asJsonObject(body.message)?.replaced === true,
   };
 
 function isOpenCard(

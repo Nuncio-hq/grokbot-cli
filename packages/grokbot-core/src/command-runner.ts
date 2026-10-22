@@ -1,3 +1,4 @@
+import { updateNotice } from "./bots-version-store.js";
 import { COMMANDS, type CommandName } from "./command-catalog.js";
 import { dispatchHandlers } from "./command-handlers-dispatch.js";
 import { governanceHandlers } from "./command-handlers-governance.js";
@@ -14,6 +15,7 @@ import type {
 import { confirmedFor } from "./command-spec.js";
 import { INBOX_COMMANDS } from "./command-specs-inbox.js";
 import { inboxNotice } from "./inbox-delivery.js";
+import { GROKBOT_VERSION } from "./version.js";
 
 export function createCommandRunner(
   options: CommandRunnerOptions = {},
@@ -35,9 +37,20 @@ export function createCommandRunner(
         confirmed,
       });
       // Every other command rides a catch-up notice for what the bots left this session.
-      if (name in INBOX_COMMANDS) return output;
-      const notice = await inboxNotice(ctx, runOptions.signal);
-      return notice === undefined ? output : { ...output, inboxNotice: notice };
+      const inbox =
+        name in INBOX_COMMANDS
+          ? undefined
+          : await inboxNotice(ctx, runOptions.signal);
+      // And, while the bots run another grokbot than this computer, a nudge to update them.
+      const update =
+        name === "update-bots" || name === "setup-bots"
+          ? undefined
+          : await updateNotice(ctx.botsVersion, GROKBOT_VERSION, ctx.now());
+      return {
+        ...output,
+        ...(inbox !== undefined && { inboxNotice: inbox }),
+        ...(update !== undefined && { updateNotice: update }),
+      };
     },
   };
 }

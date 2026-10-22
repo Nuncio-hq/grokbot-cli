@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { botsVersionStore } from "./bots-version-store.js";
 import { createCommandRunner } from "./command-runner.js";
 import type { RunEvent } from "./command-runner-contract.js";
 import {
@@ -18,6 +19,7 @@ import {
 import { GrokBotError } from "./contracts.js";
 import { hangUntilAborted } from "./fixtures/fake-server.js";
 import { type JobStore, jobStore } from "./job-store.js";
+import { GROKBOT_VERSION } from "./version.js";
 
 let dir: string;
 let jobs: JobStore;
@@ -215,5 +217,94 @@ describe("setup-bots", () => {
       out.next?.indexOf("grokbot reply") ?? 0,
     );
     expect((await onlyJob(jobs)).state).toEqual({ status: "pending" });
+  }, 5_000);
+});
+
+describe("update-bots", () => {
+  const finishing = () =>
+    botAfterSend([TRACE_ROWS.progressNote], {
+      calls: {
+        ListGrokBotAgentStatuses: [RUNNING],
+        GetGrokBotUserRuntimeSettings: [{ settings: { mainAgentId: AGENT } }],
+      },
+      streams: [
+        [
+          rowsFrame([TRACE_ROWS.delegation, TRACE_ROWS.sentNote]),
+          liveFrame(),
+          rowsFrame([TRACE_ROWS.employeeReply]),
+          liveFrame({ isRunning: true }),
+          rowsFrame([TRACE_ROWS.finalReply]),
+          liveFrame(),
+        ],
+      ],
+    });
+
+  it("nudges other commands while the bots run an older grokbot, asks the primary Bot for this version, and stops nudging once it is done", async () => {
+    const botsVersion = botsVersionStore(dir);
+    await botsVersion.write({ version: "0.0.1", updatedAtMs: 0 });
+    const clock = { ms: 1_000 };
+    const { server, log } = finishing();
+    const runner = createCommandRunner({
+      server,
+      jobs,
+      botsVersion,
+      now: () => clock.ms,
+    });
+    const agents = () => runner.run("agents", { json: false });
+
+    const nudged = (await agents()).updateNotice;
+    const quietWithinTheHour = (await agents()).updateNotice;
+    const out = await runner.run("update-bots", { timeout: 1, json: false });
+    clock.ms += 2 * 3_600_000;
+    const afterUpdate = (await agents()).updateNotice;
+
+    const sent = log.find((c) => c.method === "SendGrokBotUserMessage");
+    expect([
+      nudged,
+      quietWithinTheHour,
+      out.agent.agentId,
+      out.outcome.status,
+      out.version,
+      String(sent?.body.text).includes(
+        `npm i -g grokbotagent-cli@${GROKBOT_VERSION}`,
+      ),
+      (await botsVersion.read())?.version,
+      afterUpdate,
+    ]).toEqual([
+      { here: GROKBOT_VERSION, bots: "0.0.1" },
+      undefined,
+      AGENT,
+      "done",
+      GROKBOT_VERSION,
+      true,
+      GROKBOT_VERSION,
+      undefined,
+    ]);
+  });
+
+  it("keeps the old record while the bot has not finished, and never nudges someone who never updated the bots", async () => {
+    const { server } = botAfterSend([TRACE_ROWS.progressNote], {
+      calls: {
+        ListGrokBotAgentStatuses: [RUNNING],
+        GetGrokBotUserRuntimeSettings: [{ settings: { mainAgentId: AGENT } }],
+      },
+    });
+    const kept = botsVersionStore(join(dir, "kept"));
+    await kept.write({ version: "0.0.1", updatedAtMs: 0 });
+    const out = await createCommandRunner({
+      server,
+      jobs,
+      botsVersion: kept,
+    }).run("update-bots", { timeout: 1, json: false });
+    const never = await createCommandRunner({
+      server,
+      jobs,
+      botsVersion: botsVersionStore(join(dir, "never")),
+    }).run("agents", { json: false });
+    expect([
+      out.outcome.status,
+      (await kept.read())?.version,
+      never.updateNotice,
+    ]).toEqual(["pending", "0.0.1", undefined]);
   }, 5_000);
 });

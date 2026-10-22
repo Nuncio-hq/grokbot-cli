@@ -1,4 +1,10 @@
-import type { Agent, CommandOutputs, WorkforceCommandName } from "grokbot-core";
+import {
+  type Agent,
+  type CommandOutputs,
+  clipText,
+  describeReviewChange,
+  type WorkforceCommandName,
+} from "grokbot-core";
 import { type HumanRenderers, plain, shortId, table } from "./render-parts.js";
 
 type Routine = CommandOutputs["routines-list"]["routines"][number];
@@ -40,6 +46,90 @@ const size = (bytes: number) => {
 };
 const filesNote = (team: CommandOutputs["files"]["team"]) =>
   `Team files: ${size(team.totalBytes)} used; you ${team.canEdit ? "can" : "cannot"} edit them.${team.complete ? "" : " The team listing is cut short; more files exist."}\n`;
+
+type ReviewItem = CommandOutputs["review"]["items"][number];
+
+const REVIEW_SUMMARY_LIMIT = 300;
+const SUGGESTION_CELL = 60;
+const person = (userId: string | null) =>
+  userId === null ? "someone" : `user ${userId}`;
+const at = (time: string | null) => time ?? "an unknown time";
+/** One review item: id and status, who proposed it and when, the change in words. */
+const reviewBlock = (item: ReviewItem) => {
+  const [headline = "", ...more] = describeReviewChange(item.change);
+  const reviewed = item.reviewedByUserId !== null || item.reviewedAt !== null;
+  return `${[
+    `${item.itemId}  ${item.status}`,
+    `  Proposed by ${person(item.proposedByUserId)} on ${at(item.createdAt)}`,
+    ...(reviewed
+      ? [
+          `  Reviewed by ${person(item.reviewedByUserId)} on ${at(item.reviewedAt)}`,
+        ]
+      : []),
+    `  Change: ${headline}`,
+    ...more.map((line) => `  ${line}`),
+    ...(item.summary === ""
+      ? []
+      : [`  Summary: ${clipText(item.summary, REVIEW_SUMMARY_LIMIT)}`]),
+    ...(item.method === "" ? [] : [`  Method: ${item.method}`]),
+  ].join("\n")}\n`;
+};
+
+/** `12.5`; whole numbers without a decimal. */
+const minutes = (n: number) => String(Math.round(n * 10) / 10);
+const analyticsText = ({
+  agent,
+  weeklyActiveUsers,
+  totalMinutesSaved,
+  minutesSavedBeforeWindow,
+  minutesSavedMeasured,
+  days,
+  topUsers,
+}: CommandOutputs["analytics"]) => {
+  const first = days[0];
+  const head = [
+    `Usage of ${who(agent)}:`,
+    `Weekly active users: ${weeklyActiveUsers}`,
+    `Minutes saved: ${minutesSavedMeasured ? minutes(totalMinutesSaved) : "not measured"}`,
+    ...(first && minutesSavedBeforeWindow > 0
+      ? [
+          `Minutes saved before ${first.day}: ${minutes(minutesSavedBeforeWindow)}`,
+        ]
+      : []),
+  ].join("\n");
+  if (
+    totalMinutesSaved === 0 &&
+    topUsers.length === 0 &&
+    days.every((d) => d.userTurns === 0)
+  ) {
+    return `${head}\nNo usage recorded yet.\n`;
+  }
+  return `${head}\n${
+    days.length === 0
+      ? ""
+      : `\n${table(
+          ["DAY", "ACTIVE", "7-DAY ACTIVE", "MESSAGES", "MINUTES SAVED"],
+          days.map((d) => [
+            d.day || "-",
+            String(d.activeUsers),
+            String(d.trailingSevenDayActiveUsers),
+            String(d.userTurns),
+            minutes(d.minutesSaved),
+          ]),
+        )}`
+  }${
+    topUsers.length === 0
+      ? ""
+      : `\nTop users:\n${table(
+          ["USER", "MESSAGES", "MINUTES SAVED"],
+          topUsers.map((u) => [
+            `${u.displayName || `user ${u.userId}`}${u.isExternal ? " (external)" : ""}`,
+            String(u.userTurns),
+            minutes(u.minutesSaved),
+          ]),
+        )}`
+  }`;
+};
 
 export const WORKFORCE_RENDERERS: HumanRenderers<WorkforceCommandName> = {
   hire: ({ agent, folder, result }) =>
@@ -150,5 +240,36 @@ export const WORKFORCE_RENDERERS: HumanRenderers<WorkforceCommandName> = {
   "routines-fire": ({ agent, routine, status, reply }) =>
     plain(
       `Fired routine ${routine.name} (${routine.automationId}) on ${agent.name}: HTTP ${status}.${reply === null ? "" : ` Reply: ${typeof reply === "string" ? reply : JSON.stringify(reply)}`}\n`,
+    ),
+  review: ({ agent, status, limit, items }) => {
+    const kind = status === "all" ? "" : `${status} `;
+    return plain(
+      items.length === 0
+        ? `${agent.name} has no ${kind}review items.\n`
+        : `${count(items.length, `${kind}review item`, `${kind}review items`)} for ${who(agent)}:\n\n${items.map(reviewBlock).join("\n")}${items.length >= limit ? `\nThe list stops at ${count(limit, "item", "items")}; raise --limit to see more.\n` : ""}`,
+    );
+  },
+  "review-resolve": ({ agent, decision, itemId, item }) =>
+    plain(
+      `${decision === "approve" ? "Approved" : "Rejected"} review item ${itemId} of ${agent.name}.\n${item === null ? "" : `\n${reviewBlock(item)}`}`,
+    ),
+  analytics: (analytics) => plain(analyticsText(analytics)),
+  suggestions: ({ agent, suggestions }) =>
+    plain(
+      suggestions.length === 0
+        ? `${agent.name} has no suggestions.\n`
+        : `Suggestions for ${who(agent)}:\n${table(
+            ["ID", "TITLE", "DETAIL", "PROMPT"],
+            suggestions.map((s) => [
+              s.id,
+              s.title || "-",
+              clipText(s.detail, SUGGESTION_CELL) || "-",
+              clipText(s.prompt, SUGGESTION_CELL) || "-",
+            ]),
+          )}Close some with: grokbot suggestions-dismiss --suggestion <id>\n`,
+    ),
+  "suggestions-dismiss": ({ agent, reason, dismissed }) =>
+    plain(
+      `Closed ${count(dismissed.length, "suggestion", "suggestions")} of ${agent.name} (${reason}): ${dismissed.map((s) => s.title || s.id).join(", ")}.\n`,
     ),
 };

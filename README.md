@@ -20,6 +20,10 @@ grokbot agents     # lists your bots: you are connected
 
 On a network that needs a proxy, set `GROKBOT_HTTPS_PROXY=http://host:port` (or the usual `HTTPS_PROXY`) before running `grokbot`.
 
+Messages sent from your Mac carry its time zone, as the app's messages do. Elsewhere, set `GROKBOT_TIMEZONE` to your IANA zone (for example `Europe/Berlin`) or leave it unset to send none; `GROKBOT_TIMEZONE=off` turns it off on the Mac too.
+
+After you update grokbot later (`npm install -g grokbotagent-cli@latest`), run `grokbot update-bots`: your primary Bot installs the same version on your bots' cloud computer. grokbot reminds you while they differ.
+
 ## Set it up
 
 Run this and paste what it prints into your agent runtime, once:

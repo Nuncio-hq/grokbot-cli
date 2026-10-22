@@ -62,7 +62,7 @@ describe("runner gateway", () => {
     await expect(ctx.gateway.call("listAgents", {})).rejects.toEqual(
       new GrokBotError(
         "protocol",
-        "EnsureSandBox did not return gatewayUrl, gatewayToken, and networkToken.",
+        "EnsureSandBox did not return an https gatewayUrl with either gatewayToken and networkToken, or gatewayPortToken.",
       ),
     );
     expect(log.map((c) => c.method)).toStrictEqual(["EnsureSandBox"]);

@@ -11,6 +11,7 @@ const WIDGET: Card = {
   type: "widget",
   prompt: "Pick a color",
   options: ["Red", "Blue", "Green"],
+  ownerOnly: false,
 };
 const LOCAL: Card = {
   entryId: "t28s1",
@@ -84,6 +85,35 @@ describe("governance commands in human mode", () => {
       "AGENT         CARD         ID    DETAIL\n" +
         'Primary Test  user-form    t9s0  Secure Form "Shipping address" (2 fields) (only the owner can answer this in the GrokBot app)\n' +
         "Primary Test  box-handoff  h-1   Take over the bot's computer: Sign in to Xero (only the owner can answer this in the GrokBot app)\n",
+    );
+  });
+
+  it("marks a rule-change widget as owner-only in the table", async () => {
+    const proposal: Card = {
+      entryId: "t3s0",
+      seq: seq(8),
+      type: "widget",
+      prompt: 'The bot proposes a rule to add: "Allow without asking: Run ls"',
+      options: [],
+      ownerOnly: true,
+    };
+    const run = await runCli(["approvals"], {
+      outputs: {
+        approvals: {
+          agents: [
+            {
+              agent: PRIMARY,
+              awaiting: null,
+              handoff: null,
+              cards: [proposal],
+            },
+          ],
+        },
+      },
+    });
+    expect(run.stdout).toBe(
+      "AGENT         CARD    ID    DETAIL\n" +
+        'Primary Test  widget  t3s0  The bot proposes a rule to add: "Allow without asking: Run ls" (only the owner can answer this in the GrokBot app)\n',
     );
   });
 

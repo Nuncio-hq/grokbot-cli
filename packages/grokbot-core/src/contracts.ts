@@ -28,6 +28,11 @@ export interface CallOptions {
   readonly confirmed?: boolean;
   readonly signal?: AbortSignal;
   readonly timeoutMs?: number;
+  /**
+   * Extra request headers for a call to the GrokBot backend. The transport's own headers
+   * (authorization, origin, user-agent) always win, so this never carries a credential.
+   */
+  readonly headers?: Readonly<Record<string, string>>;
 }
 
 /** aiserver.v1.GrokBotService on api2.cursor.sh. */

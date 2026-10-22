@@ -132,7 +132,7 @@ async function sendAndRecord(
   await ctx.inboxState.read();
   const job = await dispatchMessage(ctx, agent, text, {
     signal: run.signal,
-    replyToId,
+    ...(replyToId !== undefined && { reply: { replyToId } }),
     origin,
   });
   try {

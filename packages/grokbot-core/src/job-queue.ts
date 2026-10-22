@@ -11,11 +11,24 @@ import {
 import { type SendSnapshot, snapshotBeforeSend } from "./job-send-snapshot.js";
 import type { JobRecord, JobStore } from "./job-store.js";
 import { JOB_HANDLE_LENGTH } from "./next-step.js";
+import { type SendLocale, TIMEZONE_HEADER } from "./send-locale.js";
 import { asJsonObject, readString } from "./transcript.js";
 
 export interface JobContext {
   readonly server: ServerTransport;
   readonly jobs: JobStore;
+  /**
+   * The time zone and language every message goes out with (send-locale.ts). Throws
+   * before anything is sent when GROKBOT_TIMEZONE is invalid.
+   */
+  sendLocale(): SendLocale;
+}
+
+/** The transcript entry a message answers, and the part of it the message quotes, if any. */
+export interface ReplyRef {
+  readonly replyToId: string;
+  /** Sent with `replyToId` in the same call, never without it. */
+  readonly replyQuote?: string;
 }
 
 /** A sent message's echo lands within seconds; until then the transcript cannot show it. */
@@ -54,13 +67,14 @@ export const jobHandle = (jobId: string): string =>
 
 /**
  * A job for `text` that waits its turn; the snapshot fields are filled when it is sent.
- * `replyToId` makes it a reply to that transcript entry, and goes out with the message.
+ * `reply` makes it a reply to that transcript entry (quoting part of it, when it names
+ * a quote), and goes out with the message.
  * `origin` fixes the job id (the message header already names it) and records the session.
  */
 export function newQueuedJob(
   agent: Agent,
   text: string,
-  replyToId?: string,
+  reply?: ReplyRef,
   origin?: JobOrigin,
 ): JobRecord {
   const now = Date.now();
@@ -70,7 +84,8 @@ export function newQueuedJob(
     agentName: agent.name,
     text,
     queuedAtMs: now,
-    ...(replyToId !== undefined && { replyToId }),
+    ...(reply !== undefined && { replyToId: reply.replyToId }),
+    ...(reply?.replyQuote !== undefined && { replyQuote: reply.replyQuote }),
     ...(origin?.session !== undefined && { session: origin.session }),
     sentMessageId: randomUUID(),
     sentAtMs: now,
@@ -107,11 +122,12 @@ function inFlightIds(saved: readonly JobRecord[], agentId: string): string[] {
  * other error leaves the sending record: the message may have landed.
  */
 async function sendQueued(
-  { server, jobs }: JobContext,
+  ctx: JobContext,
   head: JobRecord,
   { baseline, botBusy }: SendSnapshot,
   signal?: AbortSignal,
 ): Promise<GrokBotError | undefined> {
+  const { server, jobs } = ctx;
   const { text, ...rest } = head;
   const sentAtMs = Date.now();
   const sending: JobRecord = {
@@ -132,6 +148,8 @@ async function sendQueued(
     await jobs.save({ ...head, state });
     return error;
   }
+  // Before the record is saved as sending: a bad GROKBOT_TIMEZONE leaves the job queued.
+  const { timeZone, language } = ctx.sendLocale();
   await jobs.save(sending);
   const response = await server.call(
     "SendGrokBotUserMessage",
@@ -139,11 +157,21 @@ async function sendQueued(
       agentId: head.agentId,
       messageId: head.sentMessageId,
       text,
-      ...(head.replyToId !== undefined && { replyToId: head.replyToId }),
+      // A quote goes with the entry it quotes, never alone.
+      ...(head.replyToId !== undefined && {
+        replyToId: head.replyToId,
+        ...(head.replyQuote !== undefined && { replyQuote: head.replyQuote }),
+      }),
       sentAtMs: String(sentAtMs),
       sessionId: "",
+      ...(language !== undefined && { language }),
     },
-    { signal },
+    {
+      signal,
+      ...(timeZone !== undefined && {
+        headers: { [TIMEZONE_HEADER]: timeZone },
+      }),
+    },
   );
   try {
     assertDispatched(response);

@@ -5,6 +5,7 @@ import {
   type CommandRunnerOptions,
   type DetectedClient,
   describeNotice,
+  describeUpdateNotice,
   GROKBOT_VERSION,
   parseCommandInput,
   type RunOptions,
@@ -137,9 +138,13 @@ export async function main(
     const rendered = renderOutput(name, output, json);
     stdout.write(rendered.stdout);
     if (rendered.note) stderr.write(rendered.note);
-    // Under --json the notice is already a field of the document on stdout.
+    // Under --json the notices are already fields of the document on stdout.
     if (!json && output.inboxNotice !== undefined)
       stderr.write(describeNotice(output.inboxNotice.items));
+    if (!json && output.updateNotice !== undefined)
+      stderr.write(
+        `${describeUpdateNotice(output.updateNotice, "grokbot update-bots")}\n`,
+      );
     return rendered.exit;
   } catch (error) {
     if (error === INTERRUPTED || controller.signal.aborted) {

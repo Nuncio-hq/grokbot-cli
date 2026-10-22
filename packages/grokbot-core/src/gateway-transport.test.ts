@@ -8,6 +8,8 @@ import {
 import { createGatewayTransport } from "./gateway-transport.js";
 
 const GATEWAY_URL = "https://box-synthetic.example";
+const NO_SESSION_MESSAGE =
+  "EnsureSandBox did not return an https gatewayUrl with either gatewayToken and networkToken, or gatewayPortToken.";
 
 interface SeenRequest {
   readonly url: string;
@@ -189,14 +191,94 @@ describe("GatewayTransport.call", () => {
     const { fetch } = fakeFetch([]);
     const gateway = createGatewayTransport({ server, fetch });
     await expect(gateway.call("listAgents", {})).rejects.toEqual(
-      new GrokBotError(
-        "protocol",
-        "EnsureSandBox did not return gatewayUrl, gatewayToken, and networkToken.",
-      ),
+      new GrokBotError("protocol", NO_SESSION_MESSAGE),
     );
     expect(await gateway.call("listAgents", {})).toEqual({
       agents: [{ name: "Primary Test" }],
     });
+  });
+
+  it.each([
+    ["a network token without a gateway token", { gatewayToken: "" }],
+    [
+      "a gateway token with neither network nor port token",
+      { networkToken: "", gatewayPortToken: "" },
+    ],
+    ["a non-https gateway URL", { gatewayUrl: "http://box.example" }],
+  ])("rejects %s", async (_label, change) => {
+    const { server } = fakeServer([{ ...sandbox(1), ...change }]);
+    const { fetch, requests } = fakeFetch([]);
+    const gateway = createGatewayTransport({ server, fetch });
+    await expect(gateway.call("listAgents", {})).rejects.toEqual(
+      new GrokBotError("protocol", NO_SESSION_MESSAGE),
+    );
+    expect(requests).toEqual([]);
+  });
+
+  it("sends the port token and the bearer when there is no network token", async () => {
+    const { server } = fakeServer([
+      { ...sandbox(1), networkToken: "", gatewayPortToken: "synthetic-port-1" },
+    ]);
+    const { fetch, requests } = fakeFetch([]);
+    const gateway = createGatewayTransport({ server, fetch });
+    await gateway.call("listAgents", {});
+    expect(requests.map((request) => request.headers)).toEqual([
+      {
+        authorization: "Bearer synthetic-gateway-1",
+        "x-anyrun-port-token": "synthetic-port-1",
+        "content-type": "application/json",
+      },
+    ]);
+  });
+
+  it("sends only the port token when the gateway token is empty", async () => {
+    const { server } = fakeServer([
+      {
+        gatewayUrl: GATEWAY_URL,
+        gatewayToken: "",
+        networkToken: "",
+        gatewayPortToken: "synthetic-port-1",
+      },
+    ]);
+    const { fetch, requests } = fakeFetch([]);
+    const gateway = createGatewayTransport({ server, fetch });
+    await gateway.call("listAgents", {});
+    expect(requests.map((request) => request.headers)).toEqual([
+      {
+        "x-anyrun-port-token": "synthetic-port-1",
+        "content-type": "application/json",
+      },
+    ]);
+  });
+
+  it("prefers the network token when both tokens are present", async () => {
+    const { server } = fakeServer([
+      { ...sandbox(1), gatewayPortToken: "synthetic-port-1" },
+    ]);
+    const { fetch, requests } = fakeFetch([]);
+    const gateway = createGatewayTransport({ server, fetch });
+    await gateway.call("listAgents", {});
+    expect(requests[0]?.headers).toEqual({
+      authorization: "Bearer synthetic-gateway-1",
+      "x-anyrun-network-token": "synthetic-network-1",
+      "content-type": "application/json",
+    });
+  });
+
+  it("re-ensures after an auth failure on the port token path", async () => {
+    const portSandbox = (n: number) => ({
+      ...sandbox(n),
+      networkToken: "",
+      gatewayPortToken: `synthetic-port-${n}`,
+    });
+    const { server, ensures } = fakeServer([portSandbox(1), portSandbox(2)]);
+    const { fetch, requests } = fakeFetch([401]);
+    const gateway = createGatewayTransport({ server, fetch });
+    await gateway.call("listAgents", {});
+    expect(ensures.length).toBe(2);
+    expect(
+      requests.map((request) => request.headers["x-anyrun-port-token"]),
+    ).toEqual(["synthetic-port-1", "synthetic-port-2"]);
   });
 
   it("keeps gateway tokens and URL out of error messages", async () => {
@@ -215,6 +297,25 @@ describe("GatewayTransport.call", () => {
       .catch((caught: Error) => caught.message);
     expect(error).toBe(
       "listAgents failed with HTTP 500: [redacted]/api/listAgents Bearer [redacted] [redacted]",
+    );
+  });
+
+  it("keeps the port token out of error messages", async () => {
+    const { server } = fakeServer([
+      { ...sandbox(1), networkToken: "", gatewayPortToken: "synthetic-port-1" },
+    ]);
+    const gateway = createGatewayTransport({
+      server,
+      fetch: async (url, init) => {
+        const port = new Headers(init.headers).get("x-anyrun-port-token");
+        return new Response(`${url} ${port}`, { status: 500 });
+      },
+    });
+    const error = await gateway
+      .call("listAgents", {})
+      .catch((caught: Error) => caught.message);
+    expect(error).toBe(
+      "listAgents failed with HTTP 500: [redacted]/api/listAgents [redacted]",
     );
   });
 });

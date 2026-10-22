@@ -20,6 +20,7 @@ const WIDGET: Card = {
   type: "widget",
   prompt: "Pick a color",
   options: ["Red", "Blue"],
+  ownerOnly: false,
 };
 const call = (id: number, name: string, args: unknown) => ({
   jsonrpc: "2.0",
@@ -244,5 +245,30 @@ describe("governance MCP tools", () => {
         "- Primary Test: box-handoff h-1: Take over the bot's computer: Sign in to Xero (only the owner can answer this in the GrokBot app)\n" +
         "- Primary Test: awaiting Hand-off (no open card in the last 50 rows; check the bot in the GrokBot app)",
     ]);
+  });
+
+  it("marks a rule-change widget as owner-only in the card summary", () => {
+    const proposal: Card = {
+      entryId: "t3s0",
+      seq: "8" as Card["seq"],
+      type: "widget",
+      prompt: 'The bot proposes a rule to add: "Allow without asking: Run ls"',
+      options: [],
+      ownerOnly: true,
+    };
+    expect(
+      summarize("approvals", {
+        agents: [
+          {
+            agent: PRIMARY_TEST,
+            awaiting: null,
+            handoff: null,
+            cards: [proposal],
+          },
+        ],
+      }),
+    ).toBe(
+      '- Primary Test: widget t3s0: The bot proposes a rule to add: "Allow without asking: Run ls" (only the owner can answer this in the GrokBot app)',
+    );
   });
 });

@@ -9,7 +9,7 @@ const TEXT = {
 const REPLY_JOB = {
   type: "string",
   description:
-    "Job id (from send or ask) whose bot you answer: its last bot message is quoted, or the job's own message while the bot has written none; omit it with --to",
+    "Job id (from send or ask) whose bot you answer: its last bot message is replied to, or the job's own message while the bot has written none; omit it with --to",
   position: 0,
 } as const;
 const REPLY_TEXT = {
@@ -21,7 +21,12 @@ const REPLY_TEXT = {
 const REPLY_TO = {
   type: "string",
   description:
-    "Entry id to quote, from tail --json (default: the job's last bot message, else the job's own message). Without a job, --agent or routing names the bot",
+    "Entry id to reply to, from tail --json (default: the job's last bot message, else the job's own message). Without a job, --agent or routing names the bot",
+} as const;
+const REPLY_QUOTE = {
+  type: "string",
+  description:
+    "Words of that message to quote with the reply, like selecting text before Reply in the app. They must appear in the message (spaces and line breaks may differ), else the reply is refused",
 } as const;
 /** The sender, not grokbot, decides whether a message waits for a busy bot. */
 const NOW = {
@@ -30,11 +35,11 @@ const NOW = {
     "Send at once even while the bot is busy, so it reads the message during its current work and may answer both in one reply (exit 5); without it the message waits in the queue",
   default: false,
 } as const;
-/** `setup-bots` sends to the primary Bot, so the host's default agent and the folder's route do not apply. */
-const SETUP_AGENT = {
+/** `setup-bots` and `update-bots` send to the primary Bot, so the host's default agent and the folder's route do not apply. */
+const BOTS_SIDE_AGENT = {
   type: "string",
   description:
-    "Agent name, slug, or agentId to set up instead of the primary Bot (GROKBOT_AGENT and project routes never apply)",
+    "Agent name, slug, or agentId to ask instead of the primary Bot (GROKBOT_AGENT and project routes never apply)",
 } as const;
 const TIMEOUT = {
   type: "integer",
@@ -129,6 +134,7 @@ export const DISPATCH_COMMANDS = {
       job: REPLY_JOB,
       text: REPLY_TEXT,
       to: REPLY_TO,
+      quote: REPLY_QUOTE,
       timeout: TIMEOUT,
       now: NOW,
       agent: AGENT_PARAM,
@@ -156,6 +162,35 @@ export const DISPATCH_COMMANDS = {
       json: JSON_PARAM,
     },
   },
+  search: {
+    summary: "Search a bot's conversation for words, newest matches first",
+    safety: "read-only",
+    methods: [ROSTER, PRIMARY],
+    gatewayMethods: ["searchConversation"],
+    params: {
+      query: {
+        type: "string",
+        description: "Words to look for in the conversation",
+        required: true,
+        position: 0,
+      },
+      limit: {
+        type: "integer",
+        description: "Most matches to return",
+        default: 20,
+        minimum: 1,
+        alias: "n",
+      },
+      before: {
+        type: "integer",
+        description:
+          "Only matches older than this seq; use the lowest seq of the previous page to read the next one",
+        minimum: 0,
+      },
+      agent: AGENT_PARAM,
+      json: JSON_PARAM,
+    },
+  },
   "setup-bots": {
     summary:
       "Set up the bots' side: send the bot setup prompt to the primary Bot and wait until the Done Rule settles",
@@ -163,7 +198,18 @@ export const DISPATCH_COMMANDS = {
     methods: [ROSTER, PRIMARY, SEND, ...WATCH],
     params: {
       timeout: TIMEOUT,
-      agent: SETUP_AGENT,
+      agent: BOTS_SIDE_AGENT,
+      json: JSON_PARAM,
+    },
+  },
+  "update-bots": {
+    summary:
+      "Update the bots' side: ask the primary Bot to install this grokbot version on the cloud computer and save the grokbot-inbox skill again, and wait until the Done Rule settles",
+    safety: "writes",
+    methods: [ROSTER, PRIMARY, SEND, ...WATCH],
+    params: {
+      timeout: TIMEOUT,
+      agent: BOTS_SIDE_AGENT,
       json: JSON_PARAM,
     },
   },

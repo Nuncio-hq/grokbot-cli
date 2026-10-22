@@ -34,6 +34,7 @@ const ownerOnly = (text: string) => `${clip(text)} (${OWNER_ONLY_NOTE})`;
 function cardDetail(card: Card): string {
   switch (card.type) {
     case "widget":
+      if (card.ownerOnly) return ownerOnly(card.prompt);
       return clip(
         card.options.length > 0
           ? `${card.prompt} [${card.options.join(" | ")}]`

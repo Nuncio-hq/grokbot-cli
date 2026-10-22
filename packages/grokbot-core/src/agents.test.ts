@@ -129,6 +129,57 @@ describe("listAgents", () => {
     expect(parseListAgentsResponse({ slackConnections: [] })).toStrictEqual([]);
   });
 
+  it("carries a bot's starter prompts, and leaves the field off a bot without any", () => {
+    const [withSome, without] = parseListAgentsResponse({
+      agents: [
+        bot(PRIMARY, "1", "Primary Test", {
+          suggestions: [
+            {
+              id: "sg-1",
+              icon: "sun",
+              title: "Morning brief",
+              detail: "Weather",
+              prompt: "Brief me",
+            },
+            { id: "sg-2" },
+          ],
+        }),
+        bot(STAFF, "2", "Staff Test", { suggestions: [] }),
+      ],
+    });
+    expect(withSome?.suggestions).toStrictEqual([
+      {
+        id: "sg-1",
+        icon: "sun",
+        title: "Morning brief",
+        detail: "Weather",
+        prompt: "Brief me",
+      },
+      { id: "sg-2", icon: "", title: "", detail: "", prompt: "" },
+    ]);
+    expect(without).not.toHaveProperty("suggestions");
+  });
+
+  it("drops odd suggestions instead of failing the roster every command reads", () => {
+    const odd = (suggestions: unknown) =>
+      parseListAgentsResponse({
+        agents: [bot(PRIMARY, "1", "Primary Test", { suggestions })],
+      })[0];
+    expect(odd("none")).not.toHaveProperty("suggestions");
+    expect(
+      odd([
+        null,
+        7,
+        { title: "no id" },
+        { id: "" },
+        { id: 4 },
+        { id: "ok", title: 5 },
+      ])?.suggestions,
+    ).toStrictEqual([
+      { id: "ok", icon: "", title: "", detail: "", prompt: "" },
+    ]);
+  });
+
   it("rejects rows that break the wire contract", () => {
     expect(
       thrown(() =>

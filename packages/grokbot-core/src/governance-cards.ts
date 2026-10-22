@@ -29,6 +29,12 @@ export type GovernanceCard = {
       readonly type: "widget";
       readonly prompt: string;
       readonly options: readonly string[];
+      /**
+       * True for a rule-change proposal (`widget.ruleChange`): the app saves the rule
+       * itself, so only `--dismiss` is open to grokbot. `prompt` then holds the plain
+       * description of the proposal and `options` is empty.
+       */
+      readonly ownerOnly: boolean;
     }
   | {
       readonly type: "auto-review-approval";
@@ -74,7 +80,15 @@ function typed(type: CardType, message: JsonObject): CardBody {
   switch (type) {
     case "widget": {
       const widget = child("widget");
-      return { type, prompt: text(widget, "prompt"), options: labels(widget) };
+      const described = describeCard(type, message);
+      return described.ownerOnly
+        ? { type, prompt: described.text, options: [], ownerOnly: true }
+        : {
+            type,
+            prompt: text(widget, "prompt"),
+            options: labels(widget),
+            ownerOnly: false,
+          };
     }
     case "auto-review-approval": {
       const a = child("approval");

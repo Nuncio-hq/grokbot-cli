@@ -81,6 +81,102 @@ describe("Done Rule on cards only the owner can answer", () => {
       ),
     ]).toEqual(["awaiting-approval:3", "running:awaiting-final-reply"]);
   });
+
+  it("awaits a rule-change widget as an owner-only card until it is answered or dismissed", () => {
+    const rule = (extra: Record<string, unknown> = {}) =>
+      sendMessageRow(
+        3,
+        {
+          type: "widget",
+          widget: {
+            prompt: "Save this rule?",
+            options: [{ label: "Save" }, { label: "Cancel" }],
+            ruleChange: {
+              kind: "update",
+              effect: "ask_first",
+              text: "Send email to clients",
+              replaces: "Send email",
+            },
+          },
+        },
+        "r1",
+        3,
+        extra,
+      );
+    const v = verdict([echo, rule()], IDLE_STATUS, ID);
+    const card = v.status === "awaiting-approval" ? v.cards[0] : undefined;
+    expect([
+      v.status === "awaiting-approval" && v.reason,
+      card && describeCard(card.cardType, card.message).ownerOnly,
+      summary(
+        [echo, rule({ respondedValue: "Updated the rule." })],
+        IDLE_STATUS,
+        ID,
+      ),
+      summary([echo, rule({ widgetDismissed: true })], IDLE_STATUS, ID),
+    ]).toEqual([
+      'The bot proposes a rule update: "Ask first: Send email to clients" (replaces "Send email")',
+      true,
+      "running:awaiting-final-reply",
+      "running:awaiting-final-reply",
+    ]);
+  });
+
+  it("awaits an appearance picker until the owner answers it", () => {
+    const picker = (extra: Record<string, unknown> = {}) =>
+      sendMessageRow(3, { type: "appearance-picker" }, "r1", 3, extra);
+    const v = verdict([echo, picker()], IDLE_STATUS, ID);
+    const card = v.status === "awaiting-approval" ? v.cards[0] : undefined;
+    expect([
+      v.status === "awaiting-approval" && v.reason,
+      card && describeCard(card.cardType, card.message).ownerOnly,
+      summary(
+        [echo, picker({ respondedValue: '{"avatarShape":"circle"}' })],
+        IDLE_STATUS,
+        ID,
+      ),
+    ]).toEqual([
+      "The bot offers you a look for itself (shape and colour)",
+      true,
+      "running:awaiting-final-reply",
+    ]);
+  });
+
+  it("awaits an email offer until the owner answers it or the bot replaces the address", () => {
+    const offer = (
+      extra: Record<string, unknown> = {},
+      message: Record<string, unknown> = {},
+    ) =>
+      sendMessageRow(
+        3,
+        {
+          type: "email-offer",
+          email: "bot@example.com",
+          site: "shop.example.com",
+          ...message,
+        },
+        "r1",
+        3,
+        extra,
+      );
+    const v = verdict([echo, offer()], IDLE_STATUS, ID);
+    const card = v.status === "awaiting-approval" ? v.cards[0] : undefined;
+    expect([
+      v.status === "awaiting-approval" && v.reason,
+      card && describeCard(card.cardType, card.message).ownerOnly,
+      summary(
+        [echo, offer({ respondedValue: "email-offer:not-now" })],
+        IDLE_STATUS,
+        ID,
+      ),
+      summary([echo, offer({}, { replaced: true })], IDLE_STATUS, ID),
+    ]).toEqual([
+      "The bot offers an email address of its own: bot@example.com (for shop.example.com)",
+      true,
+      "running:awaiting-final-reply",
+      "running:awaiting-final-reply",
+    ]);
+  });
 });
 
 describe("Done Rule on connector and repo-connect cards", () => {

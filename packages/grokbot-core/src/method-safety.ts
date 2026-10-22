@@ -17,6 +17,8 @@ export const GATEWAY_METHOD_SAFETY = {
   listAgents: "read-only",
   getAgentWorkflows: "read-only",
   getMcpState: "read-only",
+  // Reads the bot's own conversation text; changes nothing.
+  searchConversation: "read-only",
   updateAgent: "writes",
   importAgentWorkflowText: "writes",
   runAgentWorkflowNow: "writes",

@@ -1,5 +1,6 @@
 import type { LiveStatus } from "./agent-status.js";
 import type { Agent } from "./agents.js";
+import type { ConversationSearchPage } from "./conversation-search.js";
 import type { TranscriptEntry } from "./transcript.js";
 import type { WaitResult } from "./wait-for-done.js";
 
@@ -34,6 +35,8 @@ export interface DispatchOutputs {
   readonly team: { readonly members: readonly TeamMember[] };
   readonly ask: Asked;
   readonly "setup-bots": Asked;
+  /** `version` is what the bots were asked to install: this computer's grokbot. */
+  readonly "update-bots": Asked & { readonly version: string };
   readonly reply: {
     readonly jobId: string;
     readonly agent: Agent;
@@ -72,6 +75,10 @@ export interface DispatchOutputs {
   readonly tail: {
     readonly agent: Agent;
     readonly entries: readonly TranscriptEntry[];
+  };
+  readonly search: ConversationSearchPage & {
+    readonly agent: Agent;
+    readonly query: string;
   };
   readonly interrupt: {
     readonly agent: Agent;

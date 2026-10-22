@@ -40,6 +40,8 @@ const MESSAGES: Record<CardType, Record<string, unknown>> = {
   "mobile-tool-permission": {
     permission: { toolId: "MobileReadCalendar", machineLabel: "Phone" },
   },
+  "appearance-picker": {},
+  "email-offer": { email: "bot@example.com", site: "shop.example.com" },
 };
 
 describe("describeCard", () => {
@@ -73,6 +75,16 @@ describe("describeCard", () => {
       [
         "mobile-tool-permission",
         "Permission on the owner's phone: MobileReadCalendar (Phone)",
+        true,
+      ],
+      [
+        "appearance-picker",
+        "The bot offers you a look for itself (shape and colour)",
+        true,
+      ],
+      [
+        "email-offer",
+        "The bot offers an email address of its own: bot@example.com (for shop.example.com)",
         true,
       ],
     ]);
@@ -138,6 +150,63 @@ describe("describeCard", () => {
         ownerOnly: true,
       },
       { text: "Share this bot as a template", ownerOnly: true },
+    ]);
+  });
+
+  it("describes a rule change in a widget as the owner's to apply, by kind and effect", () => {
+    const ruleChange = (change: Record<string, unknown>) =>
+      describeCard("widget", {
+        widget: { prompt: "Save this rule?", ruleChange: change },
+      });
+    expect([
+      ruleChange({ kind: "add", effect: "allow", text: "Run git status" }),
+      ruleChange({ kind: "add", effect: "ask_first", text: "Send email" }),
+      ruleChange({
+        kind: "update",
+        effect: "ask_first",
+        text: "Send email to clients",
+        replaces: "Send email",
+      }),
+      ruleChange({ kind: "delete", effect: "allow", text: "Run git status" }),
+      ruleChange({ kind: "update", effect: "allow", text: "Run ls" }),
+      describeCard("widget", { widget: { prompt: "Pick a color" } }),
+    ]).toEqual([
+      {
+        text: 'The bot proposes a rule to add: "Allow without asking: Run git status"',
+        ownerOnly: true,
+      },
+      {
+        text: 'The bot proposes a rule to add: "Ask first: Send email"',
+        ownerOnly: true,
+      },
+      {
+        text: 'The bot proposes a rule update: "Ask first: Send email to clients" (replaces "Send email")',
+        ownerOnly: true,
+      },
+      {
+        text: 'The bot proposes to delete a rule: "Allow without asking: Run git status"',
+        ownerOnly: true,
+      },
+      {
+        text: 'The bot proposes a rule update: "Allow without asking: Run ls"',
+        ownerOnly: true,
+      },
+      { text: "Pick a color", ownerOnly: false },
+    ]);
+  });
+
+  it("describes an email offer with or without a site, and an appearance picker", () => {
+    expect([
+      describeCard("email-offer", { email: "bot@example.com" }).text,
+      describeCard("email-offer", {}).text,
+      describeCard("appearance-picker", {}),
+    ]).toEqual([
+      "The bot offers an email address of its own: bot@example.com",
+      "The bot offers an email address of its own",
+      {
+        text: "The bot offers you a look for itself (shape and colour)",
+        ownerOnly: true,
+      },
     ]);
   });
 });

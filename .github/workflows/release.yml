@@ -65,7 +65,7 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          unexpected=$(git status --porcelain | grep -vE '^ M (packages/grokbot-(core|cli|mcp)/package\.json|packages/grokbot-core/src/index\.ts|bun\.lock)$' || true)
+          unexpected=$(git status --porcelain | grep -vE '^ M (packages/grokbot-(core|cli|mcp)/package\.json|packages/grokbot-core/src/version\.ts|bun\.lock)$' || true)
           if [ -n "$unexpected" ]; then
             echo "::error::The version bump changed unexpected files:"; echo "$unexpected"; exit 1
           fi

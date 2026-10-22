@@ -33,7 +33,9 @@ export const GOVERNANCE_OVERRIDES: McpOverrides<GovernanceCommandName> = {
 function cardText(card: Card): string {
   switch (card.type) {
     case "widget":
-      return `widget ${card.entryId}: ${card.prompt}${card.options.length > 0 ? ` [${card.options.join(" | ")}]` : ""}`;
+      return card.ownerOnly
+        ? `widget ${card.entryId}: ${card.prompt} (${OWNER_ONLY_NOTE})`
+        : `widget ${card.entryId}: ${card.prompt}${card.options.length > 0 ? ` [${card.options.join(" | ")}]` : ""}`;
     case "auto-review-approval":
       return card.ownerOnly
         ? `auto-review-approval ${card.entryId}: ${card.summary} (${OWNER_ONLY_NOTE})`

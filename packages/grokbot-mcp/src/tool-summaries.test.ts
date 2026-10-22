@@ -260,6 +260,57 @@ describe("summarize", () => {
     expect(lines.join("\n")).not.toContain("sig=abc");
   });
 
+  describe("search", () => {
+    const match = (seq: number, role: string, snippet: string) => ({
+      entryId: `t${seq}`,
+      seq,
+      role,
+      timestampMs: Date.UTC(2026, 9, 22, 4, 27, 22),
+      snippet,
+    });
+
+    it("lists each match with its seq, entry id, role, UTC time and one-line words", () => {
+      const lines = summarize("search", {
+        agent: PRIMARY_TEST,
+        query: "PONG",
+        matches: [
+          match(425, "assistant", "MAIN-PONG"),
+          match(424, "user", "say\n PONG"),
+        ],
+        isComplete: true,
+      }).split("\n");
+      expect(lines).toEqual([
+        'Primary Test, 2 matches for "PONG", newest first:',
+        "#425 [t425] assistant 2026-10-22T04:27Z: MAIN-PONG",
+        "#424 [t424] user 2026-10-22T04:27Z: say PONG",
+      ]);
+    });
+
+    it("says so when nothing matches", () => {
+      expect(
+        summarize("search", {
+          agent: PRIMARY_TEST,
+          query: "nothing",
+          matches: [],
+          isComplete: true,
+        }),
+      ).toBe('No matches for "nothing" in Primary Test\'s conversation.');
+    });
+
+    it("names the call that reads the next page, for the same bot", () => {
+      const text = summarize("search", {
+        agent: PRIMARY_TEST,
+        query: "PONG",
+        matches: [match(424, "user", "PONG")],
+        isComplete: true,
+        nextBeforeSeq: 424,
+      });
+      expect(text.split("\n").at(-1)).toBe(
+        `There may be older matches: call grokbot_search with ${JSON.stringify({ query: "PONG", before: 424, agent: PRIMARY_TEST.agentId })}.`,
+      );
+    });
+  });
+
   it("says whether interrupt stopped a run", () => {
     const stopped = summarize("interrupt", {
       agent: PRIMARY_TEST,

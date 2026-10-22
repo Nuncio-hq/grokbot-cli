@@ -14,7 +14,7 @@ type Bump = (typeof BUMPS)[number];
 const PACKAGES = ["grokbot-core", "grokbot-cli", "grokbot-mcp"];
 const packageUrl = (dir: string) =>
   new URL(`../../${dir}/package.json`, import.meta.url);
-const indexUrl = new URL("../src/index.ts", import.meta.url);
+const versionUrl = new URL("../src/version.ts", import.meta.url);
 const VERSION_LINE = /^export const GROKBOT_VERSION = "[^"]*";$/m;
 
 function nextVersion(current: string, bump: Bump): string {
@@ -55,15 +55,15 @@ for (const dir of PACKAGES) {
   await writeFile(packageUrl(dir), `${JSON.stringify(pkg, null, 2)}\n`);
 }
 
-const index = await readFile(indexUrl, "utf8");
-if (!VERSION_LINE.test(index)) {
+const source = await readFile(versionUrl, "utf8");
+if (!VERSION_LINE.test(source)) {
   throw new Error(
-    "GROKBOT_VERSION line not found in grokbot-core/src/index.ts.",
+    "GROKBOT_VERSION line not found in grokbot-core/src/version.ts.",
   );
 }
 await writeFile(
-  indexUrl,
-  index.replace(VERSION_LINE, `export const GROKBOT_VERSION = "${version}";`),
+  versionUrl,
+  source.replace(VERSION_LINE, `export const GROKBOT_VERSION = "${version}";`),
 );
 
 console.log(`version=${version}`);

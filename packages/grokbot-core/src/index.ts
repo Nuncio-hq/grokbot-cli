@@ -1,5 +1,4 @@
 export const GROKBOT_BACKEND = "https://api2.cursor.sh";
-export const GROKBOT_VERSION = "0.4.0";
 
 export { type AgentRef, isSameAgent, parseAgentRef } from "./agent-ref.js";
 export {
@@ -12,6 +11,7 @@ export {
 export {
   type Agent,
   type AgentId,
+  type AgentSuggestion,
   listAgents,
   noAgentError,
   parseListAgentsResponse,
@@ -46,7 +46,18 @@ export {
   type SignInInfo,
   type TokenSource,
 } from "./auth-token-source.js";
-export { BOT_SETUP_PROMPT, SETUP_CHECK_PROJECT } from "./bot-setup-prompt.js";
+export {
+  BOT_SETUP_PROMPT,
+  botUpdatePrompt,
+  SETUP_CHECK_PROJECT,
+} from "./bot-setup-prompt.js";
+export {
+  type BotsVersionRecord,
+  type BotsVersionStore,
+  botsVersionStore,
+  describeUpdateNotice,
+  type UpdateNotice,
+} from "./bots-version-store.js";
 export {
   type BoxEntry,
   type BoxFile,
@@ -128,6 +139,7 @@ export {
   type JsonObject,
   type ServerTransport,
 } from "./contracts.js";
+export type { ConversationMatch } from "./conversation-search.js";
 export {
   type BusyAtSend,
   type CardEntry,
@@ -279,9 +291,15 @@ export {
 export type {
   PlaceSummary,
   ProductSummary,
+  PurchaseSummary,
   ReplyCard,
+  ShipmentItem,
+  ShipmentStage,
+  ShipmentSummary,
+  WeatherSummary,
 } from "./reply-cards.js";
 export { describeReply } from "./reply-summary.js";
+export type { SystemLocale } from "./send-locale.js";
 export {
   createServerTransport,
   type FetchLike,
@@ -330,6 +348,7 @@ export {
   summarizeUsage,
   type UsageSummary,
 } from "./usage-stats.js";
+export { GROKBOT_VERSION } from "./version.js";
 export {
   type WaitEvent,
   type WaitForDoneOptions,
@@ -337,3 +356,4 @@ export {
   type WaitResult,
   waitForDone,
 } from "./wait-for-done.js";
+export { clipText, describeReviewChange } from "./workforce-team-review.js";

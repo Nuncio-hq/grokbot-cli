@@ -1,4 +1,5 @@
 import {
+  type ConversationMatch,
   type DispatchCommandName,
   describeBoxHandoff,
   describeCard,
@@ -37,13 +38,20 @@ export const DISPATCH_OVERRIDES: McpOverrides<DispatchCommandName> = {
     note: `Sends the bot setup prompt to the account's primary Bot (or to agent), whatever the folder's route says. Waits ${MCP_WAIT_TIMEOUT_SECONDS} s unless timeout is set; the bot usually needs longer, so a still-running result carries a job id, and grokbot_wait resumes it. ${OUTCOMES}`,
     defaults: { timeout: MCP_WAIT_TIMEOUT_SECONDS },
   },
+  "update-bots": {
+    note: `Asks the account's primary Bot (or agent), whatever the folder's route says, to install this computer's grokbot version on the cloud computer and save the grokbot-inbox skill again. Run it after grokbot changed here, or when a result carries an update notice. Waits ${MCP_WAIT_TIMEOUT_SECONDS} s unless timeout is set; a still-running result carries a job id, and grokbot_wait resumes it. ${OUTCOMES}`,
+    defaults: { timeout: MCP_WAIT_TIMEOUT_SECONDS },
+  },
   reply: {
-    note: `Quotes one message like Reply in the app: pass job (the bot's last message in that job, or the job's own message while the bot has written none) or to (an entryId from grokbot_tail) with agent. Waits ${MCP_WAIT_TIMEOUT_SECONDS} s unless timeout is set; a still-running result carries a job id, and grokbot_wait resumes it. ${OUTCOMES}`,
+    note: `Replies to one message like Reply in the app: pass job (the bot's last message in that job, or the job's own message while the bot has written none) or to (an entryId from grokbot_tail) with agent. Pass quote to quote words of that message with the reply; they must appear in it, else the reply is refused. Waits ${MCP_WAIT_TIMEOUT_SECONDS} s unless timeout is set; a still-running result carries a job id, and grokbot_wait resumes it. ${OUTCOMES}`,
     defaults: { timeout: MCP_WAIT_TIMEOUT_SECONDS },
   },
   wait: {
     note: `Waits ${MCP_WAIT_TIMEOUT_SECONDS} s unless timeout is set, to stay under MCP host time limits; a still-running result carries the job id, so call grokbot_wait again with it. ${OUTCOMES}`,
     defaults: { timeout: MCP_WAIT_TIMEOUT_SECONDS },
+  },
+  search: {
+    note: "Each match has a seq and an entryId (grokbot_reply takes the entryId as to); when older matches may exist the result gives the before value for the next page",
   },
   interrupt: { destructive: true },
 };
@@ -145,6 +153,21 @@ function entryText(entry: TranscriptEntry): string {
   }
 }
 
+/** `#seq [entryId] role time: snippet`, the time in UTC. */
+function matchText({
+  seq,
+  entryId,
+  role,
+  timestampMs,
+  snippet,
+}: ConversationMatch): string {
+  const when =
+    timestampMs === undefined
+      ? ""
+      : ` ${new Date(timestampMs).toISOString().slice(0, 16)}Z`;
+  return `#${seq} [${entryId}] ${role || "unknown"}${when}: ${snippet.replace(/\s+/g, " ").trim()}`;
+}
+
 export const DISPATCH_SUMMARIES: ToolSummaries<DispatchCommandName> = {
   agents: ({ agents }) =>
     [
@@ -159,6 +182,8 @@ export const DISPATCH_SUMMARIES: ToolSummaries<DispatchCommandName> = {
   ask: ({ jobId, agent, outcome }) => outcomeText(agent.name, jobId, outcome),
   "setup-bots": ({ jobId, agent, outcome }) =>
     setupText(agent.name, jobId, outcome),
+  "update-bots": ({ jobId, agent, outcome, version }) =>
+    `Asked ${agent.name} to install grokbot ${version} on the cloud computer. ${outcomeText(agent.name, jobId, outcome)}`,
   reply: ({ jobId, agent, outcome }) => outcomeText(agent.name, jobId, outcome),
   send: ({ jobId, agent, queued }) =>
     `${
@@ -179,6 +204,18 @@ export const DISPATCH_SUMMARIES: ToolSummaries<DispatchCommandName> = {
       `${agent.name}, last ${plural(entries.length, "entry", "entries")}:`,
       ...entries.map((e) => `#${e.seq} [${e.entryId}] ${entryText(e)}`),
     ].join("\n"),
+  search: ({ agent, query, matches, nextBeforeSeq }) =>
+    matches.length === 0
+      ? `No matches for ${JSON.stringify(query)} in ${agent.name}'s conversation.`
+      : [
+          `${agent.name}, ${plural(matches.length, "match", "matches")} for ${JSON.stringify(query)}, newest first:`,
+          ...matches.map(matchText),
+          ...(nextBeforeSeq === undefined
+            ? []
+            : [
+                `There may be older matches: call grokbot_search with ${JSON.stringify({ query, before: nextBeforeSeq, agent: agent.agentId })}.`,
+              ]),
+        ].join("\n"),
   interrupt: ({ agent, hadActiveRun }) =>
     hadActiveRun
       ? `Interrupted the active run on ${agent.name}.`

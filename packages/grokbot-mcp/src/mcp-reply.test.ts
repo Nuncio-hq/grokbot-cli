@@ -34,6 +34,7 @@ describe("grokbot_reply over MCP", () => {
                 job: { type: "string", description: expect.any(String) },
                 text: { type: "string", description: expect.any(String) },
                 to: { type: "string", description: expect.any(String) },
+                quote: { type: "string", description: expect.any(String) },
                 timeout: {
                   type: "integer",
                   description: expect.any(String),

@@ -5,6 +5,7 @@ import {
   type CommandRunner,
   type CommandSafety,
   describeNotice,
+  describeUpdateNotice,
   GrokBotError,
   isCommandName,
   listCommands,
@@ -181,6 +182,18 @@ async function runTool<N extends CommandName>(
               {
                 type: "text" as const,
                 text: describeNotice(output.inboxNotice.items),
+              },
+            ]),
+        // The bots run another grokbot than this computer: one more block naming the fix.
+        ...(output.updateNotice === undefined
+          ? []
+          : [
+              {
+                type: "text" as const,
+                text: describeUpdateNotice(
+                  output.updateNotice,
+                  "the grokbot_update_bots tool",
+                ),
               },
             ]),
       ],

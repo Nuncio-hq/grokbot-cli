@@ -9,6 +9,7 @@ import { routineHandlers } from "./workforce-routine-handlers.js";
 import { routineWebhookHandlers } from "./workforce-routine-webhook-handlers.js";
 import { skillHandlers } from "./workforce-skill-handlers.js";
 import { staffHandlers } from "./workforce-staff-handlers.js";
+import { teamHandlers } from "./workforce-team-handlers.js";
 
 export function workforceHandlers(
   ctx: RunnerContext,
@@ -20,5 +21,6 @@ export function workforceHandlers(
     ...fileHandlers(ctx),
     ...routineHandlers(ctx),
     ...routineWebhookHandlers(ctx),
+    ...teamHandlers(ctx),
   };
 }

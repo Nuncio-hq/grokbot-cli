@@ -182,6 +182,168 @@ describe("answer", () => {
   });
 });
 
+const ruleRow = (seq: number) =>
+  sendMessageRow(seq, {
+    type: "widget",
+    widget: {
+      prompt: "Save this rule?",
+      options: [{ label: "Save" }, { label: "Cancel" }],
+      ruleChange: { kind: "add", effect: "allow", text: "Run git status" },
+    },
+  });
+const emailOfferRow = sendMessageRow(11, {
+  type: "email-offer",
+  email: "bot@example.com",
+});
+const pickerRow = sendMessageRow(12, { type: "appearance-picker" });
+const RULE_TEXT =
+  'The bot proposes a rule to add: "Allow without asking: Run git status"';
+const writes = (log: { method: string }[]) =>
+  log
+    .filter((call) => /^(Respond|Dismiss|Resolve)/.test(call.method))
+    .map((call) => call.method);
+
+describe("cards the owner applies in the app", () => {
+  it("lists a rule-change widget and the new cards as owner-only", async () => {
+    const { run } = governanceRunner({
+      ListGrokBotAgentStatuses: [{ statuses: [] }],
+      ListGrokBotTranscriptEntries: (body) =>
+        body.agentId === PRIMARY
+          ? { entries: [ruleRow(5), widgetRow, emailOfferRow, pickerRow] }
+          : { entries: [] },
+    });
+    const out = await run("approvals", { json: false });
+    // Only a widget can be either; the other kinds are owner-only by type and are
+    // refused below because answer, approve and deny never select them.
+    expect(
+      out.agents[0]?.cards.map((card) => [
+        card.type,
+        card.entryId,
+        card.type === "widget" ? card.ownerOnly : undefined,
+      ]),
+    ).toEqual([
+      ["widget", "entry-4", false],
+      ["widget", "entry-5", true],
+      ["email-offer", "entry-11", undefined],
+      ["appearance-picker", "entry-12", undefined],
+    ]);
+  });
+
+  it("refuses a value for a rule-change widget and sends nothing", async () => {
+    const { run, log } = governanceRunner({
+      ListGrokBotTranscriptEntries: entries(ruleRow(5)),
+      RespondGrokBotWidget: [{ accepted: true }],
+    });
+    expect([
+      await failure(
+        run("answer", {
+          value: "Added the rule.",
+          agent: PRIMARY,
+          dismiss: false,
+          json: false,
+        }),
+      ),
+      await failure(
+        run("answer", {
+          value: "Save",
+          agent: PRIMARY,
+          card: "entry-5",
+          dismiss: false,
+          json: false,
+        }),
+      ),
+      writes(log),
+    ]).toEqual([
+      [
+        "safety",
+        `${RULE_TEXT}: only the owner can answer this in the GrokBot app. Answering from grokbot would not apply the rule. To close the card without applying it, run grokbot answer --dismiss.`,
+      ],
+      [
+        "safety",
+        `${RULE_TEXT}: only the owner can answer this in the GrokBot app. Answering from grokbot would not apply the rule. To close the card without applying it, run grokbot answer --dismiss.`,
+      ],
+      [],
+    ]);
+  });
+
+  it("still dismisses a rule-change widget", async () => {
+    const { run, log } = governanceRunner({
+      ListGrokBotTranscriptEntries: entries(ruleRow(5)),
+      DismissGrokBotWidget: [{ accepted: true }],
+    });
+    const out = await run("answer", {
+      agent: PRIMARY,
+      dismiss: true,
+      json: false,
+    });
+    expect([out.dismissed, writes(log), log.at(-1)?.body]).toEqual([
+      true,
+      ["DismissGrokBotWidget"],
+      { agentId: PRIMARY, entryId: "entry-5" },
+    ]);
+  });
+
+  it("answers the ordinary widget when a rule-change widget is open beside it", async () => {
+    const { run, log } = governanceRunner({
+      ListGrokBotTranscriptEntries: entries(ruleRow(2), widgetRow),
+      RespondGrokBotWidget: [{ accepted: true }],
+    });
+    await run("answer", {
+      value: "Blue",
+      agent: PRIMARY,
+      dismiss: false,
+      json: false,
+    });
+    expect(log.at(-1)).toMatchObject({
+      method: "RespondGrokBotWidget",
+      body: { agentId: PRIMARY, entryId: "entry-4", value: "Blue" },
+    });
+  });
+
+  it("refuses answer, approve and deny for an appearance picker and an email offer", async () => {
+    const { run, log } = governanceRunner({
+      ListGrokBotTranscriptEntries: entries(emailOfferRow, pickerRow),
+      RespondGrokBotWidget: [{ accepted: true }],
+      ResolveGrokBotAutoReviewApproval: [{ dispatched: true }],
+    });
+    expect([
+      await failure(
+        run("answer", {
+          value: "email-offer:use",
+          agent: PRIMARY,
+          card: "entry-11",
+          dismiss: false,
+          json: false,
+        }),
+      ),
+      await failure(
+        run("approve", {
+          agent: PRIMARY,
+          always: false,
+          yes: true,
+          json: false,
+        }),
+      ),
+      await failure(run("deny", { agent: PRIMARY, yes: true, json: false })),
+      writes(log),
+    ]).toEqual([
+      [
+        "not-found",
+        'Primary Test has no open widget card "entry-11". Run grokbot approvals --agent "Primary Test".',
+      ],
+      [
+        "not-found",
+        "Primary Test has no open auto-review-approval or local-tool-permission card.",
+      ],
+      [
+        "not-found",
+        "Primary Test has no open auto-review-approval or local-tool-permission card.",
+      ],
+      [],
+    ]);
+  });
+});
+
 describe("approve and deny refuse without --yes", () => {
   it("throws before any network call, through the real runner", async () => {
     const { runner, log } = realGovernanceRunner();

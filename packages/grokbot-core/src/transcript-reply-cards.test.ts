@@ -172,7 +172,7 @@ describe("cards on a text reply", () => {
       cards: {
         start: 0,
         items: [
-          { card: { kind: "weather", days: [] } },
+          { card: { kind: "rule-change", ruleId: "r-1" } },
           { card: { kind: "shopping", v: 1, products: [product] } },
           { card: { kind: "places", places: [place] } },
         ],
@@ -222,7 +222,7 @@ describe("cards on a text reply", () => {
     ["has items that are not a list", { items: "x" }],
     [
       "lists no card that parses",
-      { items: [{ card: { kind: "weather" } }, 4] },
+      { items: [{ card: { kind: "rule-change" } }, 4] },
     ],
   ])("keeps the text row when cards %s", (_name, cards) => {
     expect(replyOf({ type: "text", content: "Hi", cards })).toEqual({

@@ -8,6 +8,10 @@ import {
   resolveAgent,
 } from "./agents.js";
 import { createTokenSource } from "./auth-token-source.js";
+import {
+  type BotsVersionStore,
+  botsVersionStore,
+} from "./bots-version-store.js";
 import { type BoxStore, boxStore } from "./box-store.js";
 import { detectCallerSession, hasSession } from "./caller-session.js";
 import type { CommandInput, CommandName } from "./command-catalog.js";
@@ -43,6 +47,7 @@ import {
   type WebhookKeyStore,
   webhookKeyStore,
 } from "./routine-webhook-keys.js";
+import { resolveSendLocale } from "./send-locale.js";
 import { createServerTransport } from "./server-transport.js";
 
 /** What every command group's handlers share. Built once per runner. */
@@ -98,6 +103,8 @@ export interface RunnerContext extends JobContext {
   readonly boxStore: BoxStore;
   /** What this computer did with inbox items. */
   readonly inboxState: InboxStateStore;
+  /** The grokbot version this computer last asked the bots' cloud computer to run. */
+  readonly botsVersion: BotsVersionStore;
   /** This computer's short hostname, lowercase: what `grokbot computers` calls its label. */
   readonly hostname: string;
   /** Epoch ms now. */
@@ -235,10 +242,13 @@ export function createRunnerContext(
       );
     },
     runtime: () => runtimeName(options.caller),
+    sendLocale: () =>
+      resolveSendLocale(options.env ?? process.env, options.system),
     sessionAddress,
     projectRoutes,
     boxStore: options.boxStore ?? boxStore({ server }),
     inboxState: options.inboxState ?? inboxStateStore(),
+    botsVersion: options.botsVersion ?? botsVersionStore(),
     hostname: (options.hostname ?? osHostname())
       .split(".")[0]
       ?.trim()

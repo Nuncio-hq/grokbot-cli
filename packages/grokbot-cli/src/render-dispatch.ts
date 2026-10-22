@@ -1,4 +1,5 @@
 import {
+  type ConversationMatch,
   type DispatchCommandName,
   describeCard,
   type JobOutcome,
@@ -76,6 +77,33 @@ const CARD_ACTION: Readonly<Record<string, string>> = {
 const withNext = (text: Text, next: string | undefined): Text =>
   next === undefined ? text : { ...text, note: `${text.note}Next: ${next}\n` };
 
+const ROLE_LABELS: Readonly<Record<string, string>> = {
+  assistant: "bot",
+  user: "you",
+};
+
+const two = (n: number) => String(n).padStart(2, "0");
+
+/**
+ * `[seq entryId] bot 2026-10-22 14:05: snippet`: the ids `--before` and `reply --to` take,
+ * who said it, when (this computer's time zone), and the matching words on one line.
+ */
+function searchLine(match: ConversationMatch): string {
+  const at =
+    match.timestampMs === undefined ? undefined : new Date(match.timestampMs);
+  const when =
+    at === undefined
+      ? ""
+      : ` ${at.getFullYear()}-${two(at.getMonth() + 1)}-${two(at.getDate())} ${two(at.getHours())}:${two(at.getMinutes())}`;
+  const who = ROLE_LABELS[match.role] ?? (match.role || "?");
+  const snippet = match.snippet.replace(/\s+/g, " ").trim();
+  return `[${match.seq} ${match.entryId}] ${who}${when}: ${snippet}`;
+}
+
+/** A shell word that stays one word whatever the text holds. */
+const shellWord = (text: string) =>
+  /^[\w@%+=:,./-]+$/.test(text) ? text : `'${text.replaceAll("'", "'\\''")}'`;
+
 export const DISPATCH_RENDERERS: HumanRenderers<DispatchCommandName> = {
   agents: ({ agents }) =>
     plain(
@@ -108,6 +136,8 @@ export const DISPATCH_RENDERERS: HumanRenderers<DispatchCommandName> = {
     withNext(outcomeText(jobId, outcome), next),
   "setup-bots": ({ jobId, outcome, next }) =>
     withNext(outcomeText(jobId, outcome), next),
+  "update-bots": ({ jobId, outcome, next }) =>
+    withNext(outcomeText(jobId, outcome), next),
   reply: ({ jobId, outcome, next }) =>
     withNext(outcomeText(jobId, outcome), next),
   send: ({ jobId, agent, queued, next }) =>
@@ -138,6 +168,16 @@ export const DISPATCH_RENDERERS: HumanRenderers<DispatchCommandName> = {
         ? `No transcript entries for ${agent.name}.\n`
         : `${entries.map(tailLine).join("\n")}\n`,
     ),
+  search: ({ agent, query, matches, nextBeforeSeq }) =>
+    matches.length === 0
+      ? plain("No matches.\n")
+      : {
+          stdout: `${matches.map(searchLine).join("\n")}\n`,
+          note:
+            nextBeforeSeq === undefined
+              ? ""
+              : `More: grokbot search ${shellWord(query)} --before ${nextBeforeSeq} --agent ${shellWord(agent.name)}\n`,
+        },
   interrupt: ({ agent, hadActiveRun }) =>
     plain(
       hadActiveRun

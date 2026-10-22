@@ -14,11 +14,11 @@ interface GatewayTransportOptions {
   readonly fetch?: FetchLike;
 }
 
-/** What EnsureSandBox hands back. Lives in memory only. */
+/** What EnsureSandBox hands back, reduced to the headers each call sends. Lives in memory only. */
 interface GatewaySession {
   readonly gatewayUrl: string;
-  readonly gatewayToken: string;
-  readonly networkToken: string;
+  readonly headers: Readonly<Record<string, string>>;
+  readonly secrets: readonly string[];
 }
 
 export function createGatewayTransport({
@@ -45,16 +45,9 @@ export function createGatewayTransport({
         fetch,
         method,
         url: `${sandbox.gatewayUrl}/api/${method}`,
-        headers: {
-          authorization: `Bearer ${sandbox.gatewayToken}`,
-          "x-anyrun-network-token": sandbox.networkToken,
-        },
+        headers: sandbox.headers,
         options,
-        secrets: [
-          sandbox.gatewayToken,
-          sandbox.networkToken,
-          sandbox.gatewayUrl,
-        ],
+        secrets: sandbox.secrets,
         authHint: "The Box Gateway refused fresh sandbox tokens.",
       },
       body,
@@ -84,7 +77,7 @@ async function ensureSandbox(server: ServerTransport): Promise<GatewaySession> {
   if (sandbox === undefined) {
     throw new GrokBotError(
       "protocol",
-      "EnsureSandBox did not return gatewayUrl, gatewayToken, and networkToken.",
+      "EnsureSandBox did not return an https gatewayUrl with either gatewayToken and networkToken, or gatewayPortToken.",
     );
   }
   return sandbox;
@@ -92,22 +85,45 @@ async function ensureSandbox(server: ServerTransport): Promise<GatewaySession> {
 
 function parseGatewaySession(reply: unknown): GatewaySession | undefined {
   if (!isRecord(reply)) return undefined;
-  const { gatewayUrl, gatewayToken, networkToken } = reply;
-  if (
-    typeof gatewayUrl !== "string" ||
-    typeof gatewayToken !== "string" ||
-    typeof networkToken !== "string" ||
-    !gatewayUrl.startsWith("https://") ||
-    gatewayToken === "" ||
-    networkToken === ""
-  ) {
+  const { gatewayUrl, gatewayToken, networkToken, gatewayPortToken } = reply;
+  if (typeof gatewayUrl !== "string" || !gatewayUrl.startsWith("https://")) {
     return undefined;
   }
+  const token = optionalString(gatewayToken);
+  const network = optionalString(networkToken);
+  const port = optionalString(gatewayPortToken);
+  if (token === undefined || network === undefined || port === undefined) {
+    return undefined;
+  }
+  const url = gatewayUrl.replace(/\/+$/, "");
+  const secrets = [token, network, port, url];
+  // The app (`kre()`) falls back to the port token only when there is no network token.
+  if (network !== "") {
+    if (token === "") return undefined;
+    return {
+      gatewayUrl: url,
+      headers: {
+        authorization: `Bearer ${token}`,
+        "x-anyrun-network-token": network,
+      },
+      secrets,
+    };
+  }
+  if (port === "") return undefined;
   return {
-    gatewayUrl: gatewayUrl.replace(/\/+$/, ""),
-    gatewayToken,
-    networkToken,
+    gatewayUrl: url,
+    headers: {
+      ...(token === "" ? {} : { authorization: `Bearer ${token}` }),
+      "x-anyrun-port-token": port,
+    },
+    secrets,
   };
+}
+
+/** A missing field counts as empty; a non-string value is malformed. */
+function optionalString(value: unknown): string | undefined {
+  if (value === undefined || value === null) return "";
+  return typeof value === "string" ? value : undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -5,6 +5,7 @@ import {
   LIBRARY_COMMANDS,
 } from "./command-specs-workforce-library.js";
 import { ROUTINE_COMMANDS } from "./command-specs-workforce-routines.js";
+import { TEAM_COMMANDS } from "./command-specs-workforce-team.js";
 
 const TITLE = {
   type: "string",
@@ -104,6 +105,7 @@ export const WORKFORCE_COMMANDS = {
   },
   ...LIBRARY_COMMANDS,
   ...ROUTINE_COMMANDS,
+  ...TEAM_COMMANDS,
 } as const satisfies Record<string, CommandSpec>;
 
 export type WorkforceCommandName = keyof typeof WORKFORCE_COMMANDS;

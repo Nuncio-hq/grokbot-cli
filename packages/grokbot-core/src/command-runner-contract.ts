@@ -1,3 +1,4 @@
+import type { BotsVersionStore, UpdateNotice } from "./bots-version-store.js";
 import type { BoxStore } from "./box-store.js";
 import type { CommandInput, CommandName } from "./command-catalog.js";
 import type { DispatchOutputs } from "./command-outputs-dispatch.js";
@@ -11,6 +12,7 @@ import type { ProjectRoutes } from "./project-routes-store.js";
 import type { ProtectedBots } from "./protected-bots-store.js";
 import type { WebhookFirer } from "./routine-webhook.js";
 import type { WebhookKeyStore } from "./routine-webhook-keys.js";
+import type { SystemLocale } from "./send-locale.js";
 import type { ClientLabel } from "./usage-client.js";
 import type { WaitEvent } from "./wait-for-done.js";
 
@@ -49,9 +51,15 @@ export interface CommandRunnerOptions {
   readonly caller?: ClientLabel;
   /**
    * Where the caller's session is read from (GROKBOT_SESSION, CODEX_THREAD_ID, and the
-   * variables that relocate an agent's session folder). Default: process.env.
+   * variables that relocate an agent's session folder), and where GROKBOT_TIMEZONE is
+   * read from. Default: process.env.
    */
   readonly env?: Readonly<Record<string, string | undefined>>;
+  /**
+   * What this computer says about itself for the time zone and language a message goes
+   * out with (send-locale.ts). Default: the real platform, time zone and locale.
+   */
+  readonly system?: SystemLocale;
   /** The home folder agent runtimes keep their sessions under. Default: os.homedir(). */
   readonly home?: string;
   /** The folder whose project route applies, and whose session folder is looked up. Default: process.cwd(). */
@@ -64,6 +72,8 @@ export interface CommandRunnerOptions {
   readonly boxStore?: BoxStore;
   /** Default: inboxStateStore() at ~/.grokbot/grokbot-cli-inbox-state.json. */
   readonly inboxState?: InboxStateStore;
+  /** Default: botsVersionStore() at ~/.grokbot/grokbot-cli-bots-version.json. */
+  readonly botsVersion?: BotsVersionStore;
   /** This computer's name, to match an inbox item's machine label. Default: os.hostname(). */
   readonly hostname?: string;
   /** Default: Date.now. */
@@ -85,10 +95,12 @@ export type CommandOutput<N extends CommandName> = CommandOutputs[N];
 
 /**
  * What `CommandRunner.run` returns: the command's output, plus `inboxNotice` when the
- * command is not an inbox one and open items for this session or its jobs were waiting.
+ * command is not an inbox one and open items for this session or its jobs were waiting,
+ * and `updateNotice` when the bots' cloud computer was last updated to another grokbot.
  */
 export type CommandResult<N extends CommandName> = CommandOutput<N> & {
   readonly inboxNotice?: InboxNotice;
+  readonly updateNotice?: UpdateNotice;
 };
 
 /** Runner progress outside the wait: the job is saved, and its message was accepted or queued. */

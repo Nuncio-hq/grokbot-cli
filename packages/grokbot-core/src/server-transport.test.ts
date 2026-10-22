@@ -118,6 +118,32 @@ describe("ServerTransport.call", () => {
     ]);
   });
 
+  it("sends the call's extra headers, and never lets them replace the transport's own", async () => {
+    const { transport, requests } = transportWith(() => Response.json({}));
+    await transport.call(
+      "SendGrokBotUserMessage",
+      {},
+      {
+        headers: {
+          "x-cursor-timezone": "Europe/Berlin",
+          Authorization: "Bearer someone-else",
+          Origin: "https://evil.example",
+          "User-Agent": "other/1",
+          "Content-Type": "text/plain",
+        },
+      },
+    );
+    expect(requests.map((r) => r.headers)).toEqual([
+      {
+        "content-type": "application/json",
+        authorization: `Bearer ${TOKEN}`,
+        origin: "https://cursor.com",
+        "user-agent": "grokbot-core",
+        "x-cursor-timezone": "Europe/Berlin",
+      },
+    ]);
+  });
+
   it("returns {} for an empty body", async () => {
     const { transport } = transportWith(
       () => new Response("", { status: 200 }),

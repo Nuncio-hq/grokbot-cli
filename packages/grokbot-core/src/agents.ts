@@ -7,6 +7,18 @@ import {
 /** Lowercase bot UUID, the id every other GrokBot RPC takes. */
 export type AgentId = string & { readonly __brand: "AgentId" };
 
+/** A starter prompt the app offers for a bot (0.75.0). */
+export interface AgentSuggestion {
+  /** What `DismissGrokBotAgentSuggestions` takes. */
+  readonly id: string;
+  /** sun, mail, calendar, search, chart, people, bell or sparkle; the app shows sparkle for any other value. */
+  readonly icon: string;
+  readonly title: string;
+  readonly detail: string;
+  /** The message the app sends when the user picks the suggestion. */
+  readonly prompt: string;
+}
+
 interface AgentFields {
   readonly agentId: AgentId;
   /** Numeric server row id (int64 on the wire, so kept as a string). */
@@ -15,6 +27,8 @@ interface AgentFields {
   readonly title: string;
   readonly description: string;
   readonly harness: string;
+  /** Starter prompts the server offers for the bot; absent when it has none. */
+  readonly suggestions?: readonly AgentSuggestion[];
 }
 
 export type Agent =
@@ -52,6 +66,28 @@ function optionalString(value: unknown, path: string): string {
   return value;
 }
 
+/**
+ * Tolerant on purpose: every command reads this roster, and suggestions are an optional
+ * extra behind an app gate, so an odd entry is dropped rather than failing the roster.
+ */
+function parseSuggestions(value: unknown): readonly AgentSuggestion[] {
+  if (!Array.isArray(value)) return [];
+  const text = (field: unknown) => (typeof field === "string" ? field : "");
+  return value.flatMap((raw): AgentSuggestion[] =>
+    isRecord(raw) && typeof raw.id === "string" && raw.id !== ""
+      ? [
+          {
+            id: raw.id,
+            icon: text(raw.icon),
+            title: text(raw.title),
+            detail: text(raw.detail),
+            prompt: text(raw.prompt),
+          },
+        ]
+      : [],
+  );
+}
+
 function parseAgent(raw: unknown, path: string): Agent {
   if (!isRecord(raw)) fail(path, "is not an object");
   const kind =
@@ -61,6 +97,7 @@ function parseAgent(raw: unknown, path: string): Agent {
   if (typeof raw.id !== "string" || !/^\d+$/.test(raw.id)) {
     fail(`${path}.id`, "is not a numeric string");
   }
+  const suggestions = parseSuggestions(raw.suggestions);
   const fields: AgentFields = {
     agentId: parseAgentId(raw.agentId, `${path}.agentId`),
     rowId: raw.id,
@@ -68,6 +105,7 @@ function parseAgent(raw: unknown, path: string): Agent {
     title: optionalString(raw.title, `${path}.title`),
     description: optionalString(raw.description, `${path}.description`),
     harness: optionalString(raw.harness, `${path}.harness`),
+    ...(suggestions.length > 0 && { suggestions }),
   };
   if (kind === "agent") return { kind, ...fields };
   const members = raw.memberAgentIds ?? [];

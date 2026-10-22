@@ -82,6 +82,13 @@ export function createServerTransport({
       method,
       url: `${root}/${method}`,
       headers: {
+        // Lower-cased so a differently cased name can never sit beside the fixed one.
+        ...Object.fromEntries(
+          Object.entries(options.headers ?? {}).map(([name, value]) => [
+            name.toLowerCase(),
+            value,
+          ]),
+        ),
         authorization: `Bearer ${token}`,
         origin: "https://cursor.com",
         "user-agent": userAgent,

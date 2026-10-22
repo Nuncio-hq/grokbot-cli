@@ -3,14 +3,20 @@ import type { RunnerContext } from "./command-runner-context.js";
 import { busyRecords } from "./command-runner-jobs.js";
 import { GrokBotError, type ServerTransport } from "./contracts.js";
 import type { JobRecord } from "./job-store.js";
-import { compareSeq, parseEntriesResponse, type Seq } from "./transcript.js";
+import {
+  compareSeq,
+  parseEntriesResponse,
+  type Seq,
+  type TranscriptEntry,
+} from "./transcript.js";
 import { readTranscriptSince } from "./transcript-stream.js";
 import { findTurn } from "./turn-model.js";
 
-/** What `reply` decides before it sends: the bot, and the entry the message answers. */
+/** What `reply` decides before it sends: the bot, the entry the message answers, and the part of it quoted. */
 interface ReplyTarget {
   readonly agent: Agent;
   readonly replyToId: string;
+  readonly replyQuote?: string;
 }
 
 interface ReplyInput {
@@ -18,6 +24,8 @@ interface ReplyInput {
   readonly job?: string;
   /** An entry of the bot's transcript; replaces the job's last bot message. */
   readonly to?: string;
+  /** The words of that entry the reply quotes, like selecting text before Reply in the app. */
+  readonly quote?: string;
   /** Names the bot when there is no job; with a job it must be that job's bot. */
   readonly agent?: string;
 }
@@ -28,13 +36,13 @@ const MAX_PAGES = 100;
 
 const refuse = (message: string) => new GrokBotError("not-found", message);
 
-/** Whether `entryId` is a row of the bot's main transcript, searched from the newest row back. */
-async function hasEntry(
+/** The row `entryId` of the bot's main transcript, searched from the newest row back. */
+async function findEntry(
   server: ServerTransport,
   agentId: string,
   entryId: string,
   signal?: AbortSignal,
-): Promise<boolean> {
+): Promise<TranscriptEntry | undefined> {
   let beforeSeq: Seq | undefined;
   for (let page = 0; page < MAX_PAGES; page++) {
     const { entries } = parseEntriesResponse(
@@ -49,20 +57,21 @@ async function hasEntry(
         { signal },
       ),
     );
-    if (entries.some((e) => e.entryId === entryId)) return true;
+    const found = entries.find((e) => e.entryId === entryId);
+    if (found) return found;
     const oldest = entries[0]?.seq;
     if (
       oldest === undefined ||
       entries.length < PAGE_ROWS ||
       (beforeSeq !== undefined && compareSeq(oldest, beforeSeq) >= 0)
     )
-      return false;
+      return undefined;
     beforeSeq = oldest;
   }
-  return false;
+  return undefined;
 }
 
-/** A job's message must have gone out before there is a message to quote. */
+/** A job's message must have gone out before there is a message to reply to. */
 function assertSent(job: JobRecord): void {
   const { jobId, state } = job;
   const name = job.agentName ?? "the bot";
@@ -109,8 +118,44 @@ async function jobAgent(
   return agent;
 }
 
+const collapse = (text: string) => text.replace(/\s+/g, " ").trim();
+
+/** The words an entry shows, when its row carries them: a message or a text reply, not a card, an attachment or a blob. */
+function entryText(entry: TranscriptEntry): string | undefined {
+  switch (entry.kind) {
+    case "user-message":
+    case "assistant-message":
+      return entry.content;
+    case "reply":
+      return entry.reply.type === "text" ? entry.reply.content : undefined;
+    default:
+      return undefined;
+  }
+}
+
 /**
- * The entry a reply on a job quotes: the newest message the bot wrote in the job's own turn
+ * The quote to send with a reply to `entry`: as given, once it is known to be part of the
+ * entry's text (spaces and line breaks do not matter). Only an entry whose text cannot be
+ * read here (not found, or a reply stored as a blob) leaves nothing to check against, so the
+ * quote goes as given; a card, attachment or visual has no words to quote.
+ */
+function checkedQuote(
+  quote: string,
+  entry: TranscriptEntry | undefined,
+  agent: Agent,
+): string {
+  if (entry === undefined || entry.kind === "blob") return quote;
+  const text = entryText(entry);
+  if (text === undefined || !collapse(text).includes(collapse(quote))) {
+    throw refuse(
+      `The quote is not in ${agent.name}'s message ${entry.entryId} (spaces and line breaks do not matter). Copy the words from that entry in grokbot tail --json, or leave out --quote.`,
+    );
+  }
+  return quote;
+}
+
+/**
+ * The entry a reply on a job answers: the newest message the bot wrote in the job's own turn
  * (a reply or a reply stored as a blob, not a card, tool call or message to another bot),
  * or the job's own message while the bot has written none, read from the transcript.
  */
@@ -119,7 +164,7 @@ async function jobEntry(
   job: JobRecord,
   agent: Agent,
   signal?: AbortSignal,
-): Promise<string> {
+): Promise<TranscriptEntry> {
   const page = await readTranscriptSince(
     ctx.server,
     { agentId: job.agentId, afterSeq: job.baselineUpdatedSeq },
@@ -145,23 +190,30 @@ async function jobEntry(
         (e.kind === "blob" && e.entryKind === "send-message"),
     )
     .at(-1);
-  return (last ?? echo).entryId;
+  return last ?? echo;
 }
 
 /**
  * The bot and entry a reply answers. With a job, the bot is the job's and the entry is its
  * last bot message, else the job's own message, or `to`. Without a job, `to` is required
  * and the usual agent selection (`--agent`, GROKBOT_AGENT, project route, primary Bot) names
- * the bot. Refuses an unknown job, a job whose message has not gone out, and a `to` that is
- * not in the bot's transcript.
+ * the bot. Refuses an unknown job, a job whose message has not gone out, a `to` that is
+ * not in the bot's transcript, an empty `quote`, and a `quote` that is not in the entry's
+ * text (an entry whose text cannot be read lets it through).
  */
 export async function resolveReplyTarget(
   ctx: RunnerContext,
-  { job: jobId, to, agent: flag }: ReplyInput,
+  { job: jobId, to, quote, agent: flag }: ReplyInput,
   signal?: AbortSignal,
 ): Promise<ReplyTarget> {
+  if (quote !== undefined && collapse(quote) === "") {
+    throw refuse(
+      "The quote is empty. Pass the words of the message you answer with --quote, or leave it out to answer the whole message.",
+    );
+  }
   let agent: Agent;
   let replyToId: string;
+  let entry: TranscriptEntry | undefined;
   if (jobId !== undefined) {
     const job = await ctx.jobs.load(jobId);
     if (!job) {
@@ -171,7 +223,12 @@ export async function resolveReplyTarget(
     }
     assertSent(job);
     agent = await jobAgent(ctx, job, flag, signal);
-    replyToId = to ?? (await jobEntry(ctx, job, agent, signal));
+    if (to === undefined) {
+      entry = await jobEntry(ctx, job, agent, signal);
+      replyToId = entry.entryId;
+    } else {
+      replyToId = to;
+    }
   } else if (to !== undefined) {
     agent = await ctx.target(flag, signal);
     replyToId = to;
@@ -180,13 +237,19 @@ export async function resolveReplyTarget(
       'A reply needs a job and its text (grokbot reply <job> "..."), or the text with --to <entryId> from grokbot tail --json and the bot named by --agent or routing.',
     );
   }
-  if (
-    to !== undefined &&
-    !(await hasEntry(ctx.server, agent.agentId, to, signal))
-  ) {
-    throw refuse(
-      `Entry ${to} is not in ${agent.name}'s transcript. Use an entryId from grokbot tail --json for that bot.`,
-    );
+  if (to !== undefined) {
+    entry = await findEntry(ctx.server, agent.agentId, to, signal);
+    if (entry === undefined) {
+      throw refuse(
+        `Entry ${to} is not in ${agent.name}'s transcript. Use an entryId from grokbot tail --json for that bot.`,
+      );
+    }
   }
-  return { agent, replyToId };
+  return {
+    agent,
+    replyToId,
+    ...(quote !== undefined && {
+      replyQuote: checkedQuote(quote, entry, agent),
+    }),
+  };
 }

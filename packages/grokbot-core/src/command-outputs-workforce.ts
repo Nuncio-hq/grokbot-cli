@@ -1,9 +1,16 @@
-import type { Agent } from "./agents.js";
+import type { Agent, AgentSuggestion } from "./agents.js";
 import type { KeychainItem } from "./keychain-items.js";
 import type { BotFile, TeamSection } from "./workforce-files.js";
 import type { ProfileField } from "./workforce-profile.js";
 import type { Routine } from "./workforce-routines.js";
 import type { ListedSkill, Skill } from "./workforce-skills.js";
+import type { DismissReason } from "./workforce-suggestions.js";
+import type { AgentAnalytics } from "./workforce-team-analytics.js";
+import type {
+  ReviewDecision,
+  ReviewFilter,
+  ReviewItem,
+} from "./workforce-team-review.js";
 
 /** Phase 02 command results, one key per workforce command. */
 export interface WorkforceOutputs {
@@ -111,5 +118,29 @@ export interface WorkforceOutputs {
     readonly status: number;
     /** The response body: parsed JSON, else its text (at most 300 characters). */
     readonly reply: unknown;
+  };
+  readonly review: {
+    readonly agent: Agent;
+    readonly status: ReviewFilter;
+    readonly limit: number;
+    readonly items: readonly ReviewItem[];
+  };
+  readonly "review-resolve": {
+    readonly agent: Agent;
+    readonly decision: ReviewDecision;
+    readonly itemId: string;
+    /** The item as the server returned it after the decision; null when the reply held none. */
+    readonly item: ReviewItem | null;
+  };
+  readonly analytics: { readonly agent: Agent } & AgentAnalytics;
+  readonly suggestions: {
+    readonly agent: Agent;
+    readonly suggestions: readonly AgentSuggestion[];
+  };
+  readonly "suggestions-dismiss": {
+    readonly agent: Agent;
+    readonly reason: DismissReason;
+    /** The suggestions that were closed. */
+    readonly dismissed: readonly AgentSuggestion[];
   };
 }

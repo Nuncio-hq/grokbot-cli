@@ -63,6 +63,22 @@ describe("grokbot reply arguments", () => {
     });
   });
 
+  it("takes --quote with the entry it quotes", async () => {
+    const run = await runCli(
+      ["reply", "job-1", "Yes", "--to", "t4s1", "--quote", "the second option"],
+      { outputs: done },
+    );
+    expect(run.calls[0]?.input).toEqual({
+      job: "job-1",
+      text: "Yes",
+      to: "t4s1",
+      quote: "the second option",
+      timeout: 600,
+      now: false,
+      json: false,
+    });
+  });
+
   it("keeps a dashed text after --", async () => {
     const run = await runCli(["reply", "job-1", "--", "-5 is my answer"], {
       outputs: done,

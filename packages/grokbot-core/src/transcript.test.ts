@@ -5,6 +5,7 @@ import {
   sendMessageRow,
   textReplyRow,
   userRow,
+  type WireEntry,
   wireEntry,
 } from "./fixtures/wire-entries.js";
 import {
@@ -85,7 +86,32 @@ describe("parseTranscriptEntry", () => {
       ["card", "cookie-origin-approval"],
       ["card", "meeting-join-consent"],
       ["card", "mobile-tool-permission"],
+      ["card", "appearance-picker"],
+      ["card", "email-offer"],
     ]);
+  });
+
+  it("closes an appearance picker on its answer and an email offer on its answer or when replaced", () => {
+    const picker = { type: "appearance-picker" };
+    const offer = { type: "email-offer", email: "bot@example.com" };
+    const open = (row: WireEntry) => {
+      const e = parseTranscriptEntry(row);
+      return e.kind === "card" && e.open;
+    };
+    expect([
+      open(sendMessageRow(1, picker)),
+      open(
+        sendMessageRow(2, picker, "r", 2, {
+          respondedValue: '{"avatarShape":"circle","avatarColor":"blue"}',
+        }),
+      ),
+      open(sendMessageRow(3, offer)),
+      open(
+        sendMessageRow(4, offer, "r", 4, { respondedValue: "email-offer:use" }),
+      ),
+      open(sendMessageRow(5, { ...offer, replaced: true })),
+      open(sendMessageRow(6, { ...offer, replaced: false })),
+    ]).toEqual([true, false, true, false, false, true]);
   });
 
   it("closes a Secure Form and a credential request only by their settling body fields", () => {

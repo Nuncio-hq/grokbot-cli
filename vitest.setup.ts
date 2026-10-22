@@ -16,3 +16,7 @@ for (const name of [
 ]) {
   delete process.env[name];
 }
+
+// A developer's own GROKBOT_TIMEZONE (a bad one fails every send) must not leak into tests.
+// Tests that need it pass their own env.
+delete process.env.GROKBOT_TIMEZONE;
