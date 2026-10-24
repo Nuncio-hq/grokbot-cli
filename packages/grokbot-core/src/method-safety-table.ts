@@ -2,7 +2,7 @@
 import type { MethodSafety } from "./method-safety.js";
 
 /** The Grok Bot desktop app version the catalog was checked against. */
-export const CATALOG_APP_VERSION = "0.75.0";
+export const CATALOG_APP_VERSION = "0.75.5";
 
 export const SERVER_METHOD_SAFETY = {
   AbortGrokBotAttachmentUpload: "writes",
@@ -356,7 +356,7 @@ export const SERVER_METHOD_SAFETY = {
   UpdateGrokBotAgentMarketplace: "writes",
   UpdateGrokBotAgentSkill: "writes",
   UpdateGrokBotChangelogInternal: "staff-only",
-  UpdateGrokBotConnectorSharedSpaceAllowlist: "writes",
+  UpdateGrokBotConnectorSharedSpaceAllowlist: "sensitive",
   UpdateGrokBotMarketplaceCategoryInternal: "staff-only",
   UpdateGrokBotMarketplaceCreatorInternal: "staff-only",
   UpdateGrokBotMarketplaceListingInternal: "staff-only",
